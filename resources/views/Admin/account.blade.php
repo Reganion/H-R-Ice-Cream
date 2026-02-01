@@ -272,7 +272,7 @@
                         <!-- PROFILE -->
                         <div class="profile-row">
                             <div class="profile-left">
-                                <img src="{{ isset($adminUser['image']) ? asset($adminUser['image']) : asset('img/kyle.jpg') }}" alt="Profile">
+                                <img src="{{ $adminUser && $adminUser->image ? asset($adminUser->image) : asset('img/kyle.jpg') }}" alt="Profile">
                                 <div class="profile-info">
                                     <h4>Profile Picture</h4>
                                     <small>Profile picture</small>
@@ -288,11 +288,11 @@
                         <div class="form-row form-content">
                             <div class="form-group">
                                 <label>First Name</label>
-                                <input type="text" value="{{ $adminUser['first_name'] ?? '' }}" disabled>
+                                <input type="text" value="{{ $adminUser?->first_name ?? '' }}" disabled>
                             </div>
                             <div class="form-group">
                                 <label>Last Name</label>
-                                <input type="text" value="{{ $adminUser['last_name'] ?? '' }}" disabled>
+                                <input type="text" value="{{ $adminUser?->last_name ?? '' }}" disabled>
                             </div>
                         </div>
 
@@ -304,7 +304,7 @@
 
                             <div class="form-group single-col">
                                 <label>Email Address</label>
-                                <input type="email" value="{{ $adminUser['email'] ?? '' }}" disabled>
+                                <input type="email" value="{{ $adminUser?->email ?? '' }}" disabled>
                             </div>
                         </div>
 

@@ -2,10 +2,9 @@
 
 namespace App\Providers;
 
-use App\Services\FirebaseRealtimeService;
+use App\Models\User;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
-use Kreait\Firebase\Contract\Database as FirebaseDatabase;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -14,10 +13,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        $this->app->singleton(FirebaseRealtimeService::class, function ($app) {
-            return new FirebaseRealtimeService($app->make(FirebaseDatabase::class));
-        });
-        $this->app->alias(FirebaseRealtimeService::class, 'firebase.realtime');
+        //
     }
 
     /**
@@ -28,8 +24,7 @@ class AppServiceProvider extends ServiceProvider
         View::composer(['admin.layout.layout', 'admin.account'], function ($view) {
             $adminUser = null;
             if (session()->has('admin_id')) {
-                $db = app(FirebaseRealtimeService::class);
-                $adminUser = $db->get('users', session('admin_id'));
+                $adminUser = User::find(session('admin_id'));
             }
             $view->with('adminUser', $adminUser);
         });

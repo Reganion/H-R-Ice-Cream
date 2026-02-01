@@ -1,250 +1,247 @@
      * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            font-family: "Inter", sans-serif !important;
-        }
+         margin: 0;
+         padding: 0;
+         box-sizing: border-box;
+         font-family: "Inter", sans-serif !important;
+     }
 
-        body {
-            background: #ffffff;
-            height: 100vh;
-            display: flex;
-        }
+     body {
+         background: #ffffff;
+         height: 100vh;
+         display: flex;
+     }
 
-        .left {
-            width: 50%;
-            height: calc(100vh - 40px);
-            border-radius: 15px;
-            overflow: hidden;
-            margin: 20px 0 20px 20px;
-        }
+     /* LEFT IMAGE PANEL */
+     .left {
+         width: 50%;
+         height: calc(100vh - 40px);
+         border-radius: 15px;
+         overflow: hidden;
+         margin: 20px 0 20px 20px;
+         position: relative;
+     }
 
-        .left {
-            position: relative;
+     .left img {
+         width: 100%;
+         height: 100%;
+         object-fit: cover;
+         border-radius: 15px;
+     }
 
-        }
+     .logo-left {
+         position: absolute;
+         top: 20px;
+         left: 20px;
+         z-index: 10;
+     }
 
-        .logo-left {
-            position: absolute;
-            top: 20px;
-            left: 20px;
-            z-index: 10;
-        }
+     .logo-left img {
+         width: 100px;
+         height: auto;
+     }
 
-        .logo-left img {
-            width: 100px;
-            height: auto;
-        }
+     .right {
+         width: 50%;
+         display: flex;
+         justify-content: center;
+         align-items: center;
+         padding: 20px;
+     }
 
-        .left img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            border-radius: 15px;
-        }
+     .container {
+         max-width: 450px;
+         width: 100%;
+         display: flex;
+         flex-direction: column;
+         justify-content: center;
+     }
 
-        .right {
-            width: 50%;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            padding: 20px;
-        }
+     .title {
+         font-size: 26px;
+         font-weight: 700;
+         margin-bottom: 20px;
+         color: #111;
+     }
 
-        .container {
-            max-width: 450px;
-            width: 100%;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-        }
+     label {
+         font-size: 14px;
+         font-weight: 500;
+         margin-bottom: 5px;
+         display: block;
+         color: #333;
+     }
 
-        .title {
-            font-size: 26px;
-            font-weight: 700;
-            margin-bottom: 20px;
-            color: #111;
-        }
+     input {
+         width: 100%;
+         padding: 14px;
+         margin-bottom: 15px;
+         border: 1px solid #e0e0e0;
+         border-radius: 10px;
+         font-size: 14px;
+     }
 
-        label {
-            font-size: 14px;
-            font-weight: 500;
-            margin-bottom: 5px;
-            display: block;
-            color: #333;
-        }
+     .input-group {
+         margin-bottom: 15px;
+     }
 
-        input {
-            width: 100%;
-            padding: 14px;
-            margin-bottom: 15px;
-            border: 1px solid #e0e0e0;
-            border-radius: 10px;
-            font-size: 14px;
-        }
+     .input-group input {
+         margin-bottom: 0;
+     }
 
-        .input-group {
-            margin-bottom: 15px;
-        }
+     .input-group.has-error input {
+         border-color: #d90000;
+     }
 
-        .input-group input {
-            margin-bottom: 0;
-        }
+     .input-group .error-text {
+         display: block;
+         color: #d90000;
+         font-size: 12px;
+         margin-top: 4px;
+     }
 
-        .input-group.has-error input {
-            border-color: #d90000;
-        }
+     .row .input-group {
+         margin-bottom: 15px;
+     }
 
-        .input-group .error-text {
-            display: block;
-            color: #d90000;
-            font-size: 12px;
-            margin-top: 4px;
-        }
+     .row {
+         display: flex;
+         gap: 10px;
+     }
 
-        .row .input-group {
-            margin-bottom: 15px;
-        }
+     .signup-btn {
+         width: 100%;
+         padding: 14px;
+         background: #d90000;
+         color: #fff;
+         border: none;
+         border-radius: 10px;
+         font-size: 16px;
+         font-weight: 600;
+         margin-top: 10px;
+         cursor: pointer;
+     }
 
-        .row {
-            display: flex;
-            gap: 10px;
-        }
+     .divider {
+         display: flex;
+         align-items: center;
+         color: #666;
+         margin: 20px 0;
+     }
 
-        .signup-btn {
-            width: 100%;
-            padding: 14px;
-            background: #d90000;
-            color: #fff;
-            border: none;
-            border-radius: 10px;
-            font-size: 16px;
-            font-weight: 600;
-            margin-top: 10px;
-            cursor: pointer;
-        }
+     .divider::before,
+     .divider::after {
+         content: "";
+         flex: 1;
+         height: 1px;
+         background: #ccc;
+     }
 
-        .divider {
-            display: flex;
-            align-items: center;
-            color: #666;
-            margin: 20px 0;
-        }
+     .divider span {
+         margin: 0 10px;
+         font-size: 13px;
+     }
 
-        .divider::before,
-        .divider::after {
-            content: "";
-            flex: 1;
-            height: 1px;
-            background: #ccc;
-        }
+     .google-btn {
+         width: 100%;
+         padding: 12px;
+         border: 1px solid #ccc;
+         border-radius: 10px;
+         background: #fff;
+         display: flex;
+         align-items: center;
+         justify-content: center;
+         gap: 10px;
+         cursor: pointer;
+         font-size: 15px;
+         font-weight: 500;
+         color: #000;
+         margin-bottom: 20px;
+     }
 
-        .divider span {
-            margin: 0 10px;
-            font-size: 13px;
-        }
+     .google-btn img {
+         width: 22px;
+     }
 
-        .google-btn {
-            width: 100%;
-            padding: 12px;
-            border: 1px solid #ccc;
-            border-radius: 10px;
-            background: #fff;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 10px;
-            cursor: pointer;
-            font-size: 15px;
-            font-weight: 500;
-            color: #000;
-            margin-bottom: 20px;
-        }
+     .login {
+         text-align: center;
+         font-size: 14px;
+     }
 
-        .google-btn img {
-            width: 22px;
-        }
+     .login a {
+         color: #d90000;
+         font-weight: 600;
+         text-decoration: none;
+     }
 
-        .login {
-            text-align: center;
-            font-size: 14px;
-        }
+     @media (max-width: 1200px) {
+         .left {
+             width: 45%;
+             margin-left: 15px;
+             margin-right: 10px;
+         }
+     }
 
-        .login a {
-            color: #d90000;
-            font-weight: 600;
-            text-decoration: none;
-        }
+     .logo {
+         display: none;
+     }
 
-        @media (max-width: 1200px) {
-            .left {
-                width: 45%;
-                margin-left: 15px;
-                margin-right: 10px;
-            }
-        }
+     @media (max-width: 900px) {
+         body {
+             flex-direction: column;
+             justify-content: space-between;
+             height: 100vh;
+             padding: 20px 10px;
+         }
 
-        .logo {
-            display: none;
-        }
+         .left {
+             display: none;
+         }
 
-        @media (max-width: 900px) {
-            body {
-                flex-direction: column;
-                justify-content: space-between;
-                height: 100vh;
-                padding: 20px 10px;
-            }
+         .right {
+             width: 100%;
+             display: flex;
+             flex-direction: column;
+             justify-content: space-between;
+             height: 100%;
+             align-items: center;
+         }
 
-            .left {
-                display: none;
-            }
+         .container {
+             max-width: 100%;
+             width: 100%;
+             display: flex;
+             flex-direction: column;
+             justify-content: center;
+             flex-grow: 1;
+         }
 
-            .right {
-                width: 100%;
-                display: flex;
-                flex-direction: column;
-                justify-content: space-between;
-                height: 100%;
-                align-items: center;
-            }
+         .logo {
+             display: block;
+             width: 100%;
+             text-align: center;
+             margin-bottom: 40px;
+         }
 
-            .container {
-                max-width: 100%;
-                width: 100%;
-                display: flex;
-                flex-direction: column;
-                justify-content: center;
-                flex-grow: 1;
-            }
+         .logo img {
+             width: 150px;
+             height: auto;
+             display: block;
+             margin: 0 auto;
+         }
 
-            .logo {
-                display: block;
-                width: 100%;
-                text-align: center;
-                margin-bottom: 40px;
-            }
+         .login {
+             margin-top: auto;
+             width: 100%;
+         }
 
-            .logo img {
-                width: 150px;
-                height: auto;
-                display: block;
-                margin: 0 auto;
-            }
+         label {
+             display: none;
+         }
 
-            .login {
-                margin-top: auto;
-                width: 100%;
-            }
+         .title {
+             font-size: 14px;
+             font-weight: 500;
+             margin-bottom: 20px;
+         }
 
-            label {
-                display: none;
-            }
-
-            .title {
-                font-size: 14px;
-                font-weight: 500;
-                margin-bottom: 20px;
-            }
-
-        }
+     }

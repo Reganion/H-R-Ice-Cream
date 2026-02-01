@@ -4,7 +4,6 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Driver;
-use App\Services\FirebaseRealtimeService;
 use Illuminate\Http\Request;
 
 class DriverController extends Controller
@@ -39,13 +38,13 @@ class DriverController extends Controller
             $imagePath = 'img/drivers/' . $filename;
         }
 
-        $db = app(FirebaseRealtimeService::class);
-        $all = $db->all('drivers', 'created_at', 'desc');
-        $lastDriver = $all[0] ?? null;
-        $nextNum = $lastDriver ? (int) preg_replace('/\D/', '', $lastDriver['driver_code'] ?? '0') + 1 : 1;
+        $lastDriver = Driver::orderBy('created_at', 'desc')->first();
+        $nextNum = $lastDriver && $lastDriver->driver_code
+            ? (int) preg_replace('/\D/', '', $lastDriver->driver_code) + 1
+            : 1;
         $driverCode = 'DRV' . str_pad((string) $nextNum, 3, '0', STR_PAD_LEFT);
 
-        $db->add('drivers', [
+        Driver::create([
             'name'         => $request->name,
             'phone'        => $request->phone,
             'email'        => $request->email,

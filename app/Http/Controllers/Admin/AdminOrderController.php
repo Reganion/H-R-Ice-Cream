@@ -3,7 +3,8 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Services\FirebaseRealtimeService;
+use App\Models\Flavor;
+use App\Models\Order;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 
@@ -24,11 +25,10 @@ class AdminOrderController extends Controller
             'payment_method'   => 'required|string|max:50',
         ]);
 
-        $db = app(FirebaseRealtimeService::class);
-        $flavor = $db->firstWhere('flavors', 'name', $request->product_name);
-        $productImage = $flavor['image'] ?? 'img/default-product.png';
+        $flavor = Flavor::where('name', $request->product_name)->first();
+        $productImage = $flavor?->image ?? 'img/default-product.png';
 
-        $db->add('orders', [
+        Order::create([
             'transaction_id'   => strtoupper(Str::random(10)),
             'product_name'     => $request->product_name,
             'product_type'     => $request->product_type,
@@ -50,11 +50,7 @@ class AdminOrderController extends Controller
 
     public function updateWalkIn(Request $request, string $id)
     {
-        $db = app(FirebaseRealtimeService::class);
-        $order = $db->get('orders', $id);
-        if ($order === null) {
-            abort(404);
-        }
+        $order = Order::findOrFail($id);
 
         $request->validate([
             'product_name'     => 'required|string|max:255',
@@ -69,10 +65,10 @@ class AdminOrderController extends Controller
             'payment_method'   => 'required|string|max:50',
         ]);
 
-        $flavor = $db->firstWhere('flavors', 'name', $request->product_name);
-        $productImage = $flavor['image'] ?? ($order['product_image'] ?? 'img/default-product.png');
+        $flavor = Flavor::where('name', $request->product_name)->first();
+        $productImage = $flavor?->image ?? $order->product_image ?? 'img/default-product.png';
 
-        $db->update('orders', $id, [
+        $order->update([
             'product_name'     => $request->product_name,
             'product_type'     => $request->product_type,
             'gallon_size'      => $request->gallon_size,

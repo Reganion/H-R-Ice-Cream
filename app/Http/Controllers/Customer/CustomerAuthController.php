@@ -3,15 +3,15 @@
 namespace App\Http\Controllers\Customer;
 
 use App\Http\Controllers\Controller;
-use App\Services\FirebaseRealtimeService;
+use App\Mail\OtpVerificationMail;
+use App\Models\Customer;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use Laravel\Socialite\Facades\Socialite;
 
 class CustomerAuthController extends Controller
 {
-    // Login customer
     public function login(Request $request)
     {
         $request->validate([
@@ -23,24 +23,27 @@ class CustomerAuthController extends Controller
             'password.required' => 'This field is required.',
         ]);
 
-        $db = app(FirebaseRealtimeService::class);
-        $customer = $db->firstWhere('customers', 'email', $request->email);
+        $customer = Customer::where('email', $request->email)->first();
 
-        if (!$customer || !Hash::check($request->password, $customer['password'] ?? '')) {
+        if (!$customer || !\Illuminate\Support\Facades\Hash::check($request->password, $customer->password)) {
             return redirect()->back()
                 ->withInput($request->only('email'))
                 ->withErrors(['password' => 'Invalid email or password.']);
         }
 
-        $request->session()->put('customer_id', $customer['id']);
+        if (!$customer->isVerified()) {
+            $request->session()->put('pending_verify_email', $customer->email);
+            return redirect()->route('customer.verify-otp')
+                ->with('error', 'Please verify your email with the 4-digit code to continue.');
+        }
+
+        $request->session()->put('customer_id', $customer->id);
         return redirect()->route('customer.dashboard')->with('success', 'Welcome back!');
     }
 
-    // Register customer
     public function register(Request $request)
     {
-        $db = app(FirebaseRealtimeService::class);
-        $existing = $db->firstWhere('customers', 'email', $request->email);
+        $existing = Customer::where('email', $request->email)->first();
 
         $request->validate([
             'firstname' => 'required|string|max:50',
@@ -64,18 +67,280 @@ class CustomerAuthController extends Controller
                 ->withErrors(['email' => 'This email is already registered.']);
         }
 
-        $db->add('customers', [
-            'firstname'  => $request->firstname,
-            'lastname'   => $request->lastname,
-            'email'      => $request->email,
-            'contact_no' => $request->contact_no ? trim($request->contact_no) : null,
-            'password'   => Hash::make($request->password),
+        $otp = str_pad((string) random_int(0, 9999), 4, '0', STR_PAD_LEFT);
+        $otpExpiresAt = now()->addMinutes(10);
+
+        $customer = Customer::create([
+            'firstname'         => $request->firstname,
+            'lastname'          => $request->lastname,
+            'email'             => $request->email,
+            'contact_no'        => $request->contact_no ? trim($request->contact_no) : null,
+            'password'          => \Illuminate\Support\Facades\Hash::make($request->password),
+            'otp'               => $otp,
+            'otp_expires_at'    => $otpExpiresAt,
         ]);
 
-        return redirect()->route('customer.login')->with('success', 'Account created successfully! Please log in.');
+        $request->session()->put('pending_verify_email', $customer->email);
+
+        try {
+            Mail::to($customer->email)->send(new OtpVerificationMail($otp, $customer->email));
+        } catch (\Throwable $e) {
+            report($e);
+            $message = 'Account created but we could not send the verification email. ';
+            if (config('app.debug')) {
+                $message .= 'Error: ' . $e->getMessage();
+            } else {
+                $message .= 'Check MAIL_* in .env (Gmail: use App Password, port 587 + TLS or 465 + SSL).';
+            }
+            return redirect()->route('customer.verify-otp')
+                ->with('error', $message);
+        }
+
+        return redirect()->route('customer.verify-otp')->with('success', 'We sent a 4-digit code to your email. Enter it below to verify.');
     }
 
-    // Logout
+    public function showOtpForm(Request $request)
+    {
+        $email = $request->session()->get('pending_verify_email');
+        if (!$email) {
+            return redirect()->route('customer.register')
+                ->with('error', 'Please register first to verify your email.');
+        }
+        return view('Customer.verify-otp', ['email' => $email]);
+    }
+
+    public function resendOtp(Request $request)
+    {
+        $email = $request->session()->get('pending_verify_email');
+        if (!$email) {
+            return redirect()->route('customer.register')
+                ->with('error', 'Session expired. Please register again.');
+        }
+
+        $customer = Customer::where('email', $email)->first();
+        if (!$customer) {
+            $request->session()->forget('pending_verify_email');
+            return redirect()->route('customer.register')->with('error', 'Account not found. Please register again.');
+        }
+
+        $otp = str_pad((string) random_int(0, 9999), 4, '0', STR_PAD_LEFT);
+        $customer->update([
+            'otp'            => $otp,
+            'otp_expires_at' => now()->addMinutes(10),
+        ]);
+
+        try {
+            Mail::to($customer->email)->send(new OtpVerificationMail($otp, $customer->email));
+        } catch (\Throwable $e) {
+            report($e);
+            return redirect()->route('customer.verify-otp')
+                ->with('error', 'Could not send the new code. Please try again later.');
+        }
+
+        return redirect()->route('customer.verify-otp')
+            ->with('success', 'A new 4-digit code has been sent to your email.');
+    }
+
+    public function verifyOtp(Request $request)
+    {
+        $email = $request->session()->get('pending_verify_email');
+        if (!$email) {
+            return redirect()->route('customer.register')
+                ->with('error', 'Session expired. Please register again.');
+        }
+
+        $request->validate([
+            'otp' => 'required|string|size:4|regex:/^\d{4}$/',
+        ], [
+            'otp.required' => 'Please enter the 4-digit code.',
+            'otp.size'     => 'The code must be 4 digits.',
+            'otp.regex'    => 'The code must be 4 digits only.',
+        ]);
+
+        $customer = Customer::where('email', $email)->first();
+        if (!$customer) {
+            $request->session()->forget('pending_verify_email');
+            return redirect()->route('customer.register')->with('error', 'Account not found. Please register again.');
+        }
+
+        if ($customer->otp !== $request->otp) {
+            return redirect()->back()
+                ->withErrors(['otp' => 'Invalid or expired code. Please try again.']);
+        }
+
+        if ($customer->otp_expires_at && $customer->otp_expires_at->isPast()) {
+            return redirect()->back()
+                ->withErrors(['otp' => 'This code has expired. Please request a new one by registering again.']);
+        }
+
+        $customer->update([
+            'email_verified_at' => now(),
+            'otp'               => null,
+            'otp_expires_at'    => null,
+        ]);
+        $request->session()->forget('pending_verify_email');
+
+        return redirect()->route('customer.login')->with('success', 'Email verified. You can now log in.');
+    }
+
+    public function showForgotPasswordForm()
+    {
+        return view('Customer.forgot-password');
+    }
+
+    public function sendForgotPasswordOtp(Request $request)
+    {
+        $request->validate([
+            'email' => 'required|email',
+        ], [
+            'email.required' => 'Please enter your email address.',
+            'email.email'    => 'Please enter a valid email address.',
+        ]);
+
+        $customer = Customer::where('email', $request->email)->first();
+        if (!$customer) {
+            return redirect()->back()
+                ->withInput($request->only('email'))
+                ->withErrors(['email' => 'No account found with this email address.']);
+        }
+
+        $otp = str_pad((string) random_int(0, 9999), 4, '0', STR_PAD_LEFT);
+        $customer->update([
+            'otp'            => $otp,
+            'otp_expires_at' => now()->addMinutes(10),
+        ]);
+
+        $request->session()->put('forgot_password_email', $customer->email);
+
+        try {
+            Mail::to($customer->email)->send(new OtpVerificationMail($otp, $customer->email));
+        } catch (\Throwable $e) {
+            report($e);
+            return redirect()->back()
+                ->with('error', 'Could not send the verification code. Please try again later.');
+        }
+
+        return redirect()->route('customer.forgot-password.verify-otp')
+            ->with('success', 'A 4-digit code has been sent to your email. Enter it below.');
+    }
+
+    public function showForgotPasswordOtpForm(Request $request)
+    {
+        $email = $request->session()->get('forgot_password_email');
+        if (!$email) {
+            return redirect()->route('customer.forgot-password')
+                ->with('error', 'Please enter your email first to receive a verification code.');
+        }
+        return view('Customer.verify-otp-forgot', ['email' => $email]);
+    }
+
+    public function resendForgotPasswordOtp(Request $request)
+    {
+        $email = $request->session()->get('forgot_password_email');
+        if (!$email) {
+            return redirect()->route('customer.forgot-password')
+                ->with('error', 'Session expired. Please enter your email again.');
+        }
+
+        $customer = Customer::where('email', $email)->first();
+        if (!$customer) {
+            $request->session()->forget('forgot_password_email');
+            return redirect()->route('customer.forgot-password')->with('error', 'Account not found.');
+        }
+
+        $otp = str_pad((string) random_int(0, 9999), 4, '0', STR_PAD_LEFT);
+        $customer->update([
+            'otp'            => $otp,
+            'otp_expires_at' => now()->addMinutes(10),
+        ]);
+
+        try {
+            Mail::to($customer->email)->send(new OtpVerificationMail($otp, $customer->email));
+        } catch (\Throwable $e) {
+            report($e);
+            return redirect()->route('customer.forgot-password.verify-otp')
+                ->with('error', 'Could not send the new code. Please try again later.');
+        }
+
+        return redirect()->route('customer.forgot-password.verify-otp')
+            ->with('success', 'A new 4-digit code has been sent to your email.');
+    }
+
+    public function verifyForgotPasswordOtp(Request $request)
+    {
+        $email = $request->session()->get('forgot_password_email');
+        if (!$email) {
+            return redirect()->route('customer.forgot-password')
+                ->with('error', 'Session expired. Please enter your email again.');
+        }
+
+        $request->validate([
+            'otp' => 'required|string|size:4|regex:/^\d{4}$/',
+        ], [
+            'otp.required' => 'Please enter the 4-digit code.',
+            'otp.size'     => 'The code must be 4 digits.',
+            'otp.regex'    => 'The code must be 4 digits only.',
+        ]);
+
+        $customer = Customer::where('email', $email)->first();
+        if (!$customer) {
+            $request->session()->forget('forgot_password_email');
+            return redirect()->route('customer.forgot-password')->with('error', 'Account not found.');
+        }
+
+        if ($customer->otp !== $request->otp) {
+            return redirect()->back()
+                ->withErrors(['otp' => 'Invalid or expired code. Please try again.']);
+        }
+
+        if ($customer->otp_expires_at && $customer->otp_expires_at->isPast()) {
+            return redirect()->back()
+                ->withErrors(['otp' => 'This code has expired. Please request a new one.']);
+        }
+
+        $customer->update(['otp' => null, 'otp_expires_at' => null]);
+        return redirect()->route('customer.forgot-password.reset-password')
+            ->with('success', 'Code verified. Enter your new password below.');
+    }
+
+    public function showResetPasswordForm(Request $request)
+    {
+        $email = $request->session()->get('forgot_password_email');
+        if (!$email) {
+            return redirect()->route('customer.forgot-password')
+                ->with('error', 'Session expired. Please start the process again.');
+        }
+        return view('Customer.reset-password', ['email' => $email]);
+    }
+
+    public function updatePassword(Request $request)
+    {
+        $email = $request->session()->get('forgot_password_email');
+        if (!$email) {
+            return redirect()->route('customer.forgot-password')
+                ->with('error', 'Session expired. Please start the process again.');
+        }
+
+        $request->validate([
+            'password' => 'required|string|confirmed|min:6',
+        ], [
+            'password.required'  => 'Password is required.',
+            'password.confirmed' => 'Passwords do not match.',
+            'password.min'       => 'Password must be at least 6 characters.',
+        ]);
+
+        $customer = Customer::where('email', $email)->first();
+        if (!$customer) {
+            $request->session()->forget('forgot_password_email');
+            return redirect()->route('customer.forgot-password')->with('error', 'Account not found.');
+        }
+
+        $customer->update(['password' => $request->password]);
+        $request->session()->forget('forgot_password_email');
+
+        return redirect()->route('customer.login')->with('success', 'Your password has been updated. You can now log in.');
+    }
+
     public function logout(Request $request)
     {
         $request->session()->invalidate();
@@ -83,7 +348,6 @@ class CustomerAuthController extends Controller
         return redirect()->back();
     }
 
-    // Redirect to Google OAuth
     public function redirectToGoogle(Request $request)
     {
         $clientId = config('services.google.client_id');
@@ -127,7 +391,6 @@ class CustomerAuthController extends Controller
         return false;
     }
 
-    // Handle Google OAuth callback (login or register)
     public function handleGoogleCallback(Request $request)
     {
         $baseUrl = rtrim(config('app.url'), '/');
@@ -143,28 +406,30 @@ class CustomerAuthController extends Controller
         $email = $googleUser->getEmail();
         $name = $googleUser->getName() ?? 'User';
 
-        $db = app(FirebaseRealtimeService::class);
-        $customer = $db->firstWhere('customers', 'email', $email);
+        $customer = Customer::where('email', $email)->first();
 
         if ($customer) {
-            $request->session()->put('customer_id', $customer['id']);
-            return redirect()->route('customer.home')->with('success', 'Welcome back!');
+            if (!$customer->isVerified()) {
+                $customer->update(['email_verified_at' => now()]);
+            }
+            $request->session()->put('customer_id', $customer->id);
+            return redirect()->route('customer.dashboard')->with('success', 'Welcome back!');
         }
 
         $parts = explode(' ', $name, 2);
         $firstname = $parts[0] ?? $name;
         $lastname = $parts[1] ?? '';
 
-        $db->add('customers', [
-            'firstname'  => $firstname,
-            'lastname'   => $lastname,
-            'email'      => $email,
-            'contact_no' => null,
-            'password'   => Hash::make(Str::random(32)),
+        $newCustomer = Customer::create([
+            'firstname'          => $firstname,
+            'lastname'           => $lastname,
+            'email'              => $email,
+            'contact_no'         => null,
+            'password'           => \Illuminate\Support\Facades\Hash::make(Str::random(32)),
+            'email_verified_at'  => now(),
         ]);
 
-        $newCustomer = $db->firstWhere('customers', 'email', $email);
-        $request->session()->put('customer_id', $newCustomer['id']);
-        return redirect()->route('customer.home')->with('success', 'Account created successfully!');
+        $request->session()->put('customer_id', $newCustomer->id);
+        return redirect()->route('customer.dashboard')->with('success', 'Account created successfully!');
     }
 }

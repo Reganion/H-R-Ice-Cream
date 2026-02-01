@@ -3,7 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Services\FirebaseRealtimeService;
+use App\Models\Gallon;
 use Illuminate\Http\Request;
 
 class GallonController extends Controller
@@ -26,19 +26,14 @@ class GallonController extends Controller
 
         $data['status'] = $data['quantity'] > 0 ? 'available' : 'out';
 
-        $db = app(FirebaseRealtimeService::class);
-        $db->add('gallons', $data);
+        Gallon::create($data);
 
         return back()->with('success', 'Gallon added successfully');
     }
 
     public function gallonupdate(Request $request, $id)
     {
-        $db = app(FirebaseRealtimeService::class);
-        $gallon = $db->get('gallons', $id);
-        if ($gallon === null) {
-            abort(404);
-        }
+        $gallon = Gallon::findOrFail($id);
 
         $data = $request->validate([
             'size'        => 'required|string',
@@ -48,31 +43,28 @@ class GallonController extends Controller
         ]);
 
         if ($request->hasFile('image')) {
-            if (!empty($gallon['image']) && file_exists(public_path($gallon['image']))) {
-                @unlink(public_path($gallon['image']));
+            if ($gallon->image && file_exists(public_path($gallon->image))) {
+                @unlink(public_path($gallon->image));
             }
             $image = $request->file('image');
             $filename = time() . '_' . $image->getClientOriginalName();
             $image->move(public_path('gallons'), $filename);
             $data['image'] = 'gallons/' . $filename;
         } else {
-            $data['image'] = $gallon['image'] ?? null;
+            $data['image'] = $gallon->image;
         }
 
         $data['status'] = $data['quantity'] > 0 ? 'available' : 'out';
 
-        $db->update('gallons', $id, $data);
+        $gallon->update($data);
 
         return back()->with('success', 'Gallon updated successfully');
     }
 
     public function gallondestroy($id)
     {
-        $db = app(FirebaseRealtimeService::class);
-        if ($db->get('gallons', $id) === null) {
-            abort(404);
-        }
-        $db->delete('gallons', $id);
+        $gallon = Gallon::findOrFail($id);
+        $gallon->delete();
         return back()->with('success', 'Gallon deleted');
     }
 }

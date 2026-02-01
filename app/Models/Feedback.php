@@ -19,10 +19,8 @@ class Feedback extends Model
         'feedback_date',
     ];
 
-    protected $dates = [
-        'feedback_date',
-        'created_at',
-        'updated_at',
+    protected $casts = [
+        'feedback_date' => 'date',
     ];
 
 }

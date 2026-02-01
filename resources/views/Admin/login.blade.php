@@ -23,10 +23,7 @@
         .upload-preview img { width: 100%; height: 100%; object-fit: cover; }
         .btn-upload { padding: 8px 16px; border-radius: 8px; border: none; background: #d90000; color: #fff; font-size: 13px; font-weight: 500; cursor: pointer; }
         .btn-upload:hover { opacity: 0.9; }
-        .register-form .input-group label { position: static; transform: none; background: transparent; font-size: 14px; color: #374151; margin-bottom: 6px; display: block; }
-        .register-form .input-group input { padding: 12px 14px; }
-        .register-form .input-inner { position: relative; }
-        .register-form .input-group-password .password-toggle { right: 10px; }
+        .form-row .input-group { margin-bottom: 20px; }
         .signup-btn { width: 100%; padding: 14px; background: #d90000; border: none; border-radius: 10px; font-size: 16px; font-weight: 600; color: #fff; cursor: pointer; margin: 10px 0 20px; }
         .signup-btn:hover { opacity: 0.95; }
         .switch-auth { text-align: center; font-size: 14px; margin-top: 16px; color: #666; }
@@ -135,27 +132,33 @@
 
                     <div class="form-row">
                         <div class="input-group {{ $errors->has('first_name') ? 'has-error' : '' }}">
-                            <label for="first_name">First Name</label>
-                            <input type="text" id="first_name" name="first_name" placeholder="First name" value="{{ old('first_name') }}" maxlength="255">
+                            <div class="input-inner">
+                                <input type="text" id="first_name" name="first_name" placeholder=" " value="{{ old('first_name') }}" maxlength="255">
+                                <label for="first_name">First Name</label>
+                            </div>
                             @error('first_name')<span class="error-text">{{ $message }}</span>@enderror
                         </div>
                         <div class="input-group {{ $errors->has('last_name') ? 'has-error' : '' }}">
-                            <label for="last_name">Last Name</label>
-                            <input type="text" id="last_name" name="last_name" placeholder="Last name" value="{{ old('last_name') }}" maxlength="255">
+                            <div class="input-inner">
+                                <input type="text" id="last_name" name="last_name" placeholder=" " value="{{ old('last_name') }}" maxlength="255">
+                                <label for="last_name">Last Name</label>
+                            </div>
                             @error('last_name')<span class="error-text">{{ $message }}</span>@enderror
                         </div>
                     </div>
 
                     <div class="input-group {{ $errors->has('email') ? 'has-error' : '' }}">
-                        <label for="reg_email">Email Address</label>
-                        <input type="email" id="reg_email" name="email" placeholder="Email address" value="{{ old('email') }}" maxlength="255">
+                        <div class="input-inner">
+                            <input type="email" id="reg_email" name="email" placeholder=" " value="{{ old('email') }}" maxlength="255">
+                            <label for="reg_email">Email Address</label>
+                        </div>
                         @error('email')<span class="error-text">{{ $message }}</span>@enderror
                     </div>
 
                     <div class="input-group {{ $errors->has('password') ? 'has-error' : '' }} input-group-password">
-                        <label for="reg_password">Password</label>
                         <div class="input-inner">
-                            <input type="password" id="reg_password" name="password" placeholder="Create password">
+                            <input type="password" id="reg_password" name="password" placeholder=" ">
+                            <label for="reg_password">Password</label>
                             <button type="button" class="password-toggle" aria-label="Show password" onclick="togglePassword('reg_password')" tabindex="-1">
                                 <svg class="icon-eye" xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                                 <svg class="icon-eye-off" xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:none;"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
@@ -164,9 +167,15 @@
                         @error('password')<span class="error-text">{{ $message }}</span>@enderror
                     </div>
 
-                    <div class="input-group {{ $errors->has('password_confirmation') ? 'has-error' : '' }}">
-                        <label for="password_confirmation">Confirm Password</label>
-                        <input type="password" id="password_confirmation" name="password_confirmation" placeholder="Confirm password">
+                    <div class="input-group {{ $errors->has('password_confirmation') ? 'has-error' : '' }} input-group-password">
+                        <div class="input-inner">
+                            <input type="password" id="password_confirmation" name="password_confirmation" placeholder=" ">
+                            <label for="password_confirmation">Confirm Password</label>
+                            <button type="button" class="password-toggle" aria-label="Show password" onclick="togglePassword('password_confirmation')" tabindex="-1">
+                                <svg class="icon-eye" xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                                <svg class="icon-eye-off" xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:none;"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                            </button>
+                        </div>
                         @error('password_confirmation')<span class="error-text">{{ $message }}</span>@enderror
                     </div>
 

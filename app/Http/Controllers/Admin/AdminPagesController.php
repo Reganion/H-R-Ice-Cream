@@ -3,9 +3,11 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Helpers\FirebaseHelper;
 use App\Models\Driver;
-use App\Services\FirebaseRealtimeService;
+use App\Models\Flavor;
+use App\Models\Gallon;
+use App\Models\Ingredient;
+use App\Models\Order;
 use Illuminate\Http\Request;
 
 class AdminPagesController extends Controller
@@ -22,42 +24,36 @@ class AdminPagesController extends Controller
 
     public function flavors()
     {
-        $db = app(FirebaseRealtimeService::class);
-        $flavors = collect(FirebaseHelper::toObjects($db->all('flavors', 'created_at', 'desc')));
-        $flavorTypes = collect(FirebaseHelper::toObjects($db->where('ingredients', 'type', 'Flavor', 'name', 'asc')));
+        $flavors = Flavor::orderBy('created_at', 'desc')->get();
+        $flavorTypes = Ingredient::where('type', 'Flavor')->orderBy('name', 'asc')->get();
         return view('admin.flavors', compact('flavors', 'flavorTypes'));
     }
 
     public function ingredients()
     {
-        $db = app(FirebaseRealtimeService::class);
-        $ingredients = collect(FirebaseHelper::toObjects($db->all('ingredients', 'name', 'asc')));
+        $ingredients = Ingredient::orderBy('name', 'asc')->get();
         return view('admin.ingredients', compact('ingredients'));
     }
 
     public function gallon()
     {
-        $db = app(FirebaseRealtimeService::class);
-        $gallons = collect(FirebaseHelper::toObjects($db->all('gallons', 'size', 'asc')));
+        $gallons = Gallon::orderBy('size', 'asc')->get();
         return view('admin.gallon', compact('gallons'));
     }
 
     public function orders()
     {
-        $db = app(FirebaseRealtimeService::class);
-        $orders = collect(FirebaseHelper::toObjects($db->all('orders', 'created_at', 'desc')));
-        $flavors = collect(FirebaseHelper::toObjects($db->all('flavors', 'name', 'asc')));
-        $gallons = collect(FirebaseHelper::toObjects($db->all('gallons', 'size', 'asc')));
+        $orders = Order::orderBy('created_at', 'desc')->get();
+        $flavors = Flavor::orderBy('name', 'asc')->get();
+        $gallons = Gallon::orderBy('size', 'asc')->get();
         return view('admin.orders', compact('orders', 'flavors', 'gallons'));
     }
 
     public function drivers()
     {
-        $db = app(FirebaseRealtimeService::class);
-        $all = $db->all('drivers', 'created_at', 'desc');
-        $drivers = collect(FirebaseHelper::toObjects(
-            array_values(array_filter($all, fn ($d) => ($d['status'] ?? '') !== Driver::STATUS_DEACTIVATE))
-        ));
+        $drivers = Driver::where('status', '!=', Driver::STATUS_DEACTIVATE)
+            ->orderBy('created_at', 'desc')
+            ->get();
         return view('admin.drivers', compact('drivers'));
     }
 

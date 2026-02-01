@@ -106,9 +106,9 @@
     <div class="main-content">
         <div class="top-bar">
             <div class="user">
-                <img src="{{ isset($adminUser['image']) ? asset($adminUser['image']) : asset('img/kyle.jpg') }}" alt="Profile">
+                <img src="{{ $adminUser && $adminUser->image ? asset($adminUser->image) : asset('img/kyle.jpg') }}" alt="Profile">
                 <div class="user-info">
-                    <strong>Hello, {{ isset($adminUser) ? (trim(($adminUser['first_name'] ?? '') . ' ' . ($adminUser['last_name'] ?? '')) ?: 'Admin') : 'Admin' }}</strong>
+                    <strong>Hello, {{ $adminUser ? trim(($adminUser->first_name ?? '') . ' ' . ($adminUser->last_name ?? '')) ?: 'Admin' : 'Admin' }}</strong>
                     <small id="manila-date"></small>
                 </div>
             </div>

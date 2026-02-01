@@ -36,6 +36,17 @@ Route::get('/Customer/login', [CustomerPageController::class, 'Customerlogin'])-
 Route::post('/Customer/login', [CustomerAuthController::class, 'login'])->name('customer.login.submit');
 Route::get('/Customer/register', [CustomerPageController::class, 'register'])->name('customer.register');
 Route::post('/Customer/register', [CustomerAuthController::class, 'register'])->name('customer.register.submit');
+Route::get('/Customer/verify-otp', [CustomerAuthController::class, 'showOtpForm'])->name('customer.verify-otp');
+Route::post('/Customer/verify-otp', [CustomerAuthController::class, 'verifyOtp'])->name('customer.verify-otp.submit');
+Route::post('/Customer/resend-otp', [CustomerAuthController::class, 'resendOtp'])->name('customer.resend-otp');
+
+Route::get('/Customer/forgot-password', [CustomerAuthController::class, 'showForgotPasswordForm'])->name('customer.forgot-password');
+Route::post('/Customer/forgot-password', [CustomerAuthController::class, 'sendForgotPasswordOtp'])->name('customer.forgot-password.submit');
+Route::get('/Customer/forgot-password/verify-otp', [CustomerAuthController::class, 'showForgotPasswordOtpForm'])->name('customer.forgot-password.verify-otp');
+Route::post('/Customer/forgot-password/verify-otp', [CustomerAuthController::class, 'verifyForgotPasswordOtp'])->name('customer.forgot-password.verify-otp.submit');
+Route::post('/Customer/forgot-password/resend-otp', [CustomerAuthController::class, 'resendForgotPasswordOtp'])->name('customer.forgot-password.resend-otp');
+Route::get('/Customer/forgot-password/reset-password', [CustomerAuthController::class, 'showResetPasswordForm'])->name('customer.forgot-password.reset-password');
+Route::post('/Customer/forgot-password/reset-password', [CustomerAuthController::class, 'updatePassword'])->name('customer.forgot-password.reset-password.submit');
 
 Route::get('/customer/auth/google', [CustomerAuthController::class, 'redirectToGoogle'])->name('customer.login.google');
 Route::get('/customer/auth/google/callback', [CustomerAuthController::class, 'handleGoogleCallback'])->name('customer.login.google.callback');

@@ -3,7 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Services\FirebaseRealtimeService;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
@@ -22,23 +22,21 @@ class AdminAuthController extends Controller
             'password.required' => 'This field is required.',
         ]);
 
-        $db = app(FirebaseRealtimeService::class);
-        $user = $db->firstWhere('users', 'email', $request->email);
+        $user = User::where('email', $request->email)->first();
 
-        if (!$user || !Hash::check($request->password, $user['password'] ?? '')) {
+        if (!$user || !Hash::check($request->password, $user->password)) {
             return redirect()->back()
                 ->withInput($request->only('email'))
                 ->withErrors(['password' => 'Invalid email or password.']);
         }
 
-        $request->session()->put('admin_id', $user['id']);
+        $request->session()->put('admin_id', $user->id);
         return redirect()->route('admin.dashboard')->with('success', 'Welcome back!');
     }
 
     public function register(Request $request)
     {
-        $db = app(FirebaseRealtimeService::class);
-        $existing = $db->firstWhere('users', 'email', $request->email);
+        $existing = User::where('email', $request->email)->first();
 
         $request->validate([
             'first_name' => 'required|string|max:255',
@@ -73,7 +71,8 @@ class AdminAuthController extends Controller
             $imagePath = 'img/admins/' . $filename;
         }
 
-        $db->add('users', [
+        User::create([
+            'name'       => $request->first_name . ' ' . $request->last_name,
             'first_name' => $request->first_name,
             'last_name'  => $request->last_name,
             'email'      => $request->email,
@@ -147,11 +146,10 @@ class AdminAuthController extends Controller
         $name = $googleUser->getName() ?? 'Admin';
         $avatar = $googleUser->getAvatar();
 
-        $db = app(FirebaseRealtimeService::class);
-        $user = $db->firstWhere('users', 'email', $email);
+        $user = User::where('email', $email)->first();
 
         if ($user) {
-            $request->session()->put('admin_id', $user['id']);
+            $request->session()->put('admin_id', $user->id);
             return redirect()->route('admin.dashboard')->with('success', 'Welcome back!');
         }
 
@@ -175,7 +173,8 @@ class AdminAuthController extends Controller
             }
         }
 
-        $db->add('users', [
+        $newUser = User::create([
+            'name'       => $firstName . ' ' . $lastName,
             'first_name' => $firstName,
             'last_name'  => $lastName,
             'email'      => $email,
@@ -183,8 +182,7 @@ class AdminAuthController extends Controller
             'password'   => Hash::make(Str::random(32)),
         ]);
 
-        $newUser = $db->firstWhere('users', 'email', $email);
-        $request->session()->put('admin_id', $newUser['id']);
+        $request->session()->put('admin_id', $newUser->id);
         return redirect()->route('admin.dashboard')->with('success', 'Account created successfully!');
     }
 

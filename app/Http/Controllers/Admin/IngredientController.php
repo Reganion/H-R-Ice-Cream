@@ -3,13 +3,12 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Services\FirebaseRealtimeService;
+use App\Models\Ingredient;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 
 class IngredientController extends Controller
 {
-    /** Same image location as store: public/ingredients/, stored path ingredients/filename */
     private function saveIngredientImage(?UploadedFile $file, ?string $existingPath = null): ?string
     {
         if ($file === null || !$file->isValid()) {
@@ -36,8 +35,7 @@ class IngredientController extends Controller
 
         $imagePath = $this->saveIngredientImage($request->file('image'));
 
-        $db = app(FirebaseRealtimeService::class);
-        $db->add('ingredients', [
+        Ingredient::create([
             'name'     => $request->name,
             'type'     => $request->type,
             'quantity' => $request->quantity,
@@ -51,11 +49,7 @@ class IngredientController extends Controller
 
     public function update(Request $request, $id)
     {
-        $db = app(FirebaseRealtimeService::class);
-        $ingredient = $db->get('ingredients', $id);
-        if ($ingredient === null) {
-            abort(404);
-        }
+        $ingredient = Ingredient::findOrFail($id);
 
         $request->validate([
             'name'     => 'required|string|max:255',
@@ -67,10 +61,10 @@ class IngredientController extends Controller
 
         $imagePath = $this->saveIngredientImage(
             $request->file('image'),
-            $ingredient['image'] ?? null
+            $ingredient->image
         );
 
-        $db->update('ingredients', $id, [
+        $ingredient->update([
             'name'     => $request->name,
             'type'     => $request->type,
             'quantity' => $request->quantity,
@@ -84,11 +78,8 @@ class IngredientController extends Controller
 
     public function destroy($id)
     {
-        $db = app(FirebaseRealtimeService::class);
-        if ($db->get('ingredients', $id) === null) {
-            abort(404);
-        }
-        $db->delete('ingredients', $id);
+        $ingredient = Ingredient::findOrFail($id);
+        $ingredient->delete();
         return back()->with('success', 'Ingredient deleted');
     }
 }

@@ -3,8 +3,9 @@
 namespace App\Http\Controllers\Customer;
 
 use App\Http\Controllers\Controller;
-use App\Helpers\FirebaseHelper;
-use App\Services\FirebaseRealtimeService;
+use App\Models\Feedback;
+use App\Models\Flavor;
+use App\Models\Order;
 use Illuminate\Http\Request;
 
 class CustomerPageController extends Controller
@@ -16,59 +17,47 @@ class CustomerPageController extends Controller
 
     public function home()
     {
-        $db = app(FirebaseRealtimeService::class);
-        $flavors = collect(FirebaseHelper::toObjects($db->all('flavors', 'created_at', 'desc')));
-        $feedbacks = collect(FirebaseHelper::toObjects($db->all('feedback', 'feedback_date', 'desc')));
+        $flavors = Flavor::orderBy('created_at', 'desc')->get();
+        $feedbacks = Feedback::orderBy('feedback_date', 'desc')->get();
         return view('Customer.home', compact('flavors', 'feedbacks'));
     }
 
     public function dashboard()
     {
-        $db = app(FirebaseRealtimeService::class);
-        $all = $db->all('flavors', 'created_at', 'desc');
-        $flavors = collect(FirebaseHelper::toObjects($all));
-        $bestSeller = count($all) > 0 ? (object) $all[0] : null;
-        $popular = count($all) > 1 ? (object) $all[1] : $bestSeller;
+        $flavors = Flavor::orderBy('created_at', 'desc')->get();
+        $bestSeller = $flavors->first();
+        $popular = $flavors->skip(1)->first() ?? $bestSeller;
         $favorites = collect();
         return view('Customer.dashboard', compact('flavors', 'bestSeller', 'popular', 'favorites'));
     }
 
     public function topOrders()
     {
-        $db = app(FirebaseRealtimeService::class);
-        $flavors = collect(FirebaseHelper::toObjects($db->all('flavors', 'created_at', 'desc')));
+        $flavors = Flavor::orderBy('created_at', 'desc')->get();
         return view('Customer.toporder', compact('flavors'));
     }
 
     public function orderDetail($id)
     {
-        $db = app(FirebaseRealtimeService::class);
-        $row = $db->get('flavors', $id);
-        if ($row === null) {
-            abort(404);
-        }
-        $flavor = (object) $row;
+        $flavor = Flavor::findOrFail($id);
         return view('Customer.order-detail', compact('flavor'));
     }
 
     public function flavors()
     {
-        $db = app(FirebaseRealtimeService::class);
-        $flavors = collect(FirebaseHelper::toObjects($db->all('flavors', 'created_at', 'desc')));
+        $flavors = Flavor::orderBy('created_at', 'desc')->get();
         return view('Customer.flavors', compact('flavors'));
     }
 
     public function orderHistory()
     {
-        $db = app(FirebaseRealtimeService::class);
-        $orders = collect(FirebaseHelper::toObjects($db->all('orders', 'created_at', 'desc')));
+        $orders = Order::orderBy('created_at', 'desc')->get();
         return view('Customer.order-history', compact('orders'));
     }
 
     public function favorite()
     {
-        $db = app(FirebaseRealtimeService::class);
-        $favorites = collect(FirebaseHelper::toObjects($db->all('flavors', 'created_at', 'desc')));
+        $favorites = Flavor::orderBy('created_at', 'desc')->get();
         return view('Customer.favorite', compact('favorites'));
     }
 

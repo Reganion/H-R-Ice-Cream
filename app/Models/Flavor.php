@@ -6,6 +6,10 @@ use Illuminate\Database\Eloquent\Model;
 
 class Flavor extends Model
 {
+    protected $casts = [
+        'price' => 'decimal:2',
+    ];
+
     protected $fillable = [
         'name',
         'flavor_type', // ✅ REQUIRED

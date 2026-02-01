@@ -3,13 +3,12 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Services\FirebaseRealtimeService;
+use App\Models\Flavor;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 
 class FlavorController extends Controller
 {
-    /** Same image location as store: public/flavors/, stored path flavors/filename */
     private function saveFlavorImage(?UploadedFile $file, ?string $existingPath = null): ?string
     {
         if ($file === null || !$file->isValid()) {
@@ -36,8 +35,7 @@ class FlavorController extends Controller
 
         $imagePath = $this->saveFlavorImage($request->file('image'));
 
-        $db = app(FirebaseRealtimeService::class);
-        $db->add('flavors', [
+        Flavor::create([
             'name'        => $request->name,
             'flavor_type' => $request->flavor_type,
             'category'    => $request->category,
@@ -51,11 +49,7 @@ class FlavorController extends Controller
 
     public function flavorupdate(Request $request, $id)
     {
-        $db = app(FirebaseRealtimeService::class);
-        $flavor = $db->get('flavors', $id);
-        if ($flavor === null) {
-            abort(404);
-        }
+        $flavor = Flavor::findOrFail($id);
 
         $request->validate([
             'name'        => 'required|string|max:255',
@@ -67,10 +61,10 @@ class FlavorController extends Controller
 
         $imagePath = $this->saveFlavorImage(
             $request->file('image'),
-            $flavor['image'] ?? null
+            $flavor->image
         );
 
-        $db->update('flavors', $id, [
+        $flavor->update([
             'name'        => $request->name,
             'flavor_type' => $request->flavor_type,
             'category'    => $request->category,
@@ -84,11 +78,8 @@ class FlavorController extends Controller
 
     public function flavordestroy($id)
     {
-        $db = app(FirebaseRealtimeService::class);
-        if ($db->get('flavors', $id) === null) {
-            abort(404);
-        }
-        $db->delete('flavors', $id);
+        $flavor = Flavor::findOrFail($id);
+        $flavor->delete();
         return back()->with('success', 'Flavor deleted successfully');
     }
 }

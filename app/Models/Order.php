@@ -6,6 +6,11 @@ use Illuminate\Database\Eloquent\Model;
 
 class Order extends Model
 {
+    protected $casts = [
+        'delivery_date' => 'date',
+        'amount' => 'decimal:2',
+    ];
+
     protected $fillable = [
         'transaction_id',
         'product_name',
