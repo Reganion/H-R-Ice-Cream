@@ -12,12 +12,18 @@ class Feedback extends Model
     protected $table = 'feedback';
 
     protected $fillable = [
+        'flavor_id',
         'customer_name',
         'photo',
         'rating',
         'testimonial',
         'feedback_date',
     ];
+
+    public function flavor()
+    {
+        return $this->belongsTo(\App\Models\Flavor::class);
+    }
 
     protected $casts = [
         'feedback_date' => 'date',

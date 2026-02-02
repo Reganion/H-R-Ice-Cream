@@ -7,7 +7,7 @@
     <link rel="icon" href="{{ asset('img/logo.png') }}">
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet" />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="{{ asset('css/dashboard.css') }}?v=13">
+    <link rel="stylesheet" href="{{ asset('css/dashboard.css') }}?v=20">
     <title>Dashboard – Quinjay Ice Cream</title>
 </head>
 
@@ -41,11 +41,11 @@
         </header>
 
         <main class="dashboard-main">
-            <!-- Best Seller grid: web only (4 cards with Order Now) -->
+            <!-- Best Seller grid: web only (5 cards, most ordered) -->
             <section class="best-seller-grid-section" aria-label="Best Seller">
                 <h2 class="best-seller-grid-heading">Best Seller</h2>
                 <div class="best-seller-grid">
-                    @foreach(collect($flavors ?? [])->take(4) as $item)
+                    @foreach(collect($bestSellers ?? [])->take(5) as $item)
                         <article class="best-seller-card">
                             <div class="best-seller-card-img-wrap">
                                 <img src="{{ asset($item->image) }}" alt="{{ $item->name }}" class="best-seller-card-img" />
@@ -62,52 +62,86 @@
                 </div>
             </section>
 
-            <!-- 1. Best Seller (hero section) – mobile -->
+            <!-- 1. Best Seller carousel (mobile only: multiple slides, 5s delay, gap) -->
             <section class="dashboard-section best-seller-section">
                 <span class="section-badge best-seller-badge">Best Seller</span>
-                <a href="{{ ($bestSeller ?? null) ? route('customer.order.detail', $bestSeller->id) : '#' }}" class="best-seller-banner" aria-label="View best seller">
-                    <div class="best-seller-img-wrap">
-                        <div class="best-seller-overlay"></div>
-                        @if ($bestSeller ?? null)
-                            <img src="{{ asset($bestSeller->image) }}" alt="{{ $bestSeller->name }}" class="best-seller-img" />
-                            <div class="best-seller-info">
-                                <span class="best-seller-label">{{ $bestSeller->name }}</span>
-                                <span class="best-seller-rating">
-                                    <span class="material-symbols-outlined star-icon">star</span> 5.0
-                                </span>
-                            </div>
-                        @else
-                            <img src="{{ asset('img/yummy.png') }}" alt="Best Seller" class="best-seller-img" />
-                            <div class="best-seller-info">
-                                <span class="best-seller-label">Vanilla Flavor</span>
-                                <span class="best-seller-rating">
-                                    <span class="material-symbols-outlined star-icon">star</span> 5.0
-                                </span>
-                            </div>
+                <div class="best-seller-carousel" id="best-seller-carousel" aria-roledescription="carousel">
+                    <div class="best-seller-carousel-track" id="best-seller-carousel-track">
+                        @foreach(collect($bestSellers ?? [])->take(5) as $item)
+                        <div class="best-seller-carousel-slide" data-slide="{{ $loop->index }}">
+                            <a href="{{ route('customer.order.detail', $item->id) }}" class="best-seller-banner" aria-label="{{ $item->name }}">
+                                <div class="best-seller-img-wrap">
+                                    <div class="best-seller-overlay"></div>
+                                    <img src="{{ asset($item->image) }}" alt="{{ $item->name }}" class="best-seller-img" />
+                                    <div class="best-seller-info">
+                                        <span class="best-seller-label">{{ $item->name }}</span>
+                                        <span class="best-seller-rating">
+                                            <span class="material-symbols-outlined star-icon">star</span> 5.0
+                                        </span>
+                                    </div>
+                                </div>
+                            </a>
+                        </div>
+                        @endforeach
+                        @if(collect($bestSellers ?? [])->isEmpty())
+                        <div class="best-seller-carousel-slide" data-slide="0">
+                            <a href="#" class="best-seller-banner" aria-label="Best Seller">
+                                <div class="best-seller-img-wrap">
+                                    <div class="best-seller-overlay"></div>
+                                    <img src="{{ asset('img/yummy.png') }}" alt="Best Seller" class="best-seller-img" />
+                                    <div class="best-seller-info">
+                                        <span class="best-seller-label">Vanilla Flavor</span>
+                                        <span class="best-seller-rating">
+                                            <span class="material-symbols-outlined star-icon">star</span> 5.0
+                                        </span>
+                                    </div>
+                                </div>
+                            </a>
+                        </div>
                         @endif
                     </div>
-                </a>
+                </div>
             </section>
 
-            <!-- 2. Popular (single featured card) -->
+            <!-- 2. Popular carousel (mobile only: multiple slides, 5s delay, gap) -->
             <section class="dashboard-section popular-section">
-                <h2 class="section-heading">Popular</h2>
-                <a href="{{ $popular ? route('customer.order.detail', $popular->id) : '#' }}" class="popular-card" aria-label="{{ $popular->name ?? 'Popular item' }}">
-                    <div class="popular-card-image-wrap">
-                        @if ($popular ?? null)
-                            <img src="{{ asset($popular->image) }}" alt="{{ $popular->name }}" class="popular-card-image" />
-                        @else
-                            <img src="{{ asset('img/yummy.png') }}" alt="Popular" class="popular-card-image" />
+                <span class="section-badge popular-badge">Popular</span>
+                <div class="popular-carousel" id="popular-carousel" aria-roledescription="carousel">
+                    <div class="popular-carousel-track" id="popular-carousel-track">
+                        @foreach(collect($popularFlavors ?? [])->take(5) as $item)
+                        <div class="popular-carousel-slide" data-slide="{{ $loop->index }}">
+                            <a href="{{ route('customer.order.detail', $item->id) }}" class="popular-banner best-seller-banner" aria-label="{{ $item->name }}">
+                                <div class="popular-img-wrap best-seller-img-wrap">
+                                    <div class="best-seller-overlay"></div>
+                                    <img src="{{ asset($item->image) }}" alt="{{ $item->name }}" class="best-seller-img" />
+                                    <div class="best-seller-info">
+                                        <span class="best-seller-label">{{ $item->name }}</span>
+                                        <span class="best-seller-rating">
+                                            <span class="material-symbols-outlined star-icon">star</span> 5.0
+                                        </span>
+                                    </div>
+                                </div>
+                            </a>
+                        </div>
+                        @endforeach
+                        @if(collect($popularFlavors ?? [])->isEmpty())
+                        <div class="popular-carousel-slide" data-slide="0">
+                            <a href="#" class="popular-banner best-seller-banner" aria-label="Popular">
+                                <div class="popular-img-wrap best-seller-img-wrap">
+                                    <div class="best-seller-overlay"></div>
+                                    <img src="{{ asset('img/yummy.png') }}" alt="Popular" class="best-seller-img" />
+                                    <div class="best-seller-info">
+                                        <span class="best-seller-label">Matcha Ice cream</span>
+                                        <span class="best-seller-rating">
+                                            <span class="material-symbols-outlined star-icon">star</span> 5.0
+                                        </span>
+                                    </div>
+                                </div>
+                            </a>
+                        </div>
                         @endif
                     </div>
-                    <h3 class="popular-card-name">{{ $popular->name ?? 'Matcha Ice cream' }}</h3>
-                    <div class="popular-card-price-row">
-                        <span class="popular-card-price">₱{{ $popular ? number_format($popular->price ?? 0, 0) : '1,700' }}</span>
-                        <span class="popular-card-rating">
-                            <span class="material-symbols-outlined popular-star">star</span> 5.0
-                        </span>
-                    </div>
-                </a>
+                </div>
             </section>
 
             <!-- 3. Flavors (horizontal scroll) -->
@@ -160,7 +194,45 @@
     </div>
 
     <script>
-        // Flavor cards are links; no extra script needed
+        (function () {
+            var CAROUSEL_GAP = 16;
+            var DELAY_MS = 5000;
+
+            function runCarousel(carouselId, trackId) {
+                var carousel = document.getElementById(carouselId);
+                var track = document.getElementById(trackId);
+                if (!carousel || !track) return;
+                var slides = track.querySelectorAll('[data-slide]');
+                if (slides.length <= 1) return;
+
+                var index = 0;
+                function layout() {
+                    if (window.innerWidth >= 769) {
+                        track.style.width = '';
+                        track.style.transform = '';
+                        slides.forEach(function (s) { s.style.width = ''; });
+                        return;
+                    }
+                    var w = carousel.offsetWidth;
+                    var total = slides.length * w + (slides.length - 1) * CAROUSEL_GAP;
+                    track.style.width = total + 'px';
+                    slides.forEach(function (s) { s.style.width = w + 'px'; });
+                    track.style.transform = 'translateX(-' + index * (w + CAROUSEL_GAP) + 'px)';
+                }
+                function go() {
+                    if (window.innerWidth >= 769) return;
+                    index = (index + 1) % slides.length;
+                    var w = carousel.offsetWidth;
+                    track.style.transform = 'translateX(-' + index * (w + CAROUSEL_GAP) + 'px)';
+                }
+                layout();
+                window.addEventListener('resize', layout);
+                setInterval(go, DELAY_MS);
+            }
+
+            runCarousel('best-seller-carousel', 'best-seller-carousel-track');
+            runCarousel('popular-carousel', 'popular-carousel-track');
+        })();
     </script>
 </body>
 

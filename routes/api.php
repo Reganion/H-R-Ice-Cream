@@ -24,6 +24,8 @@ Route::prefix('v1')->group(function () {
     Route::post('/forgot-password/verify-otp', [ApiAuthController::class, 'verifyForgotPasswordOtp']);
     Route::post('/forgot-password/reset-password', [ApiAuthController::class, 'resetPassword']);
 
+    Route::get('/best-sellers', [ApiFlavorController::class, 'bestSellers']);
+    Route::get('/popular', [ApiFlavorController::class, 'popular']);
     Route::get('/flavors', [ApiFlavorController::class, 'index']);
     Route::get('/flavors/{id}', [ApiFlavorController::class, 'show']);
     Route::get('/gallons', [ApiFlavorController::class, 'gallons']);

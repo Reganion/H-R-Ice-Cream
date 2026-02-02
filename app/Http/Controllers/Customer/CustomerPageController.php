@@ -26,14 +26,41 @@ class CustomerPageController extends Controller
     public function dashboard(Request $request)
     {
         $flavors = Flavor::orderBy('created_at', 'desc')->get();
-        $bestSeller = $flavors->first();
-        $popular = $flavors->skip(1)->first() ?? $bestSeller;
+
+        // Best Seller: top 5 flavors by order count (most ordered by customers)
+        $orderCounts = Order::selectRaw('product_name, count(*) as order_count')
+            ->groupBy('product_name')
+            ->orderByDesc('order_count')
+            ->limit(5)
+            ->get();
+        $bestSellerNames = $orderCounts->pluck('product_name');
+        $flavorsByName = Flavor::whereIn('name', $bestSellerNames)->get()->keyBy('name');
+        $bestSellers = $orderCounts->map(fn ($row) => $flavorsByName->get($row->product_name))->filter()->values();
+        $bestSeller = $bestSellers->first(); // hero/banner: single most ordered
+
+        // Popular: top 5 most rated by customers (from feedback with flavor_id) for carousel
+        $popularFlavorIds = \Illuminate\Support\Facades\DB::table('feedback')
+            ->whereNotNull('flavor_id')
+            ->selectRaw('flavor_id, avg(rating) as avg_rating')
+            ->groupBy('flavor_id')
+            ->orderByDesc('avg_rating')
+            ->limit(5)
+            ->pluck('flavor_id');
+        $popularFlavors = $popularFlavorIds->map(fn ($id) => Flavor::find($id))->filter()->values();
+        if ($popularFlavors->isEmpty() && $bestSellers->count() > 1) {
+            $popularFlavors = $bestSellers->skip(1)->take(5)->values();
+        }
+        if ($popularFlavors->isEmpty()) {
+            $popularFlavors = $flavors->take(5)->values();
+        }
+        $popular = $popularFlavors->first();
+
         $favorites = collect();
         $customer = null;
         if ($request->session()->has('customer_id')) {
             $customer = Customer::find($request->session()->get('customer_id'));
         }
-        return view('Customer.dashboard', compact('flavors', 'bestSeller', 'popular', 'favorites', 'customer'));
+        return view('Customer.dashboard', compact('flavors', 'bestSellers', 'bestSeller', 'popularFlavors', 'popular', 'favorites', 'customer'));
     }
 
     public function myAccount(Request $request)
