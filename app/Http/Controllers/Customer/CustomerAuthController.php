@@ -75,6 +75,8 @@ class CustomerAuthController extends Controller
             'lastname'          => $request->lastname,
             'email'             => $request->email,
             'contact_no'        => $request->contact_no ? trim($request->contact_no) : null,
+            'image'             => 'img/default-user.png',
+            'status'            => Customer::STATUS_ACTIVE,
             'password'          => \Illuminate\Support\Facades\Hash::make($request->password),
             'otp'               => $otp,
             'otp_expires_at'    => $otpExpiresAt,
@@ -341,6 +343,223 @@ class CustomerAuthController extends Controller
         return redirect()->route('customer.login')->with('success', 'Your password has been updated. You can now log in.');
     }
 
+    // --- Change Password (logged-in customer: email → OTP → current + new password → keep logged in or re-login) ---
+
+    public function showChangePasswordForm(Request $request)
+    {
+        $customerId = $request->session()->get('customer_id');
+        if (!$customerId) {
+            return redirect()->route('customer.login')->with('error', 'Please log in to change your password.');
+        }
+        $customer = Customer::find($customerId);
+        if (!$customer) {
+            $request->session()->forget('customer_id');
+            return redirect()->route('customer.login')->with('error', 'Session expired. Please log in again.');
+        }
+        return view('Customer.change-password', ['customer' => $customer]);
+    }
+
+    public function sendChangePasswordOtp(Request $request)
+    {
+        $customerId = $request->session()->get('customer_id');
+        if (!$customerId) {
+            return redirect()->route('customer.login')->with('error', 'Please log in to change your password.');
+        }
+        $customer = Customer::find($customerId);
+        if (!$customer) {
+            $request->session()->forget('customer_id');
+            return redirect()->route('customer.login')->with('error', 'Session expired. Please log in again.');
+        }
+
+        $request->validate([
+            'email' => 'required|email',
+        ], [
+            'email.required' => 'Please enter your email address.',
+            'email.email'    => 'Please enter a valid email address.',
+        ]);
+
+        if (strcasecmp($customer->email, $request->email) !== 0) {
+            return redirect()->back()
+                ->withInput($request->only('email'))
+                ->withErrors(['email' => 'This email does not match your account.']);
+        }
+
+        $otp = str_pad((string) random_int(0, 9999), 4, '0', STR_PAD_LEFT);
+        $customer->update([
+            'otp'            => $otp,
+            'otp_expires_at' => now()->addMinutes(10),
+        ]);
+
+        $request->session()->put('change_password_email', $customer->email);
+
+        try {
+            Mail::to($customer->email)->send(new OtpVerificationMail($otp, $customer->email));
+        } catch (\Throwable $e) {
+            report($e);
+            return redirect()->back()
+                ->with('error', 'Could not send the verification code. Please try again later.');
+        }
+
+        return redirect()->route('customer.change-password.verify-otp')
+            ->with('success', 'A 4-digit code has been sent to your email. Enter it below.');
+    }
+
+    public function showChangePasswordOtpForm(Request $request)
+    {
+        $customerId = $request->session()->get('customer_id');
+        if (!$customerId) {
+            return redirect()->route('customer.login')->with('error', 'Please log in first.');
+        }
+        $email = $request->session()->get('change_password_email');
+        if (!$email) {
+            return redirect()->route('customer.change-password')
+                ->with('error', 'Please enter your email first to receive a verification code.');
+        }
+        return view('Customer.change-password-verify-otp', ['email' => $email]);
+    }
+
+    public function resendChangePasswordOtp(Request $request)
+    {
+        $customerId = $request->session()->get('customer_id');
+        if (!$customerId) {
+            return redirect()->route('customer.login')->with('error', 'Please log in first.');
+        }
+        $email = $request->session()->get('change_password_email');
+        if (!$email) {
+            return redirect()->route('customer.change-password')
+                ->with('error', 'Session expired. Please enter your email again.');
+        }
+
+        $customer = Customer::where('email', $email)->first();
+        if (!$customer) {
+            $request->session()->forget('change_password_email');
+            return redirect()->route('customer.change-password')->with('error', 'Account not found.');
+        }
+
+        $otp = str_pad((string) random_int(0, 9999), 4, '0', STR_PAD_LEFT);
+        $customer->update([
+            'otp'            => $otp,
+            'otp_expires_at' => now()->addMinutes(10),
+        ]);
+
+        try {
+            Mail::to($customer->email)->send(new OtpVerificationMail($otp, $customer->email));
+        } catch (\Throwable $e) {
+            report($e);
+            return redirect()->route('customer.change-password.verify-otp')
+                ->with('error', 'Could not send the new code. Please try again later.');
+        }
+
+        return redirect()->route('customer.change-password.verify-otp')
+            ->with('success', 'A new 4-digit code has been sent to your email.');
+    }
+
+    public function verifyChangePasswordOtp(Request $request)
+    {
+        $customerId = $request->session()->get('customer_id');
+        if (!$customerId) {
+            return redirect()->route('customer.login')->with('error', 'Please log in first.');
+        }
+        $email = $request->session()->get('change_password_email');
+        if (!$email) {
+            return redirect()->route('customer.change-password')
+                ->with('error', 'Session expired. Please enter your email again.');
+        }
+
+        $request->validate([
+            'otp' => 'required|string|size:4|regex:/^\d{4}$/',
+        ], [
+            'otp.required' => 'Please enter the 4-digit code.',
+            'otp.size'     => 'The code must be 4 digits.',
+            'otp.regex'    => 'The code must be 4 digits only.',
+        ]);
+
+        $customer = Customer::where('email', $email)->first();
+        if (!$customer) {
+            $request->session()->forget('change_password_email');
+            return redirect()->route('customer.change-password')->with('error', 'Account not found.');
+        }
+
+        if ($customer->otp !== $request->otp) {
+            return redirect()->back()
+                ->withErrors(['otp' => 'Invalid or expired code. Please try again.']);
+        }
+
+        if ($customer->otp_expires_at && $customer->otp_expires_at->isPast()) {
+            return redirect()->back()
+                ->withErrors(['otp' => 'This code has expired. Please request a new one.']);
+        }
+
+        $customer->update(['otp' => null, 'otp_expires_at' => null]);
+        return redirect()->route('customer.change-password.new-password')
+            ->with('success', 'Code verified. Enter your current password and new password below.');
+    }
+
+    public function showChangePasswordNewPasswordForm(Request $request)
+    {
+        $customerId = $request->session()->get('customer_id');
+        if (!$customerId) {
+            return redirect()->route('customer.login')->with('error', 'Please log in first.');
+        }
+        $email = $request->session()->get('change_password_email');
+        if (!$email) {
+            return redirect()->route('customer.change-password')
+                ->with('error', 'Session expired. Please start the process again.');
+        }
+        $customer = Customer::where('email', $email)->first();
+        if (!$customer) {
+            $request->session()->forget('change_password_email');
+            return redirect()->route('customer.change-password')->with('error', 'Account not found.');
+        }
+        return view('Customer.change-password-new-password', ['customer' => $customer]);
+    }
+
+    public function updateChangePassword(Request $request)
+    {
+        $customerId = $request->session()->get('customer_id');
+        if (!$customerId) {
+            return redirect()->route('customer.login')->with('error', 'Please log in first.');
+        }
+        $email = $request->session()->get('change_password_email');
+        if (!$email) {
+            return redirect()->route('customer.change-password')
+                ->with('error', 'Session expired. Please start the process again.');
+        }
+
+        $request->validate([
+            'current_password' => 'required',
+            'password'         => 'required|string|confirmed|min:6',
+        ], [
+            'current_password.required' => 'Please enter your current password.',
+            'password.required'         => 'New password is required.',
+            'password.confirmed'        => 'New passwords do not match.',
+            'password.min'               => 'New password must be at least 6 characters.',
+        ]);
+
+        $customer = Customer::where('email', $email)->first();
+        if (!$customer) {
+            $request->session()->forget('change_password_email');
+            return redirect()->route('customer.change-password')->with('error', 'Account not found.');
+        }
+
+        if (!\Illuminate\Support\Facades\Hash::check($request->current_password, $customer->password)) {
+            return redirect()->back()
+                ->withErrors(['current_password' => 'Current password is incorrect.']);
+        }
+
+        $customer->update(['password' => $request->password]);
+        $keepLoggedIn = $request->boolean('keep_logged_in');
+        $request->session()->forget('change_password_email');
+
+        if ($keepLoggedIn) {
+            return redirect()->route('customer.my-account')->with('success', 'Your password has been updated. You are still logged in.');
+        }
+
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
+        return redirect()->route('customer.login')->with('success', 'Your password has been updated. Please log in again.');
+    }
+
     public function logout(Request $request)
     {
         $request->session()->invalidate();
@@ -425,6 +644,8 @@ class CustomerAuthController extends Controller
             'lastname'           => $lastname,
             'email'              => $email,
             'contact_no'         => null,
+            'image'              => 'img/default-user.png',
+            'status'             => Customer::STATUS_ACTIVE,
             'password'           => \Illuminate\Support\Facades\Hash::make(Str::random(32)),
             'email_verified_at'  => now(),
         ]);

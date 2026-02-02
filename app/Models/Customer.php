@@ -11,11 +11,16 @@ class Customer extends Authenticatable
 
     protected $table = 'customers';
 
+    public const STATUS_ACTIVE = 'active';
+    public const STATUS_INACTIVE = 'inactive';
+
     protected $fillable = [
         'firstname',
         'lastname',
         'email',
         'contact_no',
+        'image',
+        'status',
         'password',
         'otp',
         'otp_expires_at',

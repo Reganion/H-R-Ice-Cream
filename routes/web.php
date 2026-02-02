@@ -57,6 +57,19 @@ Route::get('/driver', function () {
 
 Route::get('/customer/logout', [CustomerAuthController::class, 'logout'])->name('customer.logout');
 
+Route::get('/customer/my-account', [CustomerPageController::class, 'myAccount'])->name('customer.my-account');
+Route::get('/customer/account-information', [CustomerPageController::class, 'accountInformation'])->name('customer.account-information');
+Route::get('/customer/edit-profile', [CustomerPageController::class, 'editProfile'])->name('customer.edit-profile');
+Route::post('/customer/update-profile', [CustomerPageController::class, 'updateProfile'])->name('customer.update-profile');
+
+Route::get('/customer/change-password', [CustomerAuthController::class, 'showChangePasswordForm'])->name('customer.change-password');
+Route::post('/customer/change-password/send-otp', [CustomerAuthController::class, 'sendChangePasswordOtp'])->name('customer.change-password.send-otp');
+Route::get('/customer/change-password/verify-otp', [CustomerAuthController::class, 'showChangePasswordOtpForm'])->name('customer.change-password.verify-otp');
+Route::post('/customer/change-password/verify-otp', [CustomerAuthController::class, 'verifyChangePasswordOtp'])->name('customer.change-password.verify-otp.submit');
+Route::post('/customer/change-password/resend-otp', [CustomerAuthController::class, 'resendChangePasswordOtp'])->name('customer.change-password.resend-otp');
+Route::get('/customer/change-password/new-password', [CustomerAuthController::class, 'showChangePasswordNewPasswordForm'])->name('customer.change-password.new-password');
+Route::post('/customer/change-password/update', [CustomerAuthController::class, 'updateChangePassword'])->name('customer.change-password.update');
+
 Route::get('/admin/login', [AdminPagesController::class, 'login'])->name('admin.login');
 Route::post('/admin/login', [AdminAuthController::class, 'login'])->name('admin.login.submit');
 Route::post('/admin/register', [AdminAuthController::class, 'register'])->name('admin.register.submit');

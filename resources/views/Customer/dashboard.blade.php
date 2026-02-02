@@ -35,8 +35,8 @@
                 <span class="material-symbols-outlined cart-icon">shopping_cart</span>
                 <span class="cart-badge">0</span>
             </a>
-            <a href="{{ route('customer.dashboard') }}" class="header-profile avatar-wrap" aria-label="Profile">
-                <img src="{{ asset('img/default-user.png') }}" alt="Profile" class="avatar" />
+            <a href="{{ $customer ? route('customer.my-account') : route('customer.login') }}" class="header-profile avatar-wrap" aria-label="{{ $customer ? 'My Account' : 'Log in' }}">
+                <img src="{{ asset($customer->image ?? 'img/default-user.png') }}" alt="Profile" class="avatar" />
             </a>
         </header>
 
