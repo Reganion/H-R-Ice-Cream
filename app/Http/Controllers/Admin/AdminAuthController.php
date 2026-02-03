@@ -3,9 +3,11 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Mail\OtpVerificationMail;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use Laravel\Socialite\Facades\Socialite;
 
@@ -192,5 +194,165 @@ class AdminAuthController extends Controller
         $request->session()->invalidate();
         $request->session()->regenerateToken();
         return redirect()->route('admin.login');
+    }
+
+    // --- Forgot Password (same flow as customer: email → OTP → verify → reset) ---
+
+    public function showForgotPasswordForm()
+    {
+        return view('Admin.forgot-password');
+    }
+
+    public function sendForgotPasswordOtp(Request $request)
+    {
+        $request->validate([
+            'email' => 'required|email',
+        ], [
+            'email.required' => 'Please enter your email address.',
+            'email.email'    => 'Please enter a valid email address.',
+        ]);
+
+        $user = User::where('email', $request->email)->first();
+        if (!$user) {
+            return redirect()->back()
+                ->withInput($request->only('email'))
+                ->withErrors(['email' => 'No account found with this email address.']);
+        }
+
+        $otp = str_pad((string) random_int(0, 9999), 4, '0', STR_PAD_LEFT);
+        $user->update([
+            'otp'            => $otp,
+            'otp_expires_at' => now()->addMinutes(10),
+        ]);
+
+        $request->session()->put('admin_forgot_password_email', $user->email);
+
+        try {
+            Mail::to($user->email)->send(new OtpVerificationMail($otp, $user->email));
+        } catch (\Throwable $e) {
+            report($e);
+            return redirect()->back()
+                ->with('error', 'Could not send the verification code. Please try again later.');
+        }
+
+        return redirect()->route('admin.forgot-password.verify-otp')
+            ->with('success', 'A 4-digit code has been sent to your email. Enter it below.');
+    }
+
+    public function showForgotPasswordOtpForm(Request $request)
+    {
+        $email = $request->session()->get('admin_forgot_password_email');
+        if (!$email) {
+            return redirect()->route('admin.forgot-password')
+                ->with('error', 'Please enter your email first to receive a verification code.');
+        }
+        return view('Admin.verify-otp-forgot', ['email' => $email]);
+    }
+
+    public function resendForgotPasswordOtp(Request $request)
+    {
+        $email = $request->session()->get('admin_forgot_password_email');
+        if (!$email) {
+            return redirect()->route('admin.forgot-password')
+                ->with('error', 'Session expired. Please enter your email again.');
+        }
+
+        $user = User::where('email', $email)->first();
+        if (!$user) {
+            $request->session()->forget('admin_forgot_password_email');
+            return redirect()->route('admin.forgot-password')->with('error', 'Account not found.');
+        }
+
+        $otp = str_pad((string) random_int(0, 9999), 4, '0', STR_PAD_LEFT);
+        $user->update([
+            'otp'            => $otp,
+            'otp_expires_at' => now()->addMinutes(10),
+        ]);
+
+        try {
+            Mail::to($user->email)->send(new OtpVerificationMail($otp, $user->email));
+        } catch (\Throwable $e) {
+            report($e);
+            return redirect()->route('admin.forgot-password.verify-otp')
+                ->with('error', 'Could not send the new code. Please try again later.');
+        }
+
+        return redirect()->route('admin.forgot-password.verify-otp')
+            ->with('success', 'A new 4-digit code has been sent to your email.');
+    }
+
+    public function verifyForgotPasswordOtp(Request $request)
+    {
+        $email = $request->session()->get('admin_forgot_password_email');
+        if (!$email) {
+            return redirect()->route('admin.forgot-password')
+                ->with('error', 'Session expired. Please enter your email again.');
+        }
+
+        $request->validate([
+            'otp' => 'required|string|size:4|regex:/^\d{4}$/',
+        ], [
+            'otp.required' => 'Please enter the 4-digit code.',
+            'otp.size'     => 'The code must be 4 digits.',
+            'otp.regex'    => 'The code must be 4 digits only.',
+        ]);
+
+        $user = User::where('email', $email)->first();
+        if (!$user) {
+            $request->session()->forget('admin_forgot_password_email');
+            return redirect()->route('admin.forgot-password')->with('error', 'Account not found.');
+        }
+
+        if ($user->otp !== $request->otp) {
+            return redirect()->back()
+                ->withErrors(['otp' => 'Invalid or expired code. Please try again.']);
+        }
+
+        if ($user->otp_expires_at && $user->otp_expires_at->isPast()) {
+            return redirect()->back()
+                ->withErrors(['otp' => 'This code has expired. Please request a new one.']);
+        }
+
+        $user->update(['otp' => null, 'otp_expires_at' => null]);
+        return redirect()->route('admin.forgot-password.reset-password')
+            ->with('success', 'Code verified. Enter your new password below.');
+    }
+
+    public function showResetPasswordForm(Request $request)
+    {
+        $email = $request->session()->get('admin_forgot_password_email');
+        if (!$email) {
+            return redirect()->route('admin.forgot-password')
+                ->with('error', 'Session expired. Please start the process again.');
+        }
+        return view('Admin.reset-password', ['email' => $email]);
+    }
+
+    public function updatePassword(Request $request)
+    {
+        $email = $request->session()->get('admin_forgot_password_email');
+        if (!$email) {
+            return redirect()->route('admin.forgot-password')
+                ->with('error', 'Session expired. Please start the process again.');
+        }
+
+        $request->validate([
+            'password' => 'required|string|confirmed|min:6',
+        ], [
+            'password.required'  => 'Password is required.',
+            'password.confirmed' => 'Passwords do not match.',
+            'password.min'       => 'Password must be at least 6 characters.',
+        ]);
+
+        $user = User::where('email', $email)->first();
+        if (!$user) {
+            $request->session()->forget('admin_forgot_password_email');
+            return redirect()->route('admin.forgot-password')->with('error', 'Account not found.');
+        }
+
+        $user->update(['password' => $request->password]);
+        $request->session()->forget('admin_forgot_password_email');
+
+        return redirect()->route('admin.login')->with('success', 'Your password has been updated. You can now log in.');
     }
 }

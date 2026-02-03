@@ -77,6 +77,14 @@ Route::get('/admin/auth/google', [AdminAuthController::class, 'redirectToGoogle'
 Route::get('/admin/auth/google/callback', [AdminAuthController::class, 'handleGoogleCallback'])->name('admin.login.google.callback');
 Route::get('/admin/logout', [AdminAuthController::class, 'logout'])->name('admin.logout');
 
+Route::get('/admin/forgot-password', [AdminAuthController::class, 'showForgotPasswordForm'])->name('admin.forgot-password');
+Route::post('/admin/forgot-password', [AdminAuthController::class, 'sendForgotPasswordOtp'])->name('admin.forgot-password.submit');
+Route::get('/admin/forgot-password/verify-otp', [AdminAuthController::class, 'showForgotPasswordOtpForm'])->name('admin.forgot-password.verify-otp');
+Route::post('/admin/forgot-password/verify-otp', [AdminAuthController::class, 'verifyForgotPasswordOtp'])->name('admin.forgot-password.verify-otp.submit');
+Route::post('/admin/forgot-password/resend-otp', [AdminAuthController::class, 'resendForgotPasswordOtp'])->name('admin.forgot-password.resend-otp');
+Route::get('/admin/forgot-password/reset-password', [AdminAuthController::class, 'showResetPasswordForm'])->name('admin.forgot-password.reset-password');
+Route::post('/admin/forgot-password/reset-password', [AdminAuthController::class, 'updatePassword'])->name('admin.forgot-password.reset-password.submit');
+
 Route::prefix('admin')->name('admin.')->group(function () {
     Route::get('/dashboard', [AdminPagesController::class, 'dashboard'])->name('dashboard');
     Route::get('/flavors', [AdminPagesController::class, 'flavors'])->name('flavors');

@@ -3,6 +3,8 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 
 class Customer extends Authenticatable
@@ -44,5 +46,16 @@ class Customer extends Authenticatable
     public function isVerified(): bool
     {
         return $this->email_verified_at !== null;
+    }
+
+    public function favorites(): BelongsToMany
+    {
+        return $this->belongsToMany(Flavor::class, 'favorites')
+            ->withTimestamps();
+    }
+
+    public function cartItems(): HasMany
+    {
+        return $this->hasMany(CartItem::class);
     }
 }

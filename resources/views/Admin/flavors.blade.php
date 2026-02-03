@@ -151,7 +151,8 @@
                                         <td class="action">
                                             <button class="btn-edit" data-id="{{ $flavor->id }}"
                                                 data-flavor-type="{{ $flavor->flavor_type }}"
-                                                data-image="{{ asset($flavor->image ?? 'flavors/default.png') }}">
+                                                data-image="{{ asset($flavor->image ?? 'flavors/default.png') }}"
+                                                data-mobile-image="{{ asset($flavor->mobile_image ?? $flavor->image ?? 'flavors/default.png') }}">
                                                 Edit
                                             </button>
 
@@ -222,6 +223,22 @@
                         </button>
                     </div>
                 </div>
+
+                <!-- Mobile display image -->
+                <div class="upload-box">
+                    <div class="upload-preview" id="editMobileImagePreview">
+                        <span class="material-symbols-outlined">add_photo_alternate</span>
+                    </div>
+                    <input type="file" id="editMobileFlavorImage" name="mobile_image" hidden>
+                    <div class="upload-actions">
+                        <label class="upload-label">Display image (mobile)</label>
+                        <button type="button" class="btn-upload"
+                            onclick="document.getElementById('editMobileFlavorImage').click()">
+                            Upload
+                        </button>
+                    </div>
+                </div>
+
                 <!-- Flavor Name + Flavor Type -->
                 <div class="form-row">
 
@@ -329,6 +346,21 @@
                         <label class="upload-label">Upload Photo</label>
                         <button type="button" class="btn-upload"
                             onclick="document.getElementById('flavorImage').click()">
+                            Upload
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Mobile display image -->
+                <div class="upload-box">
+                    <div class="upload-preview" id="mobileImagePreview">
+                        <span class="material-symbols-outlined">add_photo_alternate</span>
+                    </div>
+                    <input type="file" id="mobileFlavorImage" name="mobile_image" hidden>
+                    <div class="upload-actions">
+                        <label class="upload-label">Display image (mobile)</label>
+                        <button type="button" class="btn-upload"
+                            onclick="document.getElementById('mobileFlavorImage').click()">
                             Upload
                         </button>
                     </div>
@@ -467,6 +499,9 @@
                 document.getElementById("imagePreview").innerHTML =
                     `<span class="material-symbols-outlined">add_photo_alternate</span>`;
                 document.getElementById("flavorImage").value = "";
+                document.getElementById("mobileImagePreview").innerHTML =
+                    `<span class="material-symbols-outlined">add_photo_alternate</span>`;
+                document.getElementById("mobileFlavorImage").value = "";
 
                 // custom select
                 document.querySelector("#categorySelect .selected").textContent = "Select Category";
@@ -662,6 +697,15 @@
                 reader.readAsDataURL(file);
             });
 
+            document.getElementById("mobileFlavorImage").addEventListener("change", function() {
+                const file = this.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = () => document.getElementById("mobileImagePreview").innerHTML =
+                    `<img src="${reader.result}">`;
+                reader.readAsDataURL(file);
+            });
+
             (function() {
                 const select = document.getElementById("editFlavorTypeSelect");
                 if (!select) return;
@@ -760,7 +804,8 @@
                     const category = row.querySelector(".flavor-col small").textContent;
                     const price = row.querySelector(".price").textContent.replace(/[₱,]/g, "");
                     const flavorType = btn.dataset.flavorType;
-                    const image = btn.dataset.image; // ✅ image
+                    const image = btn.dataset.image;
+                    const mobileImage = btn.dataset.mobileImage || image;
 
                     // form action
                     const form = document.getElementById("editFlavorForm");
@@ -779,12 +824,15 @@
                         flavorType;
                     document.getElementById("editFlavorType").value = flavorType;
 
-                    // ✅ IMAGE PREVIEW (THIS IS WHAT WAS MISSING)
+                    // Image previews
                     document.getElementById("editImagePreview").innerHTML =
                         `<img src="${image}" alt="Flavor Image">`;
+                    document.getElementById("editMobileImagePreview").innerHTML =
+                        `<img src="${mobileImage}" alt="Mobile Flavor Image">`;
 
-                    // reset file input
+                    // reset file inputs
                     document.getElementById("editFlavorImage").value = "";
+                    document.getElementById("editMobileFlavorImage").value = "";
 
                     editModal.classList.add("show");
                 });
@@ -811,6 +859,17 @@
                 const reader = new FileReader();
                 reader.onload = () => {
                     document.getElementById("editImagePreview").innerHTML =
+                        `<img src="${reader.result}">`;
+                };
+                reader.readAsDataURL(file);
+            });
+
+            document.getElementById("editMobileFlavorImage").addEventListener("change", function() {
+                const file = this.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = () => {
+                    document.getElementById("editMobileImagePreview").innerHTML =
                         `<img src="${reader.result}">`;
                 };
                 reader.readAsDataURL(file);

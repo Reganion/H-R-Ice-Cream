@@ -26,22 +26,25 @@ class FlavorController extends Controller
     public function flavorstore(Request $request)
     {
         $request->validate([
-            'name'        => 'required|string|max:255',
-            'flavor_type' => 'required|string|max:255',
-            'category'    => 'required|in:Plain Flavor,Special Flavor,1 Topping,2 Toppings',
-            'price'       => 'required|numeric|min:0',
-            'image'       => 'nullable|image|max:2048',
+            'name'         => 'required|string|max:255',
+            'flavor_type'  => 'required|string|max:255',
+            'category'     => 'required|in:Plain Flavor,Special Flavor,1 Topping,2 Toppings',
+            'price'        => 'required|numeric|min:0',
+            'image'        => 'nullable|image|max:2048',
+            'mobile_image' => 'nullable|image|max:2048',
         ]);
 
         $imagePath = $this->saveFlavorImage($request->file('image'));
+        $mobileImagePath = $this->saveFlavorImage($request->file('mobile_image'));
 
         Flavor::create([
-            'name'        => $request->name,
-            'flavor_type' => $request->flavor_type,
-            'category'    => $request->category,
-            'price'       => $request->price,
-            'image'       => $imagePath,
-            'status'      => $request->price > 0 ? 'available' : 'out',
+            'name'         => $request->name,
+            'flavor_type'  => $request->flavor_type,
+            'category'     => $request->category,
+            'price'        => $request->price,
+            'image'        => $imagePath,
+            'mobile_image' => $mobileImagePath,
+            'status'       => $request->price > 0 ? 'available' : 'out',
         ]);
 
         return back()->with('success', 'Flavor added successfully');
@@ -52,25 +55,31 @@ class FlavorController extends Controller
         $flavor = Flavor::findOrFail($id);
 
         $request->validate([
-            'name'        => 'required|string|max:255',
-            'flavor_type' => 'required|string|max:255',
-            'category'    => 'required',
-            'price'       => 'required|numeric|min:0',
-            'image'       => 'nullable|image|max:2048',
+            'name'         => 'required|string|max:255',
+            'flavor_type'  => 'required|string|max:255',
+            'category'     => 'required',
+            'price'        => 'required|numeric|min:0',
+            'image'        => 'nullable|image|max:2048',
+            'mobile_image' => 'nullable|image|max:2048',
         ]);
 
         $imagePath = $this->saveFlavorImage(
             $request->file('image'),
             $flavor->image
         );
+        $mobileImagePath = $this->saveFlavorImage(
+            $request->file('mobile_image'),
+            $flavor->mobile_image
+        );
 
         $flavor->update([
-            'name'        => $request->name,
-            'flavor_type' => $request->flavor_type,
-            'category'    => $request->category,
-            'price'       => $request->price,
-            'image'       => $imagePath,
-            'status'      => $request->price > 0 ? 'available' : 'out',
+            'name'         => $request->name,
+            'flavor_type'  => $request->flavor_type,
+            'category'     => $request->category,
+            'price'        => $request->price,
+            'image'        => $imagePath,
+            'mobile_image' => $mobileImagePath,
+            'status'       => $request->price > 0 ? 'available' : 'out',
         ]);
 
         return back()->with('success', 'Flavor updated successfully');

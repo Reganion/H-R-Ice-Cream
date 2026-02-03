@@ -39,6 +39,7 @@ return [
         'client_id'     => env('GOOGLE_CLIENT_ID'),
         'client_secret' => env('GOOGLE_CLIENT_SECRET'),
         'redirect'      => env('GOOGLE_REDIRECT_URI', env('APP_URL') . '/customer/auth/google/callback'),
+        'android_client_id' => env('GOOGLE_ANDROID_CLIENT_ID'), // For Flutter Android: verify id_token from Google Sign-In
     ],
 
 ];

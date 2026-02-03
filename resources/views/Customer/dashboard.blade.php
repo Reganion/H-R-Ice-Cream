@@ -7,7 +7,7 @@
     <link rel="icon" href="{{ asset('img/logo.png') }}">
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet" />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="{{ asset('css/dashboard.css') }}?v=20">
+    <link rel="stylesheet" href="{{ asset('css/dashboard.css') }}?v=16">
     <title>Dashboard – Quinjay Ice Cream</title>
 </head>
 
@@ -48,7 +48,7 @@
                     @foreach(collect($bestSellers ?? [])->take(5) as $item)
                         <article class="best-seller-card">
                             <div class="best-seller-card-img-wrap">
-                                <img src="{{ asset($item->image) }}" alt="{{ $item->name }}" class="best-seller-card-img" />
+                                <img src="{{ asset($item->mobile_image ?? $item->image) }}" alt="{{ $item->name }}" class="best-seller-card-img" />
                             </div>
                             <h3 class="best-seller-card-name">{{ $item->name }}</h3>
                             <p class="best-seller-card-rating">
@@ -72,7 +72,7 @@
                             <a href="{{ route('customer.order.detail', $item->id) }}" class="best-seller-banner" aria-label="{{ $item->name }}">
                                 <div class="best-seller-img-wrap">
                                     <div class="best-seller-overlay"></div>
-                                    <img src="{{ asset($item->image) }}" alt="{{ $item->name }}" class="best-seller-img" />
+                                    <img src="{{ asset($item->mobile_image ?? $item->image) }}" alt="{{ $item->name }}" class="best-seller-img" />
                                     <div class="best-seller-info">
                                         <span class="best-seller-label">{{ $item->name }}</span>
                                         <span class="best-seller-rating">
@@ -113,7 +113,7 @@
                             <a href="{{ route('customer.order.detail', $item->id) }}" class="popular-banner best-seller-banner" aria-label="{{ $item->name }}">
                                 <div class="popular-img-wrap best-seller-img-wrap">
                                     <div class="best-seller-overlay"></div>
-                                    <img src="{{ asset($item->image) }}" alt="{{ $item->name }}" class="best-seller-img" />
+                                    <img src="{{ asset($item->mobile_image ?? $item->image) }}" alt="{{ $item->name }}" class="best-seller-img" />
                                     <div class="best-seller-info">
                                         <span class="best-seller-label">{{ $item->name }}</span>
                                         <span class="best-seller-rating">
@@ -155,7 +155,7 @@
                         @foreach ($flavors ?? [] as $flavor)
                             <a href="{{ route('customer.order.detail', $flavor->id) }}" class="flavor-card-horizontal" data-flavor-id="{{ $flavor->id }}">
                                 <div class="flavor-card-h-img-wrap">
-                                    <img src="{{ asset($flavor->image) }}" alt="{{ $flavor->name }}" class="flavor-card-h-img" />
+                                    <img src="{{ asset($flavor->mobile_image ?? $flavor->image) }}" alt="{{ $flavor->name }}" class="flavor-card-h-img" />
                                 </div>
                                 <h3 class="flavor-card-h-name">{{ $flavor->name }}</h3>
                                 <div class="flavor-card-h-price-row">

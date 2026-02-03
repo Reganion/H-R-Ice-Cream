@@ -9,6 +9,7 @@ use App\Models\Customer;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
@@ -49,6 +50,95 @@ class ApiAuthController extends Controller
             'message' => 'Logged in successfully.',
             'customer' => $this->customerProfileArray($customer),
             'token' => $token,
+        ]);
+    }
+
+    /**
+     * Sign in with Google (for Flutter). Send id_token from Google Sign-In; returns API token + customer.
+     * POST /api/v1/auth/google { "id_token": "..." }
+     * Use the returned token as Authorization: Bearer {token} for protected routes.
+     */
+    public function google(Request $request): JsonResponse
+    {
+        $request->validate([
+            'id_token' => 'required|string',
+        ], [
+            'id_token.required' => 'Google id_token is required.',
+        ]);
+
+        $allowedClientIds = array_filter([
+            config('services.google.android_client_id'),
+            config('services.google.client_id'),
+        ]);
+        if (empty($allowedClientIds)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Google sign-in is not configured. Set GOOGLE_ANDROID_CLIENT_ID (or GOOGLE_CLIENT_ID) in .env.',
+            ], 500);
+        }
+
+        $response = Http::get('https://oauth2.googleapis.com/tokeninfo', [
+            'id_token' => $request->id_token,
+        ]);
+
+        if (!$response->successful()) {
+            $googleError = $response->json('error_description') ?? $response->body();
+            return response()->json([
+                'success' => false,
+                'message' => 'Invalid or expired Google token. Please sign in again.',
+                'debug'   => config('app.debug') ? $googleError : null,
+            ], 401);
+        }
+
+        $payload = $response->json();
+        $aud = $payload['aud'] ?? null;
+        if (!in_array($aud, $allowedClientIds, true)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Invalid Google token audience. Token was for a different app.',
+                'debug'   => config('app.debug') ? ['token_aud' => $aud, 'allowed' => $allowedClientIds] : null,
+            ], 401);
+        }
+
+        $email = $payload['email'] ?? null;
+        if (!$email) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Google account email not found.',
+            ], 401);
+        }
+
+        $name = $payload['name'] ?? $payload['email'] ?? 'User';
+        $customer = Customer::where('email', $email)->first();
+
+        if ($customer) {
+            if (!$customer->isVerified()) {
+                $customer->update(['email_verified_at' => now()]);
+            }
+        } else {
+            $parts = explode(' ', $name, 2);
+            $firstname = $parts[0] ?? $name;
+            $lastname = $parts[1] ?? '';
+            $customer = Customer::create([
+                'firstname'          => $firstname,
+                'lastname'           => $lastname,
+                'email'              => $email,
+                'contact_no'         => null,
+                'image'              => 'img/default-user.png',
+                'status'             => Customer::STATUS_ACTIVE,
+                'password'           => Hash::make(Str::random(32)),
+                'email_verified_at'  => now(),
+            ]);
+        }
+
+        $token = Str::random(64);
+        Cache::put(AuthenticateApiCustomer::CACHE_PREFIX . $token, $customer->id, now()->addMinutes(AuthenticateApiCustomer::TTL_MINUTES));
+
+        return response()->json([
+            'success'  => true,
+            'message'  => 'Signed in with Google.',
+            'customer' => $this->customerProfileArray($customer),
+            'token'    => $token,
         ]);
     }
 

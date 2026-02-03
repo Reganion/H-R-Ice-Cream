@@ -44,6 +44,7 @@ All under prefix **`/api/v1`** (e.g. `http://127.0.0.1:8000/api/v1/flavors`).
 | GET    | `/api/v1/flavors/{id}` | Single flavor  |
 | GET    | `/api/v1/gallons`   | List gallon sizes  |
 | POST   | `/api/v1/login`     | Customer login     |
+| POST   | `/api/v1/auth/google` | Sign in with Google (Flutter: send `id_token`, get API `token`) |
 | POST   | `/api/v1/register`  | Customer register  |
 | POST   | `/api/v1/verify-otp` | Verify OTP (registration) |
 | POST   | `/api/v1/resend-otp`  | Resend OTP (registration) |

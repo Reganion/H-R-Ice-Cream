@@ -49,7 +49,7 @@
                     <div class="flavor-card-menu" data-category="{{ $flavor->category ?? '' }}" data-name="{{ strtolower($flavor->name ?? '') }}">
                         <a href="{{ route('customer.order.detail', $flavor->id) }}" class="flavor-card-image-link">
                             <div class="flavor-card-image-wrap">
-                                <img src="{{ asset($flavor->image) }}" alt="{{ $flavor->name }}" class="flavor-card-image" />
+                                <img src="{{ asset($flavor->mobile_image ?? $flavor->image) }}" alt="{{ $flavor->name }}" class="flavor-card-image" />
                             </div>
                             <h3 class="flavor-card-name">{{ $flavor->name }}</h3>
                             <p class="flavor-card-price">₱{{ number_format($flavor->price ?? 0, 0) }}</p>

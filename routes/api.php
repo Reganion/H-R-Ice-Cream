@@ -1,6 +1,8 @@
 <?php
 
 use App\Http\Controllers\Api\ApiAuthController;
+use App\Http\Controllers\Api\ApiCartController;
+use App\Http\Controllers\Api\ApiFavoriteController;
 use App\Http\Controllers\Api\ApiFlavorController;
 use App\Http\Controllers\Api\ApiOrderController;
 use Illuminate\Support\Facades\Route;
@@ -14,6 +16,7 @@ use Illuminate\Support\Facades\Route;
 Route::prefix('v1')->group(function () {
     // Public
     Route::post('/login', [ApiAuthController::class, 'login']);
+    Route::post('/auth/google', [ApiAuthController::class, 'google']);
     Route::post('/register', [ApiAuthController::class, 'register']);
     Route::post('/verify-otp', [ApiAuthController::class, 'verifyOtp']);
     Route::post('/resend-otp', [ApiAuthController::class, 'resendOtp']);
@@ -47,5 +50,16 @@ Route::prefix('v1')->group(function () {
         Route::get('/orders', [ApiOrderController::class, 'index']);
         Route::post('/orders', [ApiOrderController::class, 'store']);
         Route::get('/orders/{id}', [ApiOrderController::class, 'show']);
+        // Favorites (heart icon): list, add/remove toggle, check, delete
+        Route::get('/favorites', [ApiFavoriteController::class, 'index']);
+        Route::post('/favorites', [ApiFavoriteController::class, 'store']);
+        Route::get('/favorites/check', [ApiFavoriteController::class, 'check']);
+        Route::delete('/favorites/{flavor_id}', [ApiFavoriteController::class, 'destroy']);
+        // Cart: list, add, update quantity, remove
+        Route::get('/cart', [ApiCartController::class, 'index']);
+        Route::post('/cart', [ApiCartController::class, 'store']);
+        Route::put('/cart/{id}', [ApiCartController::class, 'update']);
+        Route::patch('/cart/{id}', [ApiCartController::class, 'update']);
+        Route::delete('/cart/{id}', [ApiCartController::class, 'destroy']);
     });
 });
