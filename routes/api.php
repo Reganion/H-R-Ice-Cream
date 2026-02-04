@@ -17,7 +17,6 @@ use Illuminate\Support\Facades\Route;
 Route::prefix('v1')->group(function () {
     // Public
     Route::post('/login', [ApiAuthController::class, 'login']);
-    Route::post('/auth/google', [ApiAuthController::class, 'google']);
     Route::post('/register', [ApiAuthController::class, 'register']);
     Route::post('/verify-otp', [ApiAuthController::class, 'verifyOtp']);
     Route::post('/resend-otp', [ApiAuthController::class, 'resendOtp']);

@@ -48,9 +48,6 @@ Route::post('/Customer/forgot-password/resend-otp', [CustomerAuthController::cla
 Route::get('/Customer/forgot-password/reset-password', [CustomerAuthController::class, 'showResetPasswordForm'])->name('customer.forgot-password.reset-password');
 Route::post('/Customer/forgot-password/reset-password', [CustomerAuthController::class, 'updatePassword'])->name('customer.forgot-password.reset-password.submit');
 
-Route::get('/customer/auth/google', [CustomerAuthController::class, 'redirectToGoogle'])->name('customer.login.google');
-Route::get('/customer/auth/google/callback', [CustomerAuthController::class, 'handleGoogleCallback'])->name('customer.login.google.callback');
-
 Route::get('/driver', function () {
     return view('driver.landing');
 })->name('driver.landing');
@@ -73,8 +70,6 @@ Route::post('/customer/change-password/update', [CustomerAuthController::class, 
 Route::get('/admin/login', [AdminPagesController::class, 'login'])->name('admin.login');
 Route::post('/admin/login', [AdminAuthController::class, 'login'])->name('admin.login.submit');
 Route::post('/admin/register', [AdminAuthController::class, 'register'])->name('admin.register.submit');
-Route::get('/admin/auth/google', [AdminAuthController::class, 'redirectToGoogle'])->name('admin.login.google');
-Route::get('/admin/auth/google/callback', [AdminAuthController::class, 'handleGoogleCallback'])->name('admin.login.google.callback');
 Route::get('/admin/logout', [AdminAuthController::class, 'logout'])->name('admin.logout');
 
 Route::get('/admin/forgot-password', [AdminAuthController::class, 'showForgotPasswordForm'])->name('admin.forgot-password');

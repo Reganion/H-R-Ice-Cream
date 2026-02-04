@@ -83,10 +83,8 @@
             <!-- END FORM -->
 
             <div class="divider"><span>Or, Sign Up with</span></div>
-
-            <a href="{{ route('customer.login.google') }}" class="google-btn" style="display:flex;align-items:center;justify-content:center;gap:10px;text-decoration:none;color:inherit;">
-                <img src="{{ asset('img/google.png') }}" alt="Google Logo">
-                Sign Up with Google
+            <a href="#" class="google-btn" style="display:flex;align-items:center;justify-content:center;gap:10px;text-decoration:none;color:inherit;">
+                <img src="{{ asset('img/google.png') }}" alt="Google Logo"> Sign Up with Google
             </a>
 
             <div class="login">
