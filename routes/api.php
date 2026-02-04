@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\ApiAddressController;
 use App\Http\Controllers\Api\ApiAuthController;
 use App\Http\Controllers\Api\ApiCartController;
 use App\Http\Controllers\Api\ApiFavoriteController;
@@ -42,6 +43,16 @@ Route::prefix('v1')->group(function () {
         // Account: fetch logged-in account (account information) and update profile
         Route::get('/account', [ApiAuthController::class, 'account']);
         Route::post('/account/update', [ApiAuthController::class, 'updateProfile']);
+        Route::put('/address', [ApiAuthController::class, 'updateAddress']);
+        Route::post('/address', [ApiAuthController::class, 'updateAddress']);
+        // Customer addresses (clone table linked by customer_id)
+        Route::get('/addresses', [ApiAddressController::class, 'index']);
+        Route::post('/addresses', [ApiAddressController::class, 'store']);
+        Route::get('/addresses/{id}', [ApiAddressController::class, 'show']);
+        Route::put('/addresses/{id}', [ApiAddressController::class, 'update']);
+        Route::patch('/addresses/{id}', [ApiAddressController::class, 'update']);
+        Route::delete('/addresses/{id}', [ApiAddressController::class, 'destroy']);
+        Route::post('/addresses/{id}/default', [ApiAddressController::class, 'setDefault']);
         // Change password: email → send OTP → verify OTP → update (current + new password, keep_logged_in)
         Route::post('/change-password/send-otp', [ApiAuthController::class, 'changePasswordSendOtp']);
         Route::post('/change-password/verify-otp', [ApiAuthController::class, 'changePasswordVerifyOtp']);

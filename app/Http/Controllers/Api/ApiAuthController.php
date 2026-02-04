@@ -351,6 +351,54 @@ class ApiAuthController extends Controller
     }
 
     /**
+     * Update address details (for Flutter).
+     * PUT or POST /api/v1/address
+     * Body: province, city, barangay, postal_code, street_name, label_as, reason (all optional).
+     */
+    public function updateAddress(Request $request): JsonResponse
+    {
+        $customer = $request->user();
+        if (!$customer instanceof Customer) {
+            return response()->json(['success' => false, 'message' => 'Not authenticated.'], 401);
+        }
+
+        $request->validate([
+            'province'    => 'nullable|string|max:100',
+            'city'        => 'nullable|string|max:100',
+            'barangay'    => 'nullable|string|max:100',
+            'postal_code' => 'nullable|string|max:20',
+            'street_name' => 'nullable|string|max:255',
+            'label_as'    => 'nullable|string|max:50',
+            'reason'      => 'nullable|string|max:500',
+        ]);
+
+        $data = array_filter([
+            'province'    => $request->filled('province') ? trim($request->province) : null,
+            'city'        => $request->filled('city') ? trim($request->city) : null,
+            'barangay'    => $request->filled('barangay') ? trim($request->barangay) : null,
+            'postal_code' => $request->filled('postal_code') ? trim($request->postal_code) : null,
+            'street_name' => $request->filled('street_name') ? trim($request->street_name) : null,
+            'label_as'    => $request->filled('label_as') ? trim($request->label_as) : null,
+            'reason'      => $request->filled('reason') ? trim($request->reason) : null,
+        ], fn ($v) => $v !== null);
+
+        if (empty($data)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Provide at least one address field to update.',
+            ], 422);
+        }
+
+        $customer->update($data);
+
+        return response()->json([
+            'success'  => true,
+            'message'  => 'Address updated successfully.',
+            'customer' => $this->customerProfileArray($customer->fresh()),
+        ]);
+    }
+
+    /**
      * Update my profile (for Flutter).
      * POST /api/v1/profile/update
      * Body: multipart/form-data or JSON with firstname, lastname, contact_no; optional image (file or base64)
@@ -425,15 +473,32 @@ class ApiAuthController extends Controller
         $imagePath = $customer->image ?? 'img/default-user.png';
         $imageUrl = $imagePath ? url($imagePath) : null;
 
+        $parts = array_filter([
+            $customer->street_name,
+            $customer->barangay,
+            $customer->city ? $customer->city . ' City' : null,
+            $customer->province,
+            $customer->postal_code,
+        ]);
+        $fullAddress = implode(', ', $parts) ?: null;
+
         return [
-            'id'         => $customer->id,
-            'firstname'  => $customer->firstname,
-            'lastname'   => $customer->lastname,
-            'email'      => $customer->email,
-            'contact_no' => $customer->contact_no,
-            'image'      => $imagePath,
-            'image_url'  => $imageUrl,
-            'status'     => $customer->status ?? 'active',
+            'id'           => $customer->id,
+            'firstname'    => $customer->firstname,
+            'lastname'     => $customer->lastname,
+            'email'        => $customer->email,
+            'contact_no'   => $customer->contact_no,
+            'image'        => $imagePath,
+            'image_url'    => $imageUrl,
+            'status'       => $customer->status ?? 'active',
+            'province'     => $customer->province,
+            'city'         => $customer->city,
+            'barangay'     => $customer->barangay,
+            'postal_code'  => $customer->postal_code,
+            'street_name'  => $customer->street_name,
+            'label_as'     => $customer->label_as,
+            'reason'       => $customer->reason,
+            'full_address' => $fullAddress,
         ];
     }
 

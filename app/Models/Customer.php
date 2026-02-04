@@ -27,6 +27,13 @@ class Customer extends Authenticatable
         'otp',
         'otp_expires_at',
         'email_verified_at',
+        'province',
+        'city',
+        'barangay',
+        'postal_code',
+        'street_name',
+        'label_as',
+        'reason',
     ];
 
     protected $hidden = [
@@ -57,5 +64,10 @@ class Customer extends Authenticatable
     public function cartItems(): HasMany
     {
         return $this->hasMany(CartItem::class);
+    }
+
+    public function addresses(): HasMany
+    {
+        return $this->hasMany(CustomerAddress::class, 'customer_id');
     }
 }
