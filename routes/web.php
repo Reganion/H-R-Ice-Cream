@@ -14,6 +14,7 @@ use App\Http\Controllers\Admin\AdminOrderController;
 use App\Http\Controllers\Admin\DriverController;
 use App\Http\Controllers\Admin\AdminController;
 use App\Http\Controllers\Admin\AdminNotificationController;
+use App\Http\Controllers\Admin\AdminChatController;
 
 
 Route::get('/', [CustomerPageController::class, 'landing'])
@@ -147,10 +148,10 @@ Route::delete('/gallons/{id}', [GallonController::class, 'gallondestroy'])
 Route::prefix('admin')->name('admin.')->group(function () {
     Route::get('/orders/list', [AdminOrderController::class, 'listJson'])
         ->name('orders.list');
-    Route::get('/orders/{id}', [AdminOrderController::class, 'showJson'])
-        ->name('orders.show');
     Route::get('/orders/drivers', [AdminOrderController::class, 'availableDriversJson'])
         ->name('orders.drivers');
+    Route::get('/orders/{id}', [AdminOrderController::class, 'showJson'])
+        ->name('orders.show');
     Route::post('/orders/walkin', [AdminOrderController::class, 'storeWalkIn'])
         ->name('orders.walkin');
     Route::put('/orders/{id}', [AdminOrderController::class, 'updateWalkIn'])
@@ -164,6 +165,13 @@ Route::prefix('admin')->name('admin.')->group(function () {
         ->name('notifications.mark-read');
     Route::post('/notifications/read-all', [AdminNotificationController::class, 'markAllRead'])
         ->name('notifications.mark-all-read');
+
+    Route::get('/chat/customers', [AdminChatController::class, 'customers'])
+        ->name('chat.customers');
+    Route::get('/chat/customers/{id}', [AdminChatController::class, 'show'])
+        ->name('chat.customers.show');
+    Route::post('/chat/customers/{id}/messages', [AdminChatController::class, 'sendMessage'])
+        ->name('chat.customers.send');
 });
 
 

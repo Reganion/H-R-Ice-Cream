@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\ApiFavoriteController;
 use App\Http\Controllers\Api\ApiFlavorController;
 use App\Http\Controllers\Api\ApiNotificationController;
 use App\Http\Controllers\Api\ApiOrderController;
+use App\Http\Controllers\Api\ApiChatController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -77,5 +78,10 @@ Route::prefix('v1')->group(function () {
         Route::get('/notifications/unread-count', [ApiNotificationController::class, 'unreadCount']);
         Route::post('/notifications/{id}/read', [ApiNotificationController::class, 'markRead']);
         Route::post('/notifications/read-all', [ApiNotificationController::class, 'markAllRead']);
+        // Chat with admin (for Flutter customer app)
+        Route::get('/chat', [ApiChatController::class, 'index']);
+        Route::get('/chat/messages', [ApiChatController::class, 'messages']);
+        Route::post('/chat/messages', [ApiChatController::class, 'store']);
+        Route::post('/chat/read', [ApiChatController::class, 'markRead']);
     });
 });

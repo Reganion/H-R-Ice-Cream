@@ -70,4 +70,14 @@ class Customer extends Authenticatable
     {
         return $this->hasMany(CustomerAddress::class, 'customer_id');
     }
+
+    public function chatMessages(): HasMany
+    {
+        return $this->hasMany(ChatMessage::class);
+    }
+
+    public function getFullNameAttribute(): string
+    {
+        return trim($this->firstname . ' ' . $this->lastname) ?: $this->email;
+    }
 }

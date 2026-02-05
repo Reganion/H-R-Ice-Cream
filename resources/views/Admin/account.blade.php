@@ -280,7 +280,7 @@
                             </div>
 
                             <div class="profile-actions">
-                                <button class="btn-outline">Upload new picture</button>
+                                <button class="btn-outline">Update Account</button>
                                 <button class="btn-light">Delete</button>
                             </div>
                         </div>

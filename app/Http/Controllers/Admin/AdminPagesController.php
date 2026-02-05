@@ -8,6 +8,7 @@ use App\Models\Flavor;
 use App\Models\Gallon;
 use App\Models\Ingredient;
 use App\Models\Order;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 
 class AdminPagesController extends Controller
@@ -19,7 +20,36 @@ class AdminPagesController extends Controller
 
     public function dashboard()
     {
-        return view('admin.dashboard');
+        $now = Carbon::now();
+        $startOfMonth = $now->copy()->startOfMonth();
+        $startOfLastMonth = $now->copy()->subMonth()->startOfMonth();
+        $endOfLastMonth = $now->copy()->subMonth()->endOfMonth();
+
+        $orders = Order::orderBy('created_at', 'desc')->get();
+        $fiveMinutesAgo = $now->copy()->subMinutes(5);
+
+        $totalOrders = $orders->count();
+        $assignedCount = $orders->where('status', 'assigned')->count();
+        $pendingCount = $orders->where('status', 'pending')->filter(fn ($o) => $o->created_at && $o->created_at->lt($fiveMinutesAgo))->count();
+        $deliveredCount = $orders->where('status', 'delivered')->count();
+
+        $ordersLastMonth = Order::whereBetween('created_at', [$startOfLastMonth, $endOfLastMonth])->get();
+        $totalLastMonth = $ordersLastMonth->count();
+        $assignedLastMonth = $ordersLastMonth->where('status', 'assigned')->count();
+        $pendingLastMonth = $ordersLastMonth->where('status', 'pending')->count();
+        $deliveredLastMonth = $ordersLastMonth->where('status', 'delivered')->count();
+
+        return view('admin.dashboard', compact(
+            'orders',
+            'totalOrders',
+            'assignedCount',
+            'pendingCount',
+            'deliveredCount',
+            'totalLastMonth',
+            'assignedLastMonth',
+            'pendingLastMonth',
+            'deliveredLastMonth'
+        ));
     }
 
     public function flavors()
