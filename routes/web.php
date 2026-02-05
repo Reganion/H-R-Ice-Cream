@@ -13,6 +13,7 @@ use App\Http\Controllers\Admin\GallonController;
 use App\Http\Controllers\Admin\AdminOrderController;
 use App\Http\Controllers\Admin\DriverController;
 use App\Http\Controllers\Admin\AdminController;
+use App\Http\Controllers\Admin\AdminNotificationController;
 
 
 Route::get('/', [CustomerPageController::class, 'landing'])
@@ -144,10 +145,25 @@ Route::delete('/gallons/{id}', [GallonController::class, 'gallondestroy'])
 
 
 Route::prefix('admin')->name('admin.')->group(function () {
+    Route::get('/orders/list', [AdminOrderController::class, 'listJson'])
+        ->name('orders.list');
+    Route::get('/orders/{id}', [AdminOrderController::class, 'showJson'])
+        ->name('orders.show');
+    Route::get('/orders/drivers', [AdminOrderController::class, 'availableDriversJson'])
+        ->name('orders.drivers');
     Route::post('/orders/walkin', [AdminOrderController::class, 'storeWalkIn'])
         ->name('orders.walkin');
     Route::put('/orders/{id}', [AdminOrderController::class, 'updateWalkIn'])
         ->name('orders.update');
+    Route::post('/orders/{id}/assign', [AdminOrderController::class, 'assignDriver'])
+        ->name('orders.assign');
+
+    Route::get('/notifications', [AdminNotificationController::class, 'index'])
+        ->name('notifications.index');
+    Route::post('/notifications/{id}/read', [AdminNotificationController::class, 'markRead'])
+        ->name('notifications.mark-read');
+    Route::post('/notifications/read-all', [AdminNotificationController::class, 'markAllRead'])
+        ->name('notifications.mark-all-read');
 });
 
 

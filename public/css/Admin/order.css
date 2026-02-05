@@ -255,52 +255,107 @@ PAGINATION (GALLON STYLE)
     /* ⛔ never scroll */
 }
 
+/* Orders pagination: forced layout – centered, flex */
+.orders-table .pagination-wrapper,
+.orders-pagination.pagination-wrapper,
 .pagination-wrapper {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    gap: 14px;
-    padding: 14px 0 6px;
-    border-top: 1px solid #eee;
-    margin-top: 30px;
+    display: flex !important;
+    flex-direction: row !important;
+    justify-content: center !important;
+    align-items: center !important;
+    gap: 20px !important;
+    padding: 16px 0 8px !important;
+    border-top: 1px solid #eee !important;
+    margin-top: 24px !important;
+    width: 100% !important;
+    flex-shrink: 0 !important;
+    box-sizing: border-box !important;
 }
 
-/* Prev / Next buttons */
+.orders-table #pageNumbers,
+.orders-table .pagination-numbers,
+#pageNumbers.pagination-numbers {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 12px !important;
+    flex-wrap: wrap !important;
+}
+
+/* Showing text: above pagination, only when ≤10 items */
+.orders-table .showing-text {
+    text-align: center;
+    margin: 12px 0 4px;
+    color: #6b7280;
+    font-size: 14px;
+}
+
+/* Prev / Next: rounded buttons, white background, dark grey text */
 .pagination-wrapper .nav-btn {
-    display: flex;
+    display: inline-flex;
     align-items: center;
-    gap: 6px;
-    padding: 6px 14px;
-    border-radius: 10px;
-    border: 1px solid #ddd;
+    gap: 8px;
+    padding: 10px 18px;
+    border-radius: 12px;
+    border: 1px solid #e5e7eb;
     background: #fff;
     font-size: 14px;
+    font-weight: 500;
+    color: #374151;
     cursor: pointer;
-    transition: 0.2s ease;
+    transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+    white-space: nowrap;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.pagination-wrapper .nav-btn .material-symbols-outlined {
+    font-size: 18px;
+    display: inline-flex;
+    align-items: center;
 }
 
 .pagination-wrapper .nav-btn:disabled {
-    opacity: 0.4;
+    opacity: 0.45;
     cursor: not-allowed;
 }
 
 .pagination-wrapper .nav-btn:hover:not(:disabled) {
-    background: #f3f3f3;
+    background: #f9fafb;
+    border-color: #d1d5db;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.06);
 }
 
-/* Page numbers */
-.pagination-wrapper .page-num {
-    border: none;
-    background: transparent;
-    font-size: 14px;
-    color: #9ca3af;
-    padding: 6px 10px;
-    cursor: pointer;
+/* Page numbers: plain text only – no button shape */
+.pagination-wrapper .page-num,
+.orders-table .page-num {
+    -webkit-appearance: none;
+    appearance: none;
+    border: none !important;
+    background: none !important;
+    background-color: transparent !important;
+    font-size: 14px !important;
+    color: #9ca3af !important;
+    padding: 0 4px !important;
+    min-width: 24px !important;
+    cursor: pointer !important;
+    transition: color 0.2s ease !important;
+    font-weight: 400 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
 }
 
-.pagination-wrapper .page-num.active {
-    color: #000;
-    font-weight: 600;
+.pagination-wrapper .page-num:hover,
+.orders-table .page-num:hover {
+    color: #6b7280 !important;
+    background: none !important;
+}
+
+.pagination-wrapper .page-num.active,
+.orders-table .page-num.active {
+    color: #374151 !important;
+    font-weight: 700 !important;
+    cursor: default !important;
+    background: none !important;
 }
 
 /* =========================
@@ -498,7 +553,7 @@ ASSIGN DRIVER MODAL (with enter/exit transition)
     display: flex;
     align-items: flex-start;
     margin-top: 5px;
-    gap: 10px;
+    gap: 18px;
     padding: 12px 0 14px;
     border-bottom: 1px dashed #e5e7eb;
     border-top: 1px solid #e5e7eb;
@@ -571,9 +626,16 @@ ASSIGN DRIVER MODAL (with enter/exit transition)
 
 /* DRIVER SECTION */
 .assign-section {
-    margin-top: 16px;
+    margin-top: 10px;
     flex: 1;
     overflow-y: auto;
+    min-height: 0;
+}
+
+/* Assigned Driver block: do not grow — removes big gap before "Available driver" */
+#assignCurrentDriverSection {
+    flex: 0 0 auto;
+    margin-bottom: 2px;
 }
 
 .available-badge {

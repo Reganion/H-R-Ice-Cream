@@ -204,18 +204,6 @@
            flex-shrink: 0;
        }
 
-       .notification::after {
-           content: '';
-           width: 8px;
-           height: 8px;
-           background: red;
-           border-radius: 50%;
-           position: absolute;
-           top: 8px;
-           right: 8px;
-       }
-
-
        .dropdown {
            display: flex !important;
            justify-content: space-between !important;

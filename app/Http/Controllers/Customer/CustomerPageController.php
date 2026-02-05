@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Customer;
 
 use App\Http\Controllers\Controller;
+use App\Models\AdminNotification;
 use App\Models\Customer;
 use App\Models\Feedback;
 use App\Models\Flavor;
@@ -147,6 +148,9 @@ class CustomerPageController extends Controller
         }
 
         $customer->update($data);
+
+        // Notify admins: always "updated their Profile" for any account information change
+        AdminNotification::notifyProfileUpdated($customer->fresh(), 'Profile');
 
         return redirect()->route('customer.account-information')->with('success', 'Profile updated successfully.');
     }

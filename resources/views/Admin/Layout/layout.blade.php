@@ -4,6 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>@yield('title', 'H&R Ice Cream Admin') </title>
     <!-- Google Material Icons -->
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet" />
@@ -13,6 +14,8 @@
 </head>
 
 <body>
+    <!-- Toast alerts: drop from top, slide up on exit -->
+    <div class="admin-toast-container" id="adminToastContainer" aria-live="polite"></div>
     <div class="sidebar-overlay" id="sidebarOverlay" aria-hidden="true"></div>
     <aside class="sidebar">
         <div>
@@ -121,184 +124,66 @@
                     </div>
                 @endif
 
-                <div class="notification" id="notifBtn">
-                    <span class="material-symbols-outlined">notifications</span>
+                @php
+                    $adminUnreadCount = isset($adminNotifications) ? $adminNotifications->whereNull('read_at')->count() : 0;
+                @endphp
+                <div class="notification {{ $adminUnreadCount > 0 ? 'has-unread' : '' }}" id="notifBtn">
+                    <span class="material-symbols-outlined notif-bell">notifications</span>
+                    <span class="notif-badge {{ $adminUnreadCount === 0 ? 'zero' : '' }}" id="notifBadge" data-count="{{ $adminUnreadCount }}">{{ $adminUnreadCount }}</span>
 
                     <!-- DROPDOWN -->
                     <div class="notification-dropdown" id="notifDropdown">
                         <div class="notif-header">
                             <span class="title">Notifications</span>
 
-                            <div class="mark-read">
+                            <div class="mark-read {{ $adminUnreadCount === 0 ? 'read' : '' }}" id="markAllReadBtn">
                                 <span class="material-symbols-outlined">done_all</span>
                                 <span>Mark all as read</span>
                             </div>
                         </div>
 
                         <div class="notif-tabs">
-                            <span class="active">All</span>
-                            <span class="unread-tab">Unread <span class="unread-count">2</span></span>
+                            <span class="notif-tab active" data-tab="all">All</span>
+                            <span class="notif-tab unread-tab" data-tab="unread">Unread <span class="unread-count">{{ isset($adminNotifications) ? $adminNotifications->whereNull('read_at')->count() : 0 }}</span></span>
                         </div>
 
-
                         <div class="notif-list">
-
-                            <!-- PROFILE UPDATE SAMPLE -->
-                            <div class="notif-item unread">
-                                <div class="notif-icon profile">
-                                    <img src="{{ asset('img/kyle.jpg') }}" alt="Profile">
+                            @forelse (isset($adminNotifications) ? $adminNotifications : [] as $notif)
+                                <div class="notif-item {{ $notif->read_at ? '' : 'unread' }}" data-id="{{ $notif->id }}" data-type="{{ $notif->type }}" data-related-id="{{ $notif->type === 'order_new' ? ($notif->related_id ?? '') : '' }}">
+                                    @if (($notif->type === 'profile_update' || $notif->type === 'address_update' || $notif->type === 'order_new') && $notif->image_url)
+                                        <div class="notif-icon profile">
+                                            <img src="{{ asset($notif->image_url) }}" alt="">
+                                        </div>
+                                    @elseif ($notif->type === 'order_new')
+                                        <div class="notif-icon delivered">
+                                            <span class="material-symbols-outlined">shopping_cart</span>
+                                        </div>
+                                    @elseif ($notif->type === 'address_update')
+                                        <div class="notif-icon delivered">
+                                            <span class="material-symbols-outlined">location_on</span>
+                                        </div>
+                                    @else
+                                        <div class="notif-icon delivered">
+                                            <span class="material-symbols-outlined">notifications_active</span>
+                                        </div>
+                                    @endif
+                                    <div class="notif-text">
+                                        <span>
+                                            <strong>{{ $notif->title ?? 'Notification' }}</strong>@if (!empty($notif->data['subtitle']))
+                                                <span class="muted"> {{ $notif->data['subtitle'] }}</span>@endif
+                                            @if (!empty($notif->data['highlight']))
+                                                <span class="highlight"> {{ $notif->data['highlight'] }}</span>
+                                            @endif
+                                            @if ($notif->message && empty($notif->data['subtitle']))
+                                                <span class="muted"> {{ $notif->message }}</span>
+                                            @endif
+                                        </span>
+                                        <span class="notif-time">{{ $notif->created_at->diffForHumans() }}</span>
+                                    </div>
                                 </div>
-
-
-                                <div class="notif-text">
-                                    <span>
-                                        <strong>Kyle Reganion</strong>
-                                        <span class="muted">changed his</span>
-                                        <span class="highlight">Phone Number</span>
-                                    </span>
-
-                                    <span class="notif-time">2 hrs ago</span>
-                                </div>
-                            </div>
-
-                            <!-- PROFILE UPDATE SAMPLE -->
-                            <div class="notif-item unread">
-                                <div class="notif-icon profile">
-                                    <img src="{{ asset('img/jade.jpg') }}" alt="Profile">
-                                </div>
-
-
-                                <div class="notif-text">
-                                    <span>
-                                        <strong>Jade Sestual</strong>
-                                        <span class="muted">changed his</span>
-                                        <span class="highlight">Phone Number</span>
-                                    </span>
-
-                                    <span class="notif-time">2 hrs ago</span>
-                                </div>
-                            </div>
-
-                            <!-- DELIVERY SUCCESS SAMPLE -->
-                            <div class="notif-item unread">
-                                <div class="notif-icon delivered">
-                                    <span class="material-symbols-outlined">notifications_active</span>
-                                </div>
-
-                                <div class="notif-text">
-                                    <span>
-                                        <strong>Strawberry</strong>
-                                        <span class="muted">delivered</span>
-                                        <span class="highlight">Successfully</span>
-                                    </span>
-
-                                    <span class="notif-time">2 hrs ago</span>
-                                </div>
-                            </div>
-
-                            <!-- DELIVERY SUCCESS SAMPLE -->
-                            <div class="notif-item">
-                                <div class="notif-icon delivered">
-                                    <span class="material-symbols-outlined">notifications_active</span>
-                                </div>
-
-                                <div class="notif-text">
-                                    <span>
-                                        <strong>Mango</strong>
-                                        <span class="muted">delivered</span>
-                                        <span class="highlight">Successfully</span>
-                                    </span>
-
-                                    <span class="notif-time">2 hrs ago</span>
-                                </div>
-                            </div>
-
-                            <!-- DELIVERY SUCCESS SAMPLE -->
-                            <div class="notif-item">
-                                <div class="notif-icon delivered">
-                                    <span class="material-symbols-outlined">notifications_active</span>
-                                </div>
-
-                                <div class="notif-text">
-                                    <span>
-                                        <strong>Ube Macapuno</strong>
-                                        <span class="muted">delivered</span>
-                                        <span class="highlight">Successfully</span>
-                                    </span>
-
-                                    <span class="notif-time">2 hrs ago</span>
-                                </div>
-                            </div>
-
-                            <!-- DELIVERY SUCCESS SAMPLE -->
-                            <div class="notif-item">
-                                <div class="notif-icon delivered">
-                                    <span class="material-symbols-outlined">notifications_active</span>
-                                </div>
-
-                                <div class="notif-text">
-                                    <span>
-                                        <strong>Coookies & Cream</strong>
-                                        <span class="muted">delivered</span>
-                                        <span class="highlight">Successfully</span>
-                                    </span>
-
-                                    <span class="notif-time">2 hrs ago</span>
-                                </div>
-                            </div>
-
-                            <!-- DELIVERY SUCCESS SAMPLE -->
-                            <div class="notif-item">
-                                <div class="notif-icon delivered">
-                                    <span class="material-symbols-outlined">notifications_active</span>
-                                </div>
-
-                                <div class="notif-text">
-                                    <span>
-                                        <strong>Vanilla</strong>
-                                        <span class="muted">delivered</span>
-                                        <span class="highlight">Successfully</span>
-                                    </span>
-
-                                    <span class="notif-time">2 hrs ago</span>
-                                </div>
-                            </div>
-
-                            <!-- DELIVERY SUCCESS SAMPLE -->
-                            <div class="notif-item">
-                                <div class="notif-icon delivered">
-                                    <span class="material-symbols-outlined">notifications_active</span>
-                                </div>
-
-                                <div class="notif-text">
-                                    <span>
-                                        <strong>Pandan</strong>
-                                        <span class="muted">delivered</span>
-                                        <span class="highlight">Successfully</span>
-                                    </span>
-
-                                    <span class="notif-time">2 hrs ago</span>
-                                </div>
-                            </div>
-
-                            <!-- DELIVERY SUCCESS SAMPLE -->
-                            <div class="notif-item">
-                                <div class="notif-icon delivered">
-                                    <span class="material-symbols-outlined">notifications_active</span>
-                                </div>
-
-                                <div class="notif-text">
-                                    <span>
-                                        <strong>Mango Graham</strong>
-                                        <span class="muted">delivered</span>
-                                        <span class="highlight">Successfully</span>
-                                    </span>
-
-                                    <span class="notif-time">2 hrs ago</span>
-                                </div>
-                            </div>
-
-
+                            @empty
+                                <div class="notif-empty">No notifications yet.</div>
+                            @endforelse
                         </div>
                     </div>
                 </div>
@@ -308,6 +193,36 @@
 
         <div class="content-area">
             @yield('content')
+        </div>
+    </div>
+
+    <!-- Order details modal (only for order notifications) -->
+    <div class="order-details-modal" id="orderDetailsModal" aria-hidden="true" role="dialog" aria-labelledby="orderDetailsModalTitle">
+        <div class="order-details-backdrop" id="orderDetailsBackdrop"></div>
+        <div class="order-details-panel">
+            <div class="order-details-header">
+                <h2 id="orderDetailsModalTitle" class="order-details-title">
+                    <span class="material-symbols-outlined">receipt_long</span>
+                    Order details
+                </h2>
+                <button type="button" class="order-details-close" id="orderDetailsClose" aria-label="Close">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+            <div class="order-details-body" id="orderDetailsBody">
+                <div class="order-details-loading" id="orderDetailsLoading">
+                    <span class="material-symbols-outlined spin">progress_activity</span>
+                    <span>Loading order…</span>
+                </div>
+                <div class="order-details-content" id="orderDetailsContent" style="display: none;"></div>
+                <div class="order-details-error" id="orderDetailsError" style="display: none;">
+                    <span class="material-symbols-outlined">error_outline</span>
+                    <span>Could not load order details.</span>
+                </div>
+            </div>
+            <div class="order-details-footer">
+                <a href="{{ route('admin.orders') }}" class="order-details-btn order-details-btn-primary" id="orderDetailsViewAll">View all orders</a>
+            </div>
         </div>
     </div>
 <script>
@@ -401,16 +316,32 @@
     // ========================
     const notifBtn = document.getElementById("notifBtn");
     const notifDropdown = document.getElementById("notifDropdown");
+    const notifBadge = document.getElementById("notifBadge");
     const markAll = document.querySelector(".mark-read");
     const unreadCountElem = document.querySelector(".unread-count");
-    const tabs = document.querySelectorAll(".notif-tabs span");
+    const tabs = document.querySelectorAll(".notif-tabs .notif-tab");
     const notifList = document.querySelector(".notif-list");
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
 
-    // Helper function to update unread count
+    // Keep badge count in sync; only update from DOM when we actually mark read (not when opening dropdown)
     function updateUnreadCount() {
-        const unreadItems = document.querySelectorAll(".notif-item.unread");
-        unreadCountElem.textContent = unreadItems.length;
-        unreadCountElem.style.display = unreadItems.length === 0 ? "none" : "inline-block";
+        const unreadItems = document.querySelectorAll("#notifDropdown .notif-item.unread");
+        const count = unreadItems.length;
+        if (unreadCountElem) {
+            unreadCountElem.textContent = count;
+            unreadCountElem.style.display = count === 0 ? "none" : "inline-block";
+        }
+        if (notifBadge) {
+            notifBadge.textContent = count;
+            notifBadge.setAttribute("data-count", count);
+            notifBadge.classList.toggle("zero", count === 0);
+        }
+        if (notifBtn) {
+            notifBtn.classList.toggle("has-unread", count > 0);
+        }
+        if (markAll) {
+            markAll.classList.toggle("read", count === 0);
+        }
     }
 
     // Adjust dropdown position only for mobile
@@ -439,12 +370,13 @@
     adjustNotifDropdownMobile();
     window.addEventListener("resize", adjustNotifDropdownMobile);
 
-    // Toggle dropdown on bell click
+    // Toggle dropdown on bell click (do not recalculate count — badge stays correct)
     if (notifBtn) {
         notifBtn.addEventListener("click", (e) => {
             e.stopPropagation();
-            notifDropdown.style.display =
-                notifDropdown.style.display === "block" ? "none" : "block";
+            e.preventDefault();
+            const isOpen = notifDropdown.style.display === "block";
+            notifDropdown.style.display = isOpen ? "none" : "block";
         });
     }
 
@@ -458,24 +390,139 @@
         }
     });
 
-    // Click on individual notification to mark as read
-    notifList.addEventListener("click", (e) => {
-        const item = e.target.closest(".notif-item");
-        if (!item) return;
+    // Order details modal elements
+    const orderDetailsModal = document.getElementById("orderDetailsModal");
+    const orderDetailsBackdrop = document.getElementById("orderDetailsBackdrop");
+    const orderDetailsClose = document.getElementById("orderDetailsClose");
+    const orderDetailsBody = document.getElementById("orderDetailsBody");
+    const orderDetailsLoading = document.getElementById("orderDetailsLoading");
+    const orderDetailsContent = document.getElementById("orderDetailsContent");
+    const orderDetailsError = document.getElementById("orderDetailsError");
 
-        if (item.classList.contains("unread")) {
-            item.classList.remove("unread");
-            updateUnreadCount();
+    function openOrderDetailsModal() {
+        if (orderDetailsModal) {
+            orderDetailsModal.classList.add("is-open");
+            orderDetailsModal.setAttribute("aria-hidden", "false");
+            document.body.style.overflow = "hidden";
         }
-    });
+    }
 
-    // Mark all as read
+    function closeOrderDetailsModal() {
+        if (orderDetailsModal) {
+            orderDetailsModal.classList.remove("is-open");
+            orderDetailsModal.setAttribute("aria-hidden", "true");
+            document.body.style.overflow = "";
+        }
+    }
+
+    function renderOrderDetailsContent(order) {
+        const o = order || {};
+        const productHtml = `<div class="product-row"><img src="${escapeHtml(o.product_image_url || '')}" alt=""><div class="product-info"><div class="product-name">${escapeHtml(o.product_name || '—')}</div><div class="product-meta">${escapeHtml(o.product_type || '')} ${escapeHtml(o.gallon_size || '')}</div></div></div>`;
+        const customerHtml = `<div class="detail-row"><img class="detail-avatar" src="${escapeHtml(o.customer_image_url || '')}" alt=""><div><div class="detail-value">${escapeHtml(o.customer_name || '—')}</div><div class="detail-value" style="font-weight:400;font-size:13px;">${escapeHtml(o.customer_phone || '')}</div></div></div>`;
+        const deliveryHtml = `<div class="detail-row"><span class="detail-label">Address</span><span class="detail-value">${escapeHtml(o.delivery_address || '—')}</span></div><div class="detail-row"><span class="detail-label">Date & time</span><span class="detail-value">${escapeHtml((o.delivery_date_formatted || '') + ' ' + (o.delivery_time_formatted || ''))}</span></div>`;
+        const paymentHtml = `<div class="detail-row"><span class="detail-label">Payment</span><span class="detail-value">${escapeHtml(o.payment_method || '—')}</span></div><div class="detail-row"><span class="detail-label">Amount</span><span class="detail-value amount">₱${Number(o.amount || 0).toLocaleString('en-PH', { minimumFractionDigits: 2 })}</span></div><div class="detail-row"><span class="detail-label">Status</span><span class="detail-value">${escapeHtml((o.status || '—') + '')}</span></div>`;
+        return `<div class="detail-section"><div class="detail-section-title"><span class="material-symbols-outlined">inventory_2</span> Product</div>${productHtml}</div><div class="detail-section"><div class="detail-section-title"><span class="material-symbols-outlined">person</span> Customer</div>${customerHtml}</div><div class="detail-section"><div class="detail-section-title"><span class="material-symbols-outlined">location_on</span> Delivery</div>${deliveryHtml}</div><div class="detail-section"><div class="detail-section-title"><span class="material-symbols-outlined">payments</span> Payment & status</div>${paymentHtml}</div>`;
+    }
+
+    async function showOrderDetailsModal(orderId) {
+        if (!orderDetailsModal || !orderId) return;
+        orderDetailsLoading.style.display = "flex";
+        orderDetailsContent.style.display = "none";
+        orderDetailsError.style.display = "none";
+        openOrderDetailsModal();
+
+        try {
+            const res = await fetch(`/admin/orders/${orderId}`, {
+                headers: { "Accept": "application/json", "X-Requested-With": "XMLHttpRequest" },
+                credentials: "same-origin"
+            });
+            const data = await res.json().catch(() => ({}));
+            orderDetailsLoading.style.display = "none";
+            if (res.ok && data.order) {
+                orderDetailsContent.innerHTML = renderOrderDetailsContent(data.order);
+                orderDetailsContent.style.display = "block";
+            } else {
+                orderDetailsError.style.display = "flex";
+            }
+        } catch (err) {
+            orderDetailsLoading.style.display = "none";
+            orderDetailsError.style.display = "flex";
+        }
+    }
+
+    if (orderDetailsBackdrop) orderDetailsBackdrop.addEventListener("click", closeOrderDetailsModal);
+    if (orderDetailsClose) orderDetailsClose.addEventListener("click", closeOrderDetailsModal);
+    document.addEventListener("keydown", (e) => { if (e.key === "Escape" && orderDetailsModal && orderDetailsModal.classList.contains("is-open")) closeOrderDetailsModal(); });
+
+    // Click on individual notification: mark as read; if order notification, show order details modal
+    if (notifList) {
+        notifList.addEventListener("click", async (e) => {
+            const item = e.target.closest(".notif-item[data-id]");
+            if (!item) return;
+
+            const notifType = item.getAttribute("data-type");
+            const relatedId = item.getAttribute("data-related-id");
+            if (notifType === "order_new" && relatedId) {
+                notifDropdown.style.display = "none";
+                showOrderDetailsModal(relatedId);
+            }
+
+            if (item.classList.contains("unread")) {
+                const id = item.getAttribute("data-id");
+                try {
+                    const res = await fetch(`/admin/notifications/${id}/read`, {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json",
+                            "X-CSRF-TOKEN": csrfToken,
+                            "Accept": "application/json",
+                            "X-Requested-With": "XMLHttpRequest"
+                        },
+                        credentials: "same-origin",
+                        body: JSON.stringify({})
+                    });
+                    if (res.ok) {
+                        item.classList.remove("unread");
+                        updateUnreadCount();
+                    }
+                } catch (err) {
+                    console.error("Mark read failed", err);
+                }
+            }
+        });
+    }
+
+    // Mark all as read (API + UI) — persists in DB
     if (markAll) {
-        markAll.addEventListener("click", () => {
-            const allUnread = document.querySelectorAll(".notif-item.unread");
-            allUnread.forEach(item => item.classList.remove("unread"));
-            updateUnreadCount();
-            markAll.classList.add("read");
+        markAll.addEventListener("click", async () => {
+            if (markAll.classList.contains("read")) return;
+            try {
+                const res = await fetch("{{ route('admin.notifications.mark-all-read') }}", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "X-CSRF-TOKEN": csrfToken,
+                        "Accept": "application/json",
+                        "X-Requested-With": "XMLHttpRequest"
+                    },
+                    credentials: "same-origin",
+                    body: JSON.stringify({})
+                });
+                const data = res.ok ? await res.json().catch(() => ({})) : null;
+                if (res.ok && (data === null || data.success !== false)) {
+                    document.querySelectorAll(".notif-item.unread").forEach(item => {
+                        item.classList.remove("unread");
+                        const activeTab = document.querySelector(".notif-tab.active");
+                        if (activeTab && activeTab.getAttribute("data-tab") === "unread") {
+                            item.style.display = "none";
+                        }
+                    });
+                    updateUnreadCount();
+                    markAll.classList.add("read");
+                }
+            } catch (err) {
+                console.error("Mark all read failed", err);
+            }
         });
     }
 
@@ -485,10 +532,11 @@
             tabs.forEach(t => t.classList.remove("active"));
             tab.classList.add("active");
 
-            const allItems = document.querySelectorAll(".notif-item");
-            if (tab.textContent.includes("All")) {
-                allItems.forEach(item => item.style.display = "flex");
-            } else if (tab.textContent.includes("Unread")) {
+            const allItems = document.querySelectorAll(".notif-item[data-id]");
+            const tabType = tab.getAttribute("data-tab");
+            if (tabType === "all") {
+                allItems.forEach(item => { item.style.display = "flex"; });
+            } else if (tabType === "unread") {
                 allItems.forEach(item => {
                     item.style.display = item.classList.contains("unread") ? "flex" : "none";
                 });
@@ -498,6 +546,166 @@
 
     // Initialize unread count
     updateUnreadCount();
+
+    // ========================
+    // Real-time notifications (polling)
+    // ========================
+    const NOTIFICATIONS_POLL_URL = "{{ route('admin.notifications.index') }}";
+    const NOTIFICATIONS_POLL_INTERVAL_MS = 10000; // 10 seconds
+    const TOAST_DURATION_MS = 5000;
+    // Baseline = IDs we already know about (no toast for these). First poll after load sets baseline only.
+    let lastSeenNotifIds = new Set(Array.from(document.querySelectorAll(".notif-item[data-id]")).map(el => String(el.getAttribute("data-id"))));
+    let firstPollDone = false;
+
+    function getToastMessage(notif) {
+        const data = notif.data || {};
+        const subtitle = (data.subtitle || '').trim();
+        const highlight = (data.highlight || '').trim();
+        const name = (notif.title || 'Someone').trim();
+        if (subtitle && highlight) {
+            return name + " " + subtitle + " " + highlight;
+        }
+        if (notif.message) return name + " — " + notif.message;
+        if (notif.type === 'order_new') return name + " placed a new order.";
+        return name;
+    }
+
+    function showToast(notif) {
+        const container = document.getElementById("adminToastContainer");
+        if (!container) return;
+        const message = getToastMessage(notif);
+        const hasImage = (notif.type === 'profile_update' || notif.type === 'address_update' || notif.type === 'order_new') && notif.image_url;
+        const iconHtml = hasImage
+            ? `<div class="toast-icon"><img src="${escapeHtml(notif.image_url)}" alt=""></div>`
+            : `<div class="toast-icon"><span class="material-symbols-outlined" style="font-size:22px">notifications_active</span></div>`;
+        const el = document.createElement("div");
+        el.className = "admin-toast";
+        el.setAttribute("role", "alert");
+        el.innerHTML = iconHtml + `<span class="toast-message">${escapeHtml(message)}</span><button type="button" class="toast-close" aria-label="Close"><span class="material-symbols-outlined" style="font-size:18px">close</span></button>`;
+        container.appendChild(el);
+        requestAnimationFrame(() => el.classList.add("toast-enter"));
+
+        function dismiss() {
+            el.classList.remove("toast-enter");
+            el.classList.add("toast-exit");
+            setTimeout(() => el.remove(), 350);
+        }
+
+        el.querySelector(".toast-close").addEventListener("click", dismiss);
+        const t = setTimeout(dismiss, TOAST_DURATION_MS);
+        el._toastTimer = t;
+    }
+
+    function buildNotifIcon(notif) {
+        const hasImage = (notif.type === 'profile_update' || notif.type === 'address_update' || notif.type === 'order_new') && notif.image_url;
+        if (hasImage) {
+            return `<div class="notif-icon profile"><img src="${escapeHtml(notif.image_url)}" alt=""></div>`;
+        }
+        if (notif.type === 'order_new') {
+            return `<div class="notif-icon delivered"><span class="material-symbols-outlined">shopping_cart</span></div>`;
+        }
+        if (notif.type === 'address_update') {
+            return `<div class="notif-icon delivered"><span class="material-symbols-outlined">location_on</span></div>`;
+        }
+        return `<div class="notif-icon delivered"><span class="material-symbols-outlined">notifications_active</span></div>`;
+    }
+
+    function escapeHtml(str) {
+        if (str == null) return '';
+        const div = document.createElement('div');
+        div.textContent = str;
+        return div.innerHTML;
+    }
+
+    function renderNotifItem(notif) {
+        const isUnread = !notif.read_at;
+        const data = notif.data || {};
+        const subtitle = data.subtitle ? ` <span class="muted">${escapeHtml(data.subtitle)}</span>` : '';
+        const highlight = data.highlight ? ` <span class="highlight">${escapeHtml(data.highlight)}</span>` : '';
+        const message = notif.message && !data.subtitle ? ` <span class="muted">${escapeHtml(notif.message)}</span>` : '';
+        const isOrder = notif.type === 'order_new' && notif.related_id;
+        const dataType = escapeHtml(String(notif.type || ''));
+        const dataRelatedId = isOrder ? escapeHtml(String(notif.related_id)) : '';
+        return `<div class="notif-item ${isUnread ? 'unread' : ''}" data-id="${escapeHtml(String(notif.id))}" data-type="${dataType}" data-related-id="${dataRelatedId}">${buildNotifIcon(notif)}<div class="notif-text"><span><strong>${escapeHtml(notif.title)}</strong>${subtitle}${highlight}${message}</span><span class="notif-time">${escapeHtml(notif.created_at_human || '')}</span></div></div>`;
+    }
+
+    async function pollNotifications() {
+        try {
+            const res = await fetch(NOTIFICATIONS_POLL_URL, {
+                headers: { "Accept": "application/json", "X-Requested-With": "XMLHttpRequest" },
+                credentials: "same-origin"
+            });
+            if (!res.ok) return;
+            const data = await res.json();
+            if (!data || !Array.isArray(data.notifications)) return;
+
+            const currentIds = new Set((data.notifications || []).map(n => String(n.id)));
+
+            // First poll after page load = set baseline only, never show toasts (fixes refresh showing all)
+            if (!firstPollDone) {
+                firstPollDone = true;
+                lastSeenNotifIds = new Set(currentIds);
+                const list = document.querySelector(".notif-list");
+                if (list) {
+                    const activeTab = document.querySelector(".notif-tab.active");
+                    const tabType = activeTab ? activeTab.getAttribute("data-tab") : "all";
+                    if (data.notifications.length === 0) {
+                        list.innerHTML = '<div class="notif-empty">No notifications yet.</div>';
+                    } else {
+                        list.innerHTML = data.notifications.map(renderNotifItem).join("");
+                        if (tabType === "unread") {
+                            list.querySelectorAll(".notif-item").forEach(item => {
+                                item.style.display = item.classList.contains("unread") ? "flex" : "none";
+                            });
+                        }
+                    }
+                }
+            } else {
+                const hasNew = [...currentIds].some(id => !lastSeenNotifIds.has(id));
+                if (hasNew) {
+                    const list = document.querySelector(".notif-list");
+                    if (list) {
+                        const activeTab = document.querySelector(".notif-tab.active");
+                        const tabType = activeTab ? activeTab.getAttribute("data-tab") : "all";
+                        if (data.notifications.length === 0) {
+                            list.innerHTML = '<div class="notif-empty">No notifications yet.</div>';
+                        } else {
+                            list.innerHTML = data.notifications.map(renderNotifItem).join("");
+                            if (tabType === "unread") {
+                                list.querySelectorAll(".notif-item").forEach(item => {
+                                    item.style.display = item.classList.contains("unread") ? "flex" : "none";
+                                });
+                            }
+                        }
+                    }
+                    const newNotifs = data.notifications.filter(n => !lastSeenNotifIds.has(String(n.id)));
+                    newNotifs.forEach(showToast);
+                    lastSeenNotifIds = new Set(currentIds);
+                }
+            }
+
+            // Always update badge count so it stays accurate
+            const count = typeof data.unread_count === 'number' ? data.unread_count : 0;
+            if (notifBadge) {
+                notifBadge.textContent = count;
+                notifBadge.setAttribute("data-count", count);
+                notifBadge.classList.toggle("zero", count === 0);
+            }
+            if (notifBtn) notifBtn.classList.toggle("has-unread", count > 0);
+            if (unreadCountElem) {
+                unreadCountElem.textContent = count;
+                unreadCountElem.style.display = count === 0 ? "none" : "inline-block";
+            }
+            if (markAll) markAll.classList.toggle("read", count === 0);
+        } catch (err) {
+            console.warn("Notifications poll failed", err);
+        }
+    }
+
+    if (NOTIFICATIONS_POLL_URL && document.getElementById("notifBtn")) {
+        setInterval(pollNotifications, NOTIFICATIONS_POLL_INTERVAL_MS);
+        setTimeout(pollNotifications, 2000); // First refresh shortly after load
+    }
 </script>
 
 </body>

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Middleware\AuthenticateApiCustomer;
 use App\Mail\OtpVerificationMail;
+use App\Models\AdminNotification;
 use App\Models\Customer;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -301,6 +302,8 @@ class ApiAuthController extends Controller
 
         $customer->update($data);
 
+        AdminNotification::notifyAddressUpdated($customer->fresh());
+
         return response()->json([
             'success'  => true,
             'message'  => 'Address updated successfully.',
@@ -367,6 +370,9 @@ class ApiAuthController extends Controller
         }
 
         $customer->update($data);
+
+        // Notify admins: always "updated their Profile" for any account information change
+        AdminNotification::notifyProfileUpdated($customer->fresh(), 'Profile');
 
         return response()->json([
             'success' => true,

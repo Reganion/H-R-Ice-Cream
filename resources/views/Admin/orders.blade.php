@@ -68,12 +68,14 @@
                         </thead>
 
 
-                        <tbody>
+                        <tbody id="orders-tbody">
                             @forelse ($orders as $order)
                                 <tr data-order-id="{{ $order->id }}"
                                     data-product-name="{{ e($order->product_name ?? '') }}"
                                     data-product-type="{{ e($order->product_type ?? '') }}"
+                                    data-product-image="{{ asset($order->product_image ?? 'img/default-product.png') }}"
                                     data-gallon-size="{{ e($order->gallon_size ?? '') }}"
+                                    data-transaction-id="{{ e($order->transaction_id ?? '') }}"
                                     data-customer-name="{{ e($order->customer_name ?? '') }}"
                                     data-customer-phone="{{ e($order->customer_phone ?? '') }}"
                                     data-delivery-date="{{ $order->delivery_date ? \Carbon\Carbon::parse($order->delivery_date)->format('Y-m-d') : '' }}"
@@ -81,7 +83,11 @@
                                     data-delivery-address="{{ e($order->delivery_address ?? '') }}"
                                     data-amount="{{ $order->amount ?? '' }}"
                                     data-payment-method="{{ e($order->payment_method ?? '') }}"
-                                    data-status="{{ e($order->status ?? '') }}">
+                                    data-status="{{ e($order->status ?? '') }}"
+                                    data-driver-id="{{ $order->driver_id ?? '' }}"
+                                    data-driver-name="{{ e($order->driver->name ?? '') }}"
+                                    data-driver-phone="{{ e($order->driver->phone ?? '') }}"
+                                    data-driver-image-url="{{ $order->driver ? asset($order->driver->image ?? 'img/default-user.png') : '' }}">
                                     <!-- PRODUCT -->
                                     <td>
                                         <div class="cell-flex">
@@ -111,10 +117,10 @@
                                     </td>
 
                                     <!-- DELIVERY -->
-                                    <td>
+                                    <td class="delivery-schedule-cell">
                                         <strong>{{ \Carbon\Carbon::parse($order->delivery_date)->format('d M') }},
                                             {{ \Carbon\Carbon::parse($order->delivery_time)->format('h:i A') }}</strong>
-                                        <small>{{ $order->delivery_address }}</small>
+                                        <small class="delivery-address">{{ $order->delivery_address }}</small>
                                     </td>
 
                                     <!-- AMOUNT -->
@@ -163,19 +169,16 @@
 
                     </table>
                 </div>
-                <div id="showingText" style="text-align:center; margin:10px 0; color:#555; font-size:14px; display:none;">
-                </div>
+                <div id="showingText" class="showing-text" style="display:none;"></div>
 
                 <!-- PAGINATION -->
-                <div class="pagination-wrapper">
-                    <button class="nav-btn" id="prevBtn">
+                <div class="pagination-wrapper orders-pagination" id="ordersPagination">
+                    <button type="button" class="nav-btn" id="prevBtn" aria-label="Previous page">
                         <span class="material-symbols-outlined">arrow_left_alt</span>
                         Previous
                     </button>
-
-                    <div id="pageNumbers"></div>
-
-                    <button class="nav-btn" id="nextBtn">
+                    <div id="pageNumbers" class="pagination-numbers" role="navigation" aria-label="Page numbers"></div>
+                    <button type="button" class="nav-btn" id="nextBtn" aria-label="Next page">
                         Next
                         <span class="material-symbols-outlined">arrow_right_alt</span>
                     </button>
@@ -184,71 +187,56 @@
             </div>
         </div>
     @endsection
-    <!-- ASSIGN DRIVER MODAL -->
-    <div class="assign-modal" id="assignModal">
+    <!-- ASSIGN / RE-ASSIGN DRIVER MODAL -->
+    <div class="assign-modal" id="assignModal" data-order-id="">
         <div class="assign-card">
 
             <!-- HEADER -->
             <div class="assign-header">
-                <h3>Assign Driver</h3>
-                <button class="close-assign" id="closeAssign">&times;</button>
+                <h3 id="assignModalTitle">Assign Driver</h3>
+                <button class="close-assign" id="closeAssign" type="button">&times;</button>
             </div>
 
             <!-- ORDER INFO -->
             <div class="assign-order">
                 <div class="order-left">
-                    <img src="{{ asset('flavors/Strawberry.png') }}">
+                    <img id="assignProductImage" src="{{ asset('img/gallon.png') }}" alt="">
                     <div>
-                        <strong id="assignProduct">Strawberry</strong>
-                        <small id="assignSchedule">09 Dec, 10:00 am</small>
-                        <small id="assignTxn">#12345678</small>
+                        <strong id="assignProduct">—</strong>
+                        <small id="assignSchedule">—</small>
+                        <small id="assignTxn">—</small>
                     </div>
                 </div>
 
                 <div class="order-right">
-                    <strong id="assignCustomer">Alma Fe Pepania</strong>
-                    <small id="assignPhone">09123456789</small>
-                    <small id="assignAddress">Palm Tree Village</small>
+                    <strong id="assignCustomer">—</strong>
+                    <small id="assignPhone">—</small>
+                    <small id="assignAddress">—</small>
                 </div>
             </div>
 
-            <!-- DRIVER LIST -->
+            <!-- CURRENT ASSIGNED DRIVER (for Re-Assign only) -->
+            <div class="assign-section" id="assignCurrentDriverSection" style="display: none;">
+                <span class="available-badge" style="background: #e3f2fd; color: #1976d2;">Assigned Driver</span>
+                <div class="driver-list" style="margin-top: 8px;">
+                    <div class="driver-item" style="cursor: default;">
+                        <div class="driver-info">
+                            <img id="assignCurrentDriverImage" src="{{ asset('img/default-user.png') }}" alt="">
+                            <div>
+                                <strong id="assignCurrentDriverName">—</strong>
+                                <small id="assignCurrentDriverPhone">—</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- AVAILABLE DRIVERS -->
             <div class="assign-section">
                 <span class="available-badge">Available driver</span>
-
-                <div class="driver-list">
-                    <div class="driver-item">
-                        <div class="driver-info">
-                            <img src="{{ asset('img/johnlloyd.jpg') }}">
-                            <div>
-                                <strong>Nathan Rozano</strong>
-                                <small>09123456789</small>
-                            </div>
-                        </div>
-                        <button class="assign-driver-btn">Assign</button>
-                    </div>
-
-                    <div class="driver-item">
-                        <div class="driver-info">
-                            <img src="{{ asset('img/jade.jpg') }}">
-                            <div>
-                                <strong>Ronel Garcia</strong>
-                                <small>09123456789</small>
-                            </div>
-                        </div>
-                        <button class="assign-driver-btn">Assign</button>
-                    </div>
-
-                    <div class="driver-item">
-                        <div class="driver-info">
-                            <img src="{{ asset('img/kyle.jpg') }}">
-                            <div>
-                                <strong>Kyle Reganion</strong>
-                                <small>09082731631</small>
-                            </div>
-                        </div>
-                        <button class="assign-driver-btn">Assign</button>
-                    </div>
+                <div class="driver-list" id="assignDriverList">
+                    <div class="driver-list-loading" id="assignDriverListLoading">Loading drivers…</div>
+                    <div class="driver-list-items" id="assignDriverListItems"></div>
                 </div>
             </div>
 
@@ -595,7 +583,8 @@
     <script>
         document.addEventListener("DOMContentLoaded", () => {
 
-            const allRows = Array.from(document.querySelectorAll(".orders-data tbody tr"));
+            let allRows = Array.from(document.querySelectorAll(".orders-data tbody tr[data-order-id]"));
+            const ordersTbody = document.getElementById("orders-tbody");
             const searchInput = document.getElementById("searchInput");
 
             const filterBtn = document.getElementById("filterBtn");
@@ -629,7 +618,7 @@
             /* ======================
                SEARCH + FILTER
             ====================== */
-            function applyFilters() {
+            function applyFilters(resetPage = true) {
                 const keyword = searchInput.value.toLowerCase().trim();
                 const activeStatuses = Array.from(filterChecks)
                     .filter(c => c.checked)
@@ -639,14 +628,11 @@
                     const product = row.querySelector("td:nth-child(1)").innerText.toLowerCase();
                     const customer = row.querySelector("td:nth-child(2)").innerText.toLowerCase();
 
-
-
                     const statusEl = row.querySelector(".status-badge");
                     const statusClass = [...statusEl.classList].find(c => ["new_order", "pending",
                         "assigned",
                         "delivered", "walk_in"
                     ].includes(c));
-
 
                     const matchSearch =
                         product.includes(keyword) || customer.includes(keyword);
@@ -657,7 +643,9 @@
                     return matchSearch && matchStatus;
                 });
 
-                currentPage = 1;
+                if (resetPage) currentPage = 1;
+                const totalPages = Math.ceil(filteredRows.length / rowsPerPage);
+                if (totalPages > 0 && currentPage > totalPages) currentPage = totalPages;
                 render(currentPage);
             }
 
@@ -674,19 +662,23 @@
                 allRows.forEach(r => r.style.display = "none");
 
                 if (totalRows === 0) {
-                    pagination.style.display = "none";
-                    showingText.style.display = "block";
-                    showingText.textContent = "No results found";
+                    pagination.style.setProperty("display", "none", "important");
+                    if (showingText) { showingText.style.display = "block"; showingText.textContent = "No results found"; }
                     return;
                 }
 
-                pagination.style.display = totalRows <= rowsPerPage ? "none" : "block";
-
-                showingText.style.display = "block";
-                showingText.textContent =
-                    totalRows <= rowsPerPage ?
-                    `Showing ${totalRows} data` :
-                    `Showing ${(page - 1) * rowsPerPage + 1}–${Math.min(page * rowsPerPage, totalRows)} of ${totalRows}`;
+                /* When data is not beyond 10: hide pagination, show "Showing X data" only */
+                const dataBeyond10 = totalRows > rowsPerPage;
+                if (dataBeyond10) {
+                    pagination.style.setProperty("display", "flex", "important");
+                    if (showingText) showingText.style.display = "none";
+                } else {
+                    pagination.style.setProperty("display", "none", "important");
+                    if (showingText) {
+                        showingText.style.display = "block";
+                        showingText.textContent = "Showing " + totalRows + " data";
+                    }
+                }
 
                 filteredRows
                     .slice((page - 1) * rowsPerPage, page * rowsPerPage)
@@ -695,52 +687,257 @@
                 pageNumbers.innerHTML = "";
                 for (let i = 1; i <= totalPages; i++) {
                     const btn = document.createElement("button");
+                    btn.type = "button";
                     btn.textContent = i;
                     btn.className = "page-num" + (i === page ? " active" : "");
-                    btn.onclick = () => {
-                        currentPage = i;
-                        render(i);
-                    };
+                    btn.setAttribute("aria-label", "Page " + i);
+                    btn.setAttribute("aria-current", i === page ? "page" : "false");
+                    (function(pageNum) {
+                        btn.onclick = function() { currentPage = pageNum; render(pageNum); };
+                    })(i);
                     pageNumbers.appendChild(btn);
                 }
 
-                prevBtn.disabled = page === 1;
-                nextBtn.disabled = page === totalPages;
+                prevBtn.disabled = page <= 1;
+                nextBtn.disabled = page >= totalPages || totalPages <= 0;
             }
 
-            prevBtn.onclick = () => currentPage > 1 && render(--currentPage);
-            nextBtn.onclick = () => currentPage < Math.ceil(filteredRows.length / rowsPerPage) && render(++
-                currentPage);
+            prevBtn.onclick = () => { if (currentPage > 1) { currentPage--; render(currentPage); } };
+            nextBtn.onclick = () => {
+                const totalPages = Math.ceil(filteredRows.length / rowsPerPage);
+                if (currentPage < totalPages) { currentPage++; render(currentPage); }
+            };
+
+            /* ======================
+               REALTIME: build one row from API order
+            ====================== */
+            function esc(s) {
+                if (s == null || s === undefined) return '';
+                const d = document.createElement('div');
+                d.textContent = s;
+                return d.innerHTML;
+            }
+            function escAttr(s) { return esc(s).replace(/"/g, '&quot;'); }
+
+            function buildOrderRow(order) {
+                const statusDisplay = (order.status || '').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+                const amountFormatted = typeof order.amount === 'number' ? order.amount.toFixed(2) : (parseFloat(order.amount) || 0).toFixed(2);
+                let actionHtml = '';
+                if (order.status === 'walk_in') {
+                    actionHtml = '<button type="button" class="action-btn edit-order" title="Edit order"><span class="material-symbols-outlined">edit</span></button>';
+                } else if (order.status === 'assigned') {
+                    actionHtml = '<button class="action-btn reassign"><span class="material-symbols-outlined">person_edit</span></button>';
+                } else if (order.status === 'delivered') {
+                    actionHtml = '<button class="action-btn view"><span class="material-symbols-outlined">visibility</span></button>';
+                } else if (order.status !== 'walk_in') {
+                    actionHtml = '<button class="action-btn assign"><span class="material-symbols-outlined">person_check</span></button>';
+                }
+                return '<tr data-order-id="' + escAttr(String(order.id)) + '"' +
+                    ' data-product-name="' + escAttr(order.product_name) + '"' +
+                    ' data-product-type="' + escAttr(order.product_type) + '"' +
+                    ' data-product-image="' + escAttr(order.product_image_url) + '"' +
+                    ' data-gallon-size="' + escAttr(order.gallon_size) + '"' +
+                    ' data-transaction-id="' + escAttr(order.transaction_id) + '"' +
+                    ' data-customer-name="' + escAttr(order.customer_name) + '"' +
+                    ' data-customer-phone="' + escAttr(order.customer_phone) + '"' +
+                    ' data-delivery-date="' + escAttr(order.delivery_date) + '"' +
+                    ' data-delivery-time="' + escAttr(order.delivery_time) + '"' +
+                    ' data-delivery-address="' + escAttr(order.delivery_address) + '"' +
+                    ' data-amount="' + escAttr(String(order.amount)) + '"' +
+                    ' data-payment-method="' + escAttr(order.payment_method) + '"' +
+                    ' data-status="' + escAttr(order.status) + '"' +
+                    ' data-driver-id="' + escAttr(order.driver_id || '') + '"' +
+                    ' data-driver-name="' + escAttr(order.driver_name || '') + '"' +
+                    ' data-driver-phone="' + escAttr(order.driver_phone || '') + '"' +
+                    ' data-driver-image-url="' + escAttr(order.driver_image_url || '') + '">' +
+                    '<td><div class="cell-flex"><img src="' + escAttr(order.product_image_url) + '" class="avatar"><div><strong>' + esc(order.product_name) + '</strong><small>' + esc(order.product_type) + ' (' + esc(order.gallon_size) + ')</small></div></div></td>' +
+                    '<td><div class="cell-flex"><img src="' + escAttr(order.customer_image_url) + '" class="avatar"><div><strong>' + esc(order.customer_name) + '</strong><small>' + esc(order.customer_phone) + '</small></div></div></td>' +
+                    '<td><strong>#' + esc(order.transaction_id) + '</strong><small>' + esc(order.created_at_formatted) + '</small></td>' +
+                    '<td class="delivery-schedule-cell"><strong>' + esc(order.delivery_date_formatted) + ', ' + esc(order.delivery_time_formatted) + '</strong><small class="delivery-address">' + esc(order.delivery_address) + '</small></td>' +
+                    '<td><strong>₱' + esc(amountFormatted.replace(/\B(?=(\d{3})+(?!\d))/g, ',')) + '</strong><small>' + esc(order.payment_method) + '</small></td>' +
+                    '<td><span class="status-badge ' + escAttr(order.status) + '">● ' + esc(statusDisplay) + '</span></td>' +
+                    '<td>' + actionHtml + '</td></tr>';
+            }
+
+            async function fetchAndRefreshOrders() {
+                try {
+                    const res = await fetch('{{ route("admin.orders.list") }}', { method: 'GET', headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }, credentials: 'same-origin' });
+                    if (!res.ok) return;
+                    const data = await res.json();
+                    const orders = data.orders || [];
+                    if (orders.length === 0) {
+                        ordersTbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding:30px;">No orders found</td></tr>';
+                    } else {
+                        ordersTbody.innerHTML = orders.map(buildOrderRow).join('');
+                    }
+                    allRows = Array.from(document.querySelectorAll('.orders-data tbody tr[data-order-id]'));
+                    applyFilters(false);
+                } catch (e) { /* ignore network errors */ }
+            }
+            window.fetchAndRefreshOrders = fetchAndRefreshOrders;
+
+            const POLL_INTERVAL_MS = 5000;
+            setInterval(fetchAndRefreshOrders, POLL_INTERVAL_MS);
 
             render(currentPage);
         });
     </script>
     <script>
         /* ======================
-        ASSIGN MODAL FUNCTION
+        ASSIGN / RE-ASSIGN MODAL
         ====================== */
         const assignModal = document.getElementById("assignModal");
         const closeAssign = document.getElementById("closeAssign");
+        const assignModalTitle = document.getElementById("assignModalTitle");
+        const assignProductImage = document.getElementById("assignProductImage");
+        const assignProduct = document.getElementById("assignProduct");
+        const assignSchedule = document.getElementById("assignSchedule");
+        const assignTxn = document.getElementById("assignTxn");
+        const assignCustomer = document.getElementById("assignCustomer");
+        const assignPhone = document.getElementById("assignPhone");
+        const assignAddress = document.getElementById("assignAddress");
+        const assignCurrentDriverSection = document.getElementById("assignCurrentDriverSection");
+        const assignCurrentDriverImage = document.getElementById("assignCurrentDriverImage");
+        const assignCurrentDriverName = document.getElementById("assignCurrentDriverName");
+        const assignCurrentDriverPhone = document.getElementById("assignCurrentDriverPhone");
+        const assignDriverListLoading = document.getElementById("assignDriverListLoading");
+        const assignDriverListItems = document.getElementById("assignDriverListItems");
 
-        // USE EVENT DELEGATION (BEST)
+        const assignDriverUrl = "{{ route('admin.orders.drivers') }}";
+        const assignOrderUrlBase = "{{ url('admin/orders') }}";
+
+        function formatSchedule(dateStr, timeStr) {
+            if (!dateStr || !timeStr) return '—';
+            try {
+                const d = new Date(dateStr + 'T' + timeStr);
+                const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+                const day = d.getDate();
+                const month = months[d.getMonth()];
+                let h = d.getHours();
+                const m = d.getMinutes();
+                const ampm = h >= 12 ? 'pm' : 'am';
+                h = h % 12 || 12;
+                return day + ' ' + month + ', ' + (h < 10 ? '0' : '') + h + ':' + (m < 10 ? '0' : '') + m + ' ' + ampm;
+            } catch (e) { return '—'; }
+        }
+
+        function openAssignModal(row, isReassign) {
+            const orderId = row.dataset.orderId;
+            if (!orderId) return;
+
+            assignModal.dataset.orderId = orderId;
+            assignProductImage.src = row.dataset.productImage || '';
+            assignProduct.textContent = row.dataset.productName || '—';
+            assignSchedule.textContent = formatSchedule(row.dataset.deliveryDate, row.dataset.deliveryTime);
+            assignTxn.textContent = '#' + (row.dataset.transactionId || '—');
+            assignCustomer.textContent = row.dataset.customerName || '—';
+            assignPhone.textContent = row.dataset.customerPhone || '—';
+            assignAddress.textContent = row.dataset.deliveryAddress || '—';
+
+            if (isReassign) {
+                assignModalTitle.textContent = 'Re-Assign Driver';
+                assignCurrentDriverSection.style.display = 'block';
+                assignCurrentDriverImage.src = row.dataset.driverImageUrl || "{{ asset('img/default-user.png') }}";
+                assignCurrentDriverName.textContent = row.dataset.driverName || '—';
+                assignCurrentDriverPhone.textContent = row.dataset.driverPhone || '—';
+            } else {
+                assignModalTitle.textContent = 'Assign Driver';
+                assignCurrentDriverSection.style.display = 'none';
+            }
+
+            assignDriverListLoading.style.display = 'block';
+            assignDriverListItems.innerHTML = '';
+
+            fetch(assignDriverUrl, { method: 'GET', headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }, credentials: 'same-origin' })
+                .then(function(res) { return res.json(); })
+                .then(function(data) {
+                    assignDriverListLoading.style.display = 'none';
+                    const drivers = data.drivers || [];
+                    const currentDriverId = (row.dataset.driverId || '').toString();
+                    const buttonLabel = isReassign ? 'Re-Assign' : 'Assign';
+                    drivers.forEach(function(d) {
+                        const item = document.createElement('div');
+                        item.className = 'driver-item';
+                        item.innerHTML =
+                            '<div class="driver-info">' +
+                            '<img src="' + (d.image_url || '') + '" alt="">' +
+                            '<div><strong>' + (d.name || '') + '</strong><small>' + (d.phone || '') + '</small></div>' +
+                            '</div>' +
+                            '<button type="button" class="assign-driver-btn" data-driver-id="' + (d.id || '') + '">' + buttonLabel + '</button>';
+                        assignDriverListItems.appendChild(item);
+                    });
+                    if (drivers.length === 0) {
+                        assignDriverListItems.innerHTML = '<p style="padding:12px; color:#666;">No drivers available.</p>';
+                    }
+                })
+                .catch(function() {
+                    assignDriverListLoading.style.display = 'none';
+                    assignDriverListItems.innerHTML = '<p style="padding:12px; color:#c00;">Failed to load drivers.</p>';
+                });
+
+            assignModal.classList.add('show');
+        }
+
         document.addEventListener("click", function(e) {
             const assignBtn = e.target.closest(".action-btn.assign");
-            if (!assignBtn) return;
+            const reassignBtn = e.target.closest(".action-btn.reassign");
+            const row = (assignBtn || reassignBtn) ? (assignBtn || reassignBtn).closest("tr") : null;
+            if (assignBtn && row) {
+                e.preventDefault();
+                openAssignModal(row, false);
+                return;
+            }
+            if (reassignBtn && row) {
+                e.preventDefault();
+                openAssignModal(row, true);
+                return;
+            }
 
-            e.preventDefault();
-            assignModal.classList.add("show");
+            const assignDriverBtn = e.target.closest(".assign-driver-btn[data-driver-id]");
+            if (assignDriverBtn && assignModal.classList.contains("show")) {
+                e.preventDefault();
+                const orderId = assignModal.dataset.orderId;
+                const driverId = assignDriverBtn.dataset.driverId;
+                if (!orderId || !driverId) return;
+                assignDriverBtn.disabled = true;
+
+                const assignPostUrl = assignOrderUrlBase + '/' + orderId + '/assign';
+                var csrfToken = document.querySelector('meta[name="csrf-token"]') && document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+                if (!csrfToken) csrfToken = '{{ csrf_token() }}';
+                fetch(assignPostUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'X-CSRF-TOKEN': csrfToken
+                    },
+                    credentials: 'same-origin',
+                    body: JSON.stringify({ driver_id: parseInt(driverId, 10) })
+                })
+                .then(function(res) { return res.json().then(function(data) { return { ok: res.ok, data: data }; }); })
+                .then(function(result) {
+                    if (result.ok && result.data.success) {
+                        assignModal.classList.remove('show');
+                        if (typeof fetchAndRefreshOrders === 'function') fetchAndRefreshOrders();
+                    } else {
+                        assignDriverBtn.disabled = false;
+                        alert(result.data.message || 'Failed to assign driver.');
+                    }
+                })
+                .catch(function() {
+                    assignDriverBtn.disabled = false;
+                    alert('Failed to assign driver.');
+                });
+            }
         });
 
-        // close (X)
-        closeAssign.addEventListener("click", () => {
+        closeAssign.addEventListener("click", function() {
             assignModal.classList.remove("show");
         });
 
-        // close on backdrop click
-        assignModal.addEventListener("click", e => {
-            if (e.target === assignModal) {
-                assignModal.classList.remove("show");
-            }
+        assignModal.addEventListener("click", function(e) {
+            if (e.target === assignModal) assignModal.classList.remove("show");
         });
     </script>
 

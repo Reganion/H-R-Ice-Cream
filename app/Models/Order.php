@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Models\Driver;
+
 use Illuminate\Database\Eloquent\Model;
 
 class Order extends Model
@@ -25,6 +27,12 @@ class Order extends Model
         'delivery_address',
         'amount',
         'payment_method',
-        'status'
+        'status',
+        'driver_id',
     ];
+
+    public function driver()
+    {
+        return $this->belongsTo(Driver::class);
+    }
 }

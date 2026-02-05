@@ -3,7 +3,9 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\AdminNotification;
 use App\Models\Customer;
+use App\Models\CustomerNotification;
 use App\Models\Order;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -13,6 +15,7 @@ class ApiOrderController extends Controller
 {
     /**
      * List orders for the authenticated customer (for Flutter).
+     * Returns only fields needed for "my orders" list/detail.
      */
     public function index(Request $request): JsonResponse
     {
@@ -23,8 +26,31 @@ class ApiOrderController extends Controller
         $orders = Order::where('customer_name', $user->firstname . ' ' . $user->lastname)
             ->orWhere('customer_phone', $user->contact_no)
             ->orderBy('created_at', 'desc')
-            ->get();
+            ->get()
+            ->map(fn (Order $order) => $this->formatOrderForApi($order));
         return response()->json(['success' => true, 'data' => $orders]);
+    }
+
+    /**
+     * Return only fields needed for order display (list/detail).
+     */
+    private function formatOrderForApi(Order $order): array
+    {
+        return [
+            'id'               => $order->id,
+            'transaction_id'   => $order->transaction_id,
+            'product_name'     => $order->product_name,
+            'product_type'     => $order->product_type,
+            'gallon_size'      => $order->gallon_size,
+            'product_image'    => $order->product_image,
+            'delivery_date'    => $order->delivery_date?->format('Y-m-d'),
+            'delivery_time'    => $order->delivery_time,
+            'delivery_address' => $order->delivery_address,
+            'amount'           => (float) $order->amount,
+            'payment_method'   => $order->payment_method,
+            'status'           => $order->status,
+            'created_at'       => $order->created_at?->toIso8601String(),
+        ];
     }
 
     /**
@@ -68,15 +94,52 @@ class ApiOrderController extends Controller
             'status' => 'pending',
         ]);
 
-        return response()->json(['success' => true, 'data' => $order], 201);
+        // Notify customer when order is placed (if authenticated)
+        if ($user instanceof Customer) {
+            CustomerNotification::create([
+                'customer_id'   => $user->id,
+                'type'          => CustomerNotification::TYPE_ORDER_PLACED,
+                'title'         => $order->product_name,
+                'message'       => 'Your order has been placed successfully.',
+                'image_url'     => $productImage,
+                'related_type'  => 'Order',
+                'related_id'    => $order->id,
+                'data'          => ['transaction_id' => $order->transaction_id],
+            ]);
+        }
+
+        // Notify all admins: "CustomerName Order #TransactionNo ProductName"
+        AdminNotification::createForAllAdmins(
+            AdminNotification::TYPE_ORDER_NEW,
+            $customerName,
+            null,
+            $productImage,
+            'Order',
+            $order->id,
+            ['subtitle' => 'Order #' . $order->transaction_id, 'highlight' => $order->product_name]
+        );
+
+        return response()->json(['success' => true, 'data' => $this->formatOrderForApi($order)], 201);
     }
 
+    /**
+     * Single order for authenticated customer (only their orders, slim response).
+     */
     public function show(Request $request, int $id): JsonResponse
     {
-        $order = Order::find($id);
+        $user = $request->user();
+        if (!$user instanceof Customer) {
+            return response()->json(['success' => false, 'message' => 'Invalid user.'], 401);
+        }
+        $order = Order::where('id', $id)
+            ->where(function ($q) use ($user) {
+                $q->where('customer_name', $user->firstname . ' ' . $user->lastname)
+                    ->orWhere('customer_phone', $user->contact_no);
+            })
+            ->first();
         if (!$order) {
             return response()->json(['success' => false, 'message' => 'Order not found.'], 404);
         }
-        return response()->json(['success' => true, 'data' => $order]);
+        return response()->json(['success' => true, 'data' => $this->formatOrderForApi($order)]);
     }
 }

@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\ApiAuthController;
 use App\Http\Controllers\Api\ApiCartController;
 use App\Http\Controllers\Api\ApiFavoriteController;
 use App\Http\Controllers\Api\ApiFlavorController;
+use App\Http\Controllers\Api\ApiNotificationController;
 use App\Http\Controllers\Api\ApiOrderController;
 use Illuminate\Support\Facades\Route;
 
@@ -71,5 +72,10 @@ Route::prefix('v1')->group(function () {
         Route::put('/cart/{id}', [ApiCartController::class, 'update']);
         Route::patch('/cart/{id}', [ApiCartController::class, 'update']);
         Route::delete('/cart/{id}', [ApiCartController::class, 'destroy']);
+        // Notifications (for Flutter customer app)
+        Route::get('/notifications', [ApiNotificationController::class, 'index']);
+        Route::get('/notifications/unread-count', [ApiNotificationController::class, 'unreadCount']);
+        Route::post('/notifications/{id}/read', [ApiNotificationController::class, 'markRead']);
+        Route::post('/notifications/read-all', [ApiNotificationController::class, 'markAllRead']);
     });
 });

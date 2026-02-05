@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Customer;
+use App\Models\AdminNotification;
 use App\Models\CustomerAddress;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -82,6 +83,8 @@ class ApiAddressController extends Controller
             'reason'      => $request->filled('reason') ? trim($request->reason) : null,
             'is_default'  => $isDefault,
         ]);
+
+        AdminNotification::notifyAddressUpdated($customer->fresh());
 
         return response()->json([
             'success' => true,
@@ -168,6 +171,8 @@ class ApiAddressController extends Controller
 
         $address->update($data);
 
+        AdminNotification::notifyAddressUpdated($customer->fresh());
+
         return response()->json([
             'success' => true,
             'message' => 'Address updated successfully.',
@@ -232,6 +237,8 @@ class ApiAddressController extends Controller
 
         $customer->addresses()->update(['is_default' => false]);
         $address->update(['is_default' => true]);
+
+        AdminNotification::notifyAddressUpdated($customer->fresh());
 
         return response()->json([
             'success' => true,
