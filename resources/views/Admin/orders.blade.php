@@ -9,7 +9,7 @@
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
     <link rel="icon" href="{{ asset('img/logo.png') }}">
     @section('title', 'Order Management')
-    <link rel="stylesheet" href="{{ asset('css/admin/order.css') }}">
+    <link rel="stylesheet" href="{{ asset('assets/css/Admin/order.css') }}">
 </head>
 
 <body>
@@ -37,6 +37,7 @@
                             <label><input type="checkbox" value="pending"> Pending</label>
                             <label><input type="checkbox" value="assigned"> Assigned</label>
                             <label><input type="checkbox" value="delivered"> Delivered</label>
+                            <label><input type="checkbox" value="cancelled"> Cancelled</label>
                             <label><input type="checkbox" value="walk_in"> Walk-In</label>
                         </div>
                     </div>
@@ -147,7 +148,7 @@
                                             <button class="action-btn reassign">
                                                 <span class="material-symbols-outlined">person_edit</span>
                                             </button>
-                                        @elseif($order->status === 'delivered')
+                                        @elseif($order->status === 'delivered' || $order->status === 'cancelled')
                                             <button class="action-btn view">
                                                 <span class="material-symbols-outlined">visibility</span>
                                             </button>
@@ -631,7 +632,7 @@
                     const statusEl = row.querySelector(".status-badge");
                     const statusClass = [...statusEl.classList].find(c => ["new_order", "pending",
                         "assigned",
-                        "delivered", "walk_in"
+                        "delivered", "cancelled", "walk_in"
                     ].includes(c));
 
                     const matchSearch =
@@ -728,6 +729,8 @@
                 } else if (order.status === 'assigned') {
                     actionHtml = '<button class="action-btn reassign"><span class="material-symbols-outlined">person_edit</span></button>';
                 } else if (order.status === 'delivered') {
+                    actionHtml = '<button class="action-btn view"><span class="material-symbols-outlined">visibility</span></button>';
+                } else if (order.status === 'cancelled') {
                     actionHtml = '<button class="action-btn view"><span class="material-symbols-outlined">visibility</span></button>';
                 } else if (order.status !== 'walk_in') {
                     actionHtml = '<button class="action-btn assign"><span class="material-symbols-outlined">person_check</span></button>';

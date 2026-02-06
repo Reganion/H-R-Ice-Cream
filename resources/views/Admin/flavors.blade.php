@@ -12,8 +12,8 @@
 
     <!-- Google Material Icons -->
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet" />
-    <link rel="stylesheet" href="{{ asset('css/admin/flavor.css') }}">
-    <link rel="stylesheet" href="{{ asset('css/admin/app.css') }}">
+    <link rel="stylesheet" href="{{ asset('assets/css/Admin/flavor.css') }}">
+    <link rel="stylesheet" href="{{ asset('assets/css/Admin/app.css') }}">
 </head>
 
 <body>

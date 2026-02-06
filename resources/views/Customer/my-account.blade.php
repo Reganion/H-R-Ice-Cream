@@ -7,7 +7,7 @@
     <link rel="icon" href="{{ asset('img/logo.png') }}">
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet" />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="{{ asset('css/dashboard.css') }}?v=14">
+    <link rel="stylesheet" href="{{ asset('assets/css/customer/dashboard.css') }}?v=14">
     <title>My Account – Quinjay Ice Cream</title>
     <style>
         .account-page { padding: 24px 16px; max-width: 400px; margin: 0 auto; }

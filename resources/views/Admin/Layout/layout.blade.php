@@ -9,8 +9,9 @@
     <!-- Google Material Icons -->
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet" />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="{{ asset('css/Admin/layout.css') }}">
-    <link rel="stylesheet" href="{{ asset('css/Admin/notification.css') }}">
+    <link rel="stylesheet" href="{{ asset('assets/css/Admin/layout.css') }}">
+    <link rel="stylesheet" href="{{ asset('assets/css/Admin/notification.css') }}">
+    <link rel="stylesheet" href="{{ asset('assets/css/Admin/dashboard.css') }}">
 </head>
 
 <body>
@@ -225,6 +226,77 @@
             </div>
         </div>
     </div>
+
+    <!-- Floating chat: Admin ↔ Customer (available on all admin pages) -->
+    <div class="float-chat-wrap" id="floatChatWrap">
+        <div class="float-chat-panel view-new-message" id="floatChatPanel" aria-hidden="true">
+            <div class="chat-new-msg">
+                <div class="chat-new-msg-header">
+                    <span class="title">New message</span>
+                    <button type="button" class="chat-new-msg-close" id="floatChatClose" aria-label="Close">
+                        <span class="material-symbols-outlined">close</span>
+                    </button>
+                </div>
+                <div class="chat-to-wrap">
+                    <label for="chatToInput">To:</label>
+                    <input type="text" class="chat-to-input" id="chatToInput" placeholder="Search customers" />
+                </div>
+                <div class="chat-customers" id="chatCustomerList">
+                    <div class="chat-placeholder chat-loading" id="chatCustomerListPlaceholder" style="padding:16px;max-height:none;">Loading customers…</div>
+                </div>
+            </div>
+            <div class="chat-conversation">
+                <div class="chat-header" id="chatConvHeader">
+                    <button type="button" class="chat-header-back" id="chatBackToNewMsg" aria-label="Back to New message">
+                        <span class="material-symbols-outlined">arrow_back</span>
+                    </button>
+                    <div class="chat-header-avatar" id="chatHeaderAvatar">
+                        <span class="material-symbols-outlined">person</span>
+                    </div>
+                    <span class="chat-header-name" id="chatHeaderName">Select a customer</span>
+                    <span class="chat-header-caret material-symbols-outlined" aria-hidden="true">keyboard_arrow_down</span>
+                    <div class="chat-header-actions">
+                        <button type="button" aria-label="Minimize"><span class="material-symbols-outlined">remove</span></button>
+                        <button type="button" class="chat-header-close" id="chatConvClose" aria-label="Close"><span class="material-symbols-outlined">close</span></button>
+                    </div>
+                </div>
+                <div class="chat-messages" id="chatMessages">
+                    <div class="chat-placeholder" id="chatPlaceholder">Select a customer to view messages.</div>
+                </div>
+                <div class="chat-input-wrap">
+                    <div class="chat-input-actions">
+                        <input type="file" id="chatFileInput" accept="image/*" multiple hidden />
+                        <button type="button" id="chatAttachBtn" aria-label="Attach images"><span class="material-symbols-outlined">image</span></button>
+                    </div>
+                    <textarea class="chat-input" id="chatInput" placeholder="Aa" rows="1"></textarea>
+                    <div class="chat-input-right">
+                        <button type="button" class="chat-thumbs" id="chatThumbs" aria-label="Like"><span class="material-symbols-outlined">thumb_up</span></button>
+                        <button type="button" class="chat-send" id="chatSend" aria-label="Send"><span class="material-symbols-outlined">send</span></button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="chat-head" id="chatHead" aria-hidden="true">
+            <div class="chat-head-bubble">
+                <span class="chat-head-name" id="chatHeadName">Customer</span>
+                <span class="chat-head-preview" id="chatHeadPreview">New message</span>
+            </div>
+            <div class="chat-head-avatar-wrap" id="chatHeadAvatarWrap">
+                <div class="chat-head-avatar" id="chatHeadAvatar">
+                    <span class="material-symbols-outlined">person</span>
+                </div>
+                <span class="chat-head-avatar-badge" id="chatHeadAvatarBadge">0</span>
+                <button type="button" class="chat-head-dismiss" id="chatHeadDismiss" aria-label="Dismiss">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+        </div>
+        <button type="button" class="float-chat-btn" id="floatChatBtn" aria-label="New message">
+            <span class="chat-unread-badge" id="chatUnreadBadge">0</span>
+            <span class="material-symbols-outlined">edit</span>
+        </button>
+    </div>
+
 <script>
     // ========================
     // Dropdown Menu Toggle
@@ -706,6 +778,393 @@
         setInterval(pollNotifications, NOTIFICATIONS_POLL_INTERVAL_MS);
         setTimeout(pollNotifications, 2000); // First refresh shortly after load
     }
+</script>
+
+{{-- Admin floating chat (available on all admin pages) --}}
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    const panel = document.getElementById("floatChatPanel");
+    const btn = document.getElementById("floatChatBtn");
+    const closeBtn = document.getElementById("floatChatClose");
+    const chatInput = document.getElementById("chatInput");
+    const chatSend = document.getElementById("chatSend");
+    const chatMessages = document.getElementById("chatMessages");
+    const chatPlaceholder = document.getElementById("chatPlaceholder");
+    const chatCustomerList = document.getElementById("chatCustomerList");
+    const chatCustomerListPlaceholder = document.getElementById("chatCustomerListPlaceholder");
+    const chatHeaderName = document.getElementById("chatHeaderName");
+    const chatHeaderAvatar = document.getElementById("chatHeaderAvatar");
+    const chatToInput = document.getElementById("chatToInput");
+    const chatThumbs = document.getElementById("chatThumbs");
+    const convHeader = document.getElementById("chatConvHeader");
+    const chatHead = document.getElementById("chatHead");
+    const chatHeadName = document.getElementById("chatHeadName");
+    const chatHeadPreview = document.getElementById("chatHeadPreview");
+    const chatHeadAvatar = document.getElementById("chatHeadAvatar");
+    const chatHeadAvatarWrap = document.getElementById("chatHeadAvatarWrap");
+    const chatHeadAvatarBadge = document.getElementById("chatHeadAvatarBadge");
+    const chatHeadDismiss = document.getElementById("chatHeadDismiss");
+    const chatUnreadBadge = document.getElementById("chatUnreadBadge");
+
+    const csrfToken = document.querySelector('meta[name="csrf-token"]') ? document.querySelector('meta[name="csrf-token"]').getAttribute('content') : '';
+    const chatCustomersUrl = "{{ route('admin.chat.customers') }}";
+    const chatCustomerShowUrl = "{{ url('admin/chat/customers') }}";
+    const chatUnreadSummaryUrl = "{{ route('admin.chat.unread-summary') }}";
+    const chatSendUrl = "{{ url('admin/chat/customers') }}";
+
+    if (!panel || !btn) return;
+
+    let selectedCustomerId = null;
+    let selectedCustomerName = null;
+    let unreadCount = 0;
+    let searchDebounce = null;
+    let lastMessageId = 0;
+    let pollIntervalId = null;
+    let unreadSummaryPollId = null;
+    var chatHeadPinnedByMinimize = false;
+    const CHAT_POLL_INTERVAL_MS = 2500;
+    const UNREAD_SUMMARY_POLL_MS = 5000;
+
+    function getHeaders() {
+        return { 'X-CSRF-TOKEN': csrfToken, 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' };
+    }
+
+    function loadCustomers(q) {
+        if (!chatCustomerList || !chatCustomerListPlaceholder) return;
+        chatCustomerListPlaceholder.style.display = 'block';
+        chatCustomerListPlaceholder.textContent = 'Loading customers…';
+        chatCustomerList.querySelectorAll('.chat-customer-item').forEach(function(el) { el.remove(); });
+        const url = q ? chatCustomersUrl + '?q=' + encodeURIComponent(q) : chatCustomersUrl;
+        fetch(url, { headers: getHeaders(), credentials: 'same-origin' })
+            .then(function(res) { return res.json(); })
+            .then(function(data) {
+                chatCustomerListPlaceholder.style.display = 'none';
+                if (!data.success || !data.data || !data.data.length) {
+                    chatCustomerListPlaceholder.textContent = 'No customers found.';
+                    chatCustomerListPlaceholder.style.display = 'block';
+                    return;
+                }
+                data.data.forEach(function(c) {
+                    const item = document.createElement('div');
+                    item.className = 'chat-customer-item';
+                    item.setAttribute('data-customer-id', c.id);
+                    item.setAttribute('data-customer-name', c.full_name || '');
+                    item.setAttribute('tabindex', '0');
+                    const avatarHtml = c.image_url ? '<img src="' + escapeHtml(c.image_url) + '" alt="" />' : '<span class="material-symbols-outlined">person</span>';
+                    item.innerHTML = '<div class="chat-customer-avatar">' + avatarHtml + '</div><div class="chat-customer-name">' + escapeHtml(c.full_name || 'Customer') + '</div>';
+                    item.addEventListener('click', function() { selectCustomer(c.id); });
+                    chatCustomerList.appendChild(item);
+                });
+            })
+            .catch(function() {
+                chatCustomerListPlaceholder.textContent = 'Failed to load customers.';
+                chatCustomerListPlaceholder.style.display = 'block';
+            });
+    }
+
+    function stopPolling() {
+        if (pollIntervalId) { clearInterval(pollIntervalId); pollIntervalId = null; }
+    }
+
+    function startPolling() {
+        stopPolling();
+        pollIntervalId = setInterval(pollNewMessages, CHAT_POLL_INTERVAL_MS);
+    }
+
+    function pollNewMessages() {
+        if (!selectedCustomerId || !panel.classList.contains('open') || panel.classList.contains('view-new-message')) return;
+        var url = chatCustomerShowUrl + '/' + selectedCustomerId + '/messages?after_id=' + lastMessageId;
+        fetch(url, { headers: getHeaders(), credentials: 'same-origin' })
+            .then(function(res) { return res.json(); })
+            .then(function(data) {
+                if (!data.success || !data.messages || !data.messages.length) return;
+                data.messages.forEach(function(m) {
+                    if (m.id && chatMessages.querySelector('[data-message-id="' + m.id + '"]')) return;
+                    appendMessage(m);
+                    if (m.id && m.id > lastMessageId) lastMessageId = m.id;
+                });
+                if (data.messages.length && chatMessages) chatMessages.scrollTop = chatMessages.scrollHeight;
+            });
+    }
+
+    function selectCustomer(customerId) {
+        selectedCustomerId = customerId;
+        lastMessageId = 0;
+        stopPolling();
+        chatMessages.querySelectorAll('.chat-msg').forEach(function(m) { m.remove(); });
+        if (chatPlaceholder) { chatPlaceholder.textContent = 'Loading messages…'; chatPlaceholder.style.display = 'flex'; }
+        fetch(chatCustomerShowUrl + '/' + customerId, { headers: getHeaders(), credentials: 'same-origin' })
+            .then(function(res) { return res.json(); })
+            .then(function(data) {
+                if (!data.success) return;
+                const customer = data.customer || {};
+                var fname = (customer.firstname || '').trim();
+                var lname = (customer.lastname || '').trim();
+                selectedCustomerName = (customer.full_name || (fname + ' ' + lname).trim() || customer.email || 'Customer');
+                if (chatHeaderName) { chatHeaderName.textContent = selectedCustomerName; chatHeaderName.title = selectedCustomerName; }
+                if (chatHeaderAvatar) {
+                    var imgUrl = customer.image_url;
+                    chatHeaderAvatar.innerHTML = imgUrl ? '<img src="' + escapeHtml(String(imgUrl)) + '" alt="" />' : '<span class="material-symbols-outlined">person</span>';
+                }
+                chatCustomerList.querySelectorAll('.chat-customer-item').forEach(function(i) {
+                    i.classList.toggle('active', parseInt(i.getAttribute('data-customer-id'), 10) === customerId);
+                });
+                if (chatPlaceholder) {
+                    chatPlaceholder.style.display = (data.messages && data.messages.length) ? 'none' : 'flex';
+                    chatPlaceholder.textContent = (data.messages && data.messages.length) ? '' : 'No messages yet. Say hi!';
+                }
+                var msgs = data.messages || [];
+                msgs.forEach(function(m) { appendMessage(m); if (m.id && m.id > lastMessageId) lastMessageId = m.id; });
+                panel.classList.remove('view-new-message');
+                panel.classList.add('view-conversation');
+                startPolling();
+                if (chatInput) chatInput.focus();
+            })
+            .catch(function() {
+                if (chatPlaceholder) { chatPlaceholder.textContent = 'Failed to load messages.'; chatPlaceholder.style.display = 'flex'; }
+            });
+    }
+
+    function appendMessage(m) {
+        if (chatPlaceholder) chatPlaceholder.style.display = 'none';
+        if (m.id && m.id > lastMessageId) lastMessageId = m.id;
+        const isAdmin = (m.sender_type || '') === 'admin';
+        const timeStr = m.created_at ? new Date(m.created_at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : '';
+        const div = document.createElement('div');
+        div.className = 'chat-msg ' + (isAdmin ? 'admin' : 'customer');
+        if (m.id) div.setAttribute('data-message-id', m.id);
+        if (m.image_url) {
+            div.classList.add('chat-msg-img');
+            div.innerHTML = '<img src="' + escapeHtml(m.image_url) + '" alt="Image" class="chat-msg-image" /><div class="chat-msg-time">' + timeStr + '</div>';
+        } else {
+            div.innerHTML = '<span>' + escapeHtml(m.body || '') + '</span><div class="chat-msg-time">' + timeStr + '</div>';
+        }
+        chatMessages.appendChild(div);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+
+    function updateUnreadUI() {
+        if (chatUnreadBadge) chatUnreadBadge.textContent = unreadCount > 99 ? '99+' : unreadCount;
+        if (btn) { if (unreadCount > 0) btn.classList.add('has-unread'); else btn.classList.remove('has-unread'); }
+    }
+
+    function hideChatHead() {
+        if (chatHead) { chatHead.classList.remove('visible'); chatHead.setAttribute('aria-hidden', 'true'); }
+        if (chatHeadAvatarWrap) chatHeadAvatarWrap.classList.remove('has-unread');
+    }
+
+    function showChatHead(name, preview, avatarUrl, count, pinnedByMinimize) {
+        if (chatHeadName) chatHeadName.textContent = name || 'Customer';
+        if (chatHeadPreview) chatHeadPreview.textContent = (preview || 'New message').substring(0, 40);
+        if (chatHeadAvatar) {
+            chatHeadAvatar.innerHTML = avatarUrl ? '<img src="' + escapeHtml(avatarUrl) + '" alt="" />' : '<span class="material-symbols-outlined">person</span>';
+        }
+        if (chatHeadAvatarBadge) chatHeadAvatarBadge.textContent = (count > 99 ? '99+' : count) || '0';
+        if (chatHeadAvatarWrap) { if (count > 0) chatHeadAvatarWrap.classList.add('has-unread'); else chatHeadAvatarWrap.classList.remove('has-unread'); }
+        if (pinnedByMinimize === true) chatHeadPinnedByMinimize = true;
+        if (chatHead) { chatHead.classList.add('visible'); chatHead.setAttribute('aria-hidden', 'false'); }
+    }
+
+    function openChat() {
+        stopUnreadSummaryPoll();
+        panel.classList.add('open');
+        panel.setAttribute('aria-hidden', 'false');
+        panel.classList.remove('view-conversation');
+        panel.classList.add('view-new-message');
+        unreadCount = 0;
+        updateUnreadUI();
+        chatHeadPinnedByMinimize = false;
+        hideChatHead();
+        loadCustomers(chatToInput ? chatToInput.value.trim() : '');
+    }
+
+    function stopUnreadSummaryPoll() {
+        if (unreadSummaryPollId) { clearInterval(unreadSummaryPollId); unreadSummaryPollId = null; }
+    }
+
+    function pollUnreadSummary() {
+        if (panel.classList.contains('open')) return;
+        fetch(chatUnreadSummaryUrl, { headers: getHeaders(), credentials: 'same-origin' })
+            .then(function(res) { return res.json(); })
+            .then(function(data) {
+                if (!data.success) return;
+                var n = data.unread_count || 0;
+                unreadCount = n;
+                updateUnreadUI();
+                if (n > 0 && data.last_from) {
+                    var from = data.last_from;
+                    showChatHead(from.full_name || 'Customer', from.preview || 'New message', from.image_url || '', n, false);
+                } else if (n === 0 && !chatHeadPinnedByMinimize) hideChatHead();
+            });
+    }
+
+    function startUnreadSummaryPoll() {
+        stopUnreadSummaryPoll();
+        pollUnreadSummary();
+        unreadSummaryPollId = setInterval(pollUnreadSummary, UNREAD_SUMMARY_POLL_MS);
+    }
+
+    function closeChat() {
+        stopPolling();
+        panel.classList.remove('open');
+        panel.setAttribute('aria-hidden', 'true');
+        if (panel.classList.contains('view-conversation') && selectedCustomerId) {
+            var name = chatHeaderName ? chatHeaderName.textContent : (selectedCustomerName || 'Customer');
+            var preview = 'Chat';
+            var lastMsg = chatMessages ? chatMessages.querySelector('.chat-msg:last-child .chat-msg-time') : null;
+            if (lastMsg && lastMsg.previousElementSibling) {
+                var txt = lastMsg.previousElementSibling.textContent || lastMsg.parentElement.textContent || '';
+                preview = (txt.trim() || 'Chat').substring(0, 40);
+            } else if (chatMessages) {
+                var lastBubble = chatMessages.querySelector('.chat-msg:last-child');
+                if (lastBubble) preview = (lastBubble.textContent || 'Chat').trim().substring(0, 40);
+            }
+            var avatarUrl = '';
+            if (chatHeaderAvatar && chatHeaderAvatar.querySelector('img')) { var img = chatHeaderAvatar.querySelector('img'); if (img && img.src) avatarUrl = img.src; }
+            showChatHead(name, preview, avatarUrl, unreadCount, true);
+        } else if (unreadCount > 0) pollUnreadSummary();
+        startUnreadSummaryPoll();
+    }
+
+    btn.addEventListener('click', function() {
+        if (panel.classList.contains('open')) closeChat(); else openChat();
+    });
+
+    if (closeBtn) closeBtn.addEventListener('click', closeChat);
+    if (chatHeadDismiss) {
+        chatHeadDismiss.addEventListener('click', function(e) {
+            e.stopPropagation();
+            chatHeadPinnedByMinimize = false;
+            unreadCount = 0;
+            updateUnreadUI();
+            hideChatHead();
+        });
+    }
+    if (chatHead) {
+        chatHead.addEventListener('click', function(e) {
+            if (e.target.closest('.chat-head-dismiss')) return;
+            var reopenId = selectedCustomerId;
+            openChat();
+            if (reopenId) setTimeout(function() { selectCustomer(reopenId); }, 50);
+        });
+    }
+    if (convHeader) {
+        var minBtn = convHeader.querySelector("button[aria-label='Minimize']");
+        if (minBtn) minBtn.addEventListener('click', closeChat);
+    }
+    var chatConvClose = document.getElementById('chatConvClose');
+    if (chatConvClose) chatConvClose.addEventListener('click', closeChat);
+    if (chatToInput && chatCustomerList) {
+        chatToInput.addEventListener('input', function() {
+            clearTimeout(searchDebounce);
+            searchDebounce = setTimeout(function() { loadCustomers((chatToInput.value || '').trim()); }, 300);
+        });
+    }
+    var chatBackToNewMsg = document.getElementById('chatBackToNewMsg');
+    if (chatBackToNewMsg) {
+        chatBackToNewMsg.addEventListener('click', function() {
+            stopPolling();
+            panel.classList.remove('view-conversation');
+            panel.classList.add('view-new-message');
+        });
+    }
+
+    function onIncomingMessage(senderName, messagePreview, avatarUrl) {
+        unreadCount++;
+        updateUnreadUI();
+        if (!panel.classList.contains('open')) showChatHead(senderName || 'Customer', messagePreview || 'New message', avatarUrl || '', unreadCount, false);
+    }
+    window.adminChatIncoming = onIncomingMessage;
+    document.addEventListener('chatIncoming', function(e) {
+        var d = e.detail || {};
+        onIncomingMessage(d.senderName || d.name, d.messagePreview || d.preview || d.message);
+    });
+
+    function escapeHtml(s) {
+        var el = document.createElement('div');
+        el.textContent = s;
+        return el.innerHTML;
+    }
+
+    var chatAttachBtn = document.getElementById('chatAttachBtn');
+    var chatFileInput = document.getElementById('chatFileInput');
+    if (chatAttachBtn && chatFileInput) {
+        chatAttachBtn.addEventListener('click', function() { if (!selectedCustomerId) return; chatFileInput.click(); });
+        chatFileInput.addEventListener('change', function() {
+            var files = chatFileInput.files;
+            if (!files || !files.length || !selectedCustomerId) return;
+            var imageFiles = [];
+            for (var i = 0; i < files.length; i++) { if (files[i].type.startsWith('image/')) imageFiles.push(files[i]); }
+            if (!imageFiles.length) { chatFileInput.value = ''; return; }
+            imageFiles.forEach(function(file) {
+                var formData = new FormData();
+                formData.append('_token', csrfToken);
+                formData.append('image', file);
+                fetch(chatSendUrl + '/' + selectedCustomerId + '/messages', {
+                    method: 'POST',
+                    headers: { 'X-CSRF-TOKEN': csrfToken, 'X-Requested-With': 'XMLHttpRequest' },
+                    body: formData,
+                    credentials: 'same-origin'
+                }).then(function(res) { return res.json(); }).then(function(data) {
+                    if (data.success && data.message) {
+                        addImageMessage(data.message.image_url, true);
+                        if (data.message.id) lastMessageId = data.message.id;
+                    }
+                });
+            });
+            chatFileInput.value = '';
+        });
+    }
+
+    function addImageMessage(src, isAdmin) {
+        if (!src) return;
+        if (chatPlaceholder) chatPlaceholder.style.display = 'none';
+        var timeStr = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+        var div = document.createElement('div');
+        div.className = 'chat-msg chat-msg-img ' + (isAdmin ? 'admin' : 'customer');
+        div.innerHTML = '<img src="' + escapeHtml(src) + '" alt="Image" class="chat-msg-image" /><div class="chat-msg-time">' + timeStr + '</div>';
+        chatMessages.appendChild(div);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+
+    if (chatThumbs) chatThumbs.addEventListener('click', function() {
+        if (!selectedCustomerId) return;
+        sendMessage('👍', true);
+    });
+
+    function sendMessage(text, appendOnSuccess) {
+        if (!selectedCustomerId) return;
+        var formData = new FormData();
+        formData.append('_token', csrfToken);
+        formData.append('body', text);
+        fetch(chatSendUrl + '/' + selectedCustomerId + '/messages', {
+            method: 'POST',
+            headers: { 'X-CSRF-TOKEN': csrfToken, 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+            body: formData,
+            credentials: 'same-origin'
+        }).then(function(res) { return res.json(); }).then(function(data) {
+            if (appendOnSuccess && data.success && data.message) {
+                appendMessage(data.message);
+                if (data.message.id) lastMessageId = data.message.id;
+            }
+        });
+    }
+
+    if (chatSend && chatInput) {
+        chatSend.addEventListener('click', function() {
+            var text = chatInput.value.trim();
+            if (!text) return;
+            chatInput.value = '';
+            chatInput.style.height = 'auto';
+            sendMessage(text, true);
+        });
+        chatInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); chatSend.click(); }
+        });
+    }
+
+    startUnreadSummaryPoll();
+});
 </script>
 
 </body>

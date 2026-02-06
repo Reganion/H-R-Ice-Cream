@@ -7,7 +7,6 @@ use App\Models\ChatMessage;
 use App\Models\Customer;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
 
 class ApiChatController extends Controller
 {
@@ -59,9 +58,13 @@ class ApiChatController extends Controller
         if ($request->hasFile('image')) {
             $file = $request->file('image');
             if ($file->isValid() && str_starts_with($file->getMimeType(), 'image/')) {
-                $path = $file->store('chat', 'public');
-                if ($path) {
-                    $imagePath = $path;
+                $dir = public_path('img/chat');
+                if (!is_dir($dir)) {
+                    mkdir($dir, 0755, true);
+                }
+                $name = 'chat_' . $customer->id . '_' . time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
+                if ($file->move($dir, $name)) {
+                    $imagePath = 'img/chat/' . $name;
                 }
             }
         }
@@ -109,7 +112,7 @@ class ApiChatController extends Controller
                     'id' => $lastMessage->id,
                     'sender_type' => $lastMessage->sender_type,
                     'body' => $lastMessage->body,
-                    'image_url' => $lastMessage->image_path ? asset('storage/' . $lastMessage->image_path) : null,
+                    'image_url' => $lastMessage->image_path ? (str_starts_with($lastMessage->image_path, 'img/') ? asset($lastMessage->image_path) : asset('storage/' . $lastMessage->image_path)) : null,
                     'created_at' => $lastMessage->created_at->toIso8601String(),
                 ] : null,
                 'unread_count' => $unreadFromAdmin,
@@ -143,7 +146,7 @@ class ApiChatController extends Controller
     {
         $imageUrl = null;
         if ($m->image_path) {
-            $imageUrl = asset('storage/' . $m->image_path);
+            $imageUrl = str_starts_with($m->image_path, 'img/') ? asset($m->image_path) : asset('storage/' . $m->image_path);
         }
         return [
             'id' => $m->id,

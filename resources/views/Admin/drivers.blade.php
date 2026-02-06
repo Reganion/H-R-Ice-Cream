@@ -9,7 +9,7 @@
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
     <link rel="icon" href="{{ asset('img/logo.png') }}">
     @section('title', 'Driver Management')
-    <link rel="stylesheet" href="{{ asset('css/admin/app.css') }}">
+    <link rel="stylesheet" href="{{ asset('assets/css/Admin/app.css') }}">
     <style>
         html,
         body {

@@ -7,7 +7,7 @@
     <link rel="icon" href="{{ asset('img/logo.png') }}">
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet" />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="{{ asset('css/favorite.css') }}">
+    <link rel="stylesheet" href="{{ asset('assets/css/customer/favorite.css') }}">
     <title>My Favorite List – Quinjay Ice Cream</title>
 </head>
 

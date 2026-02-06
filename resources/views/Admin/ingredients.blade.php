@@ -9,8 +9,8 @@
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
     <link rel="icon" href="{{ asset('img/logo.png') }}">
     @section('title', 'Ingredients Management')
-    <link rel="stylesheet" href="{{ asset('css/admin/ingredients.css') }}">
-    <link rel="stylesheet" href="{{ asset('css/admin/app.css') }}">
+    <link rel="stylesheet" href="{{ asset('assets/css/Admin/ingredients.css') }}">
+    <link rel="stylesheet" href="{{ asset('assets/css/Admin/app.css') }}">
 
 
     <!-- Google Material Icons -->

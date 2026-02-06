@@ -62,6 +62,8 @@ Route::prefix('v1')->group(function () {
         Route::get('/orders', [ApiOrderController::class, 'index']);
         Route::post('/orders', [ApiOrderController::class, 'store']);
         Route::get('/orders/{id}', [ApiOrderController::class, 'show']);
+        Route::patch('/orders/{id}/cancel', [ApiOrderController::class, 'cancel']);
+        Route::post('/orders/{id}/feedback', [ApiOrderController::class, 'feedback']);
         // Favorites (heart icon): list, add/remove toggle, check, delete
         Route::get('/favorites', [ApiFavoriteController::class, 'index']);
         Route::post('/favorites', [ApiFavoriteController::class, 'store']);

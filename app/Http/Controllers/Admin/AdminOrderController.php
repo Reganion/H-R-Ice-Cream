@@ -129,6 +129,7 @@ class AdminOrderController extends Controller
             'delivery_time'    => $request->delivery_time,
             'delivery_address' => $request->delivery_address,
             'amount'           => $request->amount,
+            'qty'              => (int) $request->input('quantity', 1),
             'payment_method'   => $request->payment_method,
             'status'           => 'walk_in',
         ]);

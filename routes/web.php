@@ -168,8 +168,12 @@ Route::prefix('admin')->name('admin.')->group(function () {
 
     Route::get('/chat/customers', [AdminChatController::class, 'customers'])
         ->name('chat.customers');
+    Route::get('/chat/unread-summary', [AdminChatController::class, 'unreadSummary'])
+        ->name('chat.unread-summary');
     Route::get('/chat/customers/{id}', [AdminChatController::class, 'show'])
         ->name('chat.customers.show');
+    Route::get('/chat/customers/{id}/messages', [AdminChatController::class, 'messagesSince'])
+        ->name('chat.customers.messages');
     Route::post('/chat/customers/{id}/messages', [AdminChatController::class, 'sendMessage'])
         ->name('chat.customers.send');
 });

@@ -7,7 +7,6 @@ use App\Models\ChatMessage;
 use App\Models\Customer;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
 
 class AdminChatController extends Controller
 {
@@ -45,7 +44,7 @@ class AdminChatController extends Controller
                 'lastname' => $c->lastname,
                 'email' => $c->email,
                 'contact_no' => $c->contact_no ?? '',
-                'image_url' => $c->image ? asset('storage/' . $c->image) : null,
+                'image_url' => asset($c->image ?? 'img/default-user.png'),
                 'last_message_preview' => $lastMessage ? $this->preview($lastMessage) : null,
                 'last_message_at' => $lastMessage ? $lastMessage->created_at->toIso8601String() : null,
                 'unread_count' => $unreadCount,
@@ -55,6 +54,41 @@ class AdminChatController extends Controller
         return response()->json([
             'success' => true,
             'data' => $list,
+        ]);
+    }
+
+    /**
+     * Unread summary for chat head when panel is minimized.
+     * GET /admin/chat/unread-summary
+     */
+    public function unreadSummary(): JsonResponse
+    {
+        $lastUnread = ChatMessage::query()
+            ->where('sender_type', ChatMessage::SENDER_CUSTOMER)
+            ->whereNull('read_at')
+            ->orderByDesc('created_at')
+            ->first();
+
+        $totalUnread = ChatMessage::query()
+            ->where('sender_type', ChatMessage::SENDER_CUSTOMER)
+            ->whereNull('read_at')
+            ->count();
+
+        $lastFrom = null;
+        if ($lastUnread && $lastUnread->customer) {
+            $c = $lastUnread->customer;
+            $lastFrom = [
+                'customer_id' => $c->id,
+                'full_name'   => $c->full_name,
+                'image_url'   => asset($c->image ?? 'img/default-user.png'),
+                'preview'     => $this->preview($lastUnread),
+            ];
+        }
+
+        return response()->json([
+            'success'       => true,
+            'unread_count'  => $totalUnread,
+            'last_from'     => $lastFrom,
         ]);
     }
 
@@ -89,10 +123,39 @@ class AdminChatController extends Controller
                 'lastname' => $customer->lastname,
                 'email' => $customer->email,
                 'contact_no' => $customer->contact_no ?? '',
-                'image_url' => $customer->image ? asset('storage/' . $customer->image) : null,
+                'image_url' => asset($customer->image ?? 'img/default-user.png'),
             ],
             'messages' => $messages,
         ]);
+    }
+
+    /**
+     * Get new messages for a customer after a given message id (for real-time polling).
+     * GET /admin/chat/customers/{id}/messages?after_id=123
+     */
+    public function messagesSince(Request $request, int $id): JsonResponse
+    {
+        $customer = Customer::find($id);
+        if (!$customer) {
+            return response()->json(['success' => false, 'message' => 'Customer not found.'], 404);
+        }
+        $afterId = (int) $request->get('after_id', 0);
+        $messages = $customer->chatMessages()
+            ->where('id', '>', $afterId)
+            ->orderBy('id')
+            ->get()
+            ->map(fn (ChatMessage $m) => $this->formatMessage($m));
+
+        // Mark new customer messages as read when we fetch them
+        if ($messages->isNotEmpty()) {
+            $customer->chatMessages()
+                ->where('sender_type', ChatMessage::SENDER_CUSTOMER)
+                ->whereNull('read_at')
+                ->where('id', '>', $afterId)
+                ->update(['read_at' => now()]);
+        }
+
+        return response()->json(['success' => true, 'messages' => $messages->values()->all()]);
     }
 
     /**
@@ -113,9 +176,13 @@ class AdminChatController extends Controller
         if ($request->hasFile('image')) {
             $file = $request->file('image');
             if ($file->isValid() && str_starts_with($file->getMimeType(), 'image/')) {
-                $path = $file->store('chat', 'public');
-                if ($path) {
-                    $imagePath = $path;
+                $dir = public_path('img/chat');
+                if (!is_dir($dir)) {
+                    mkdir($dir, 0755, true);
+                }
+                $name = 'chat_' . $customer->id . '_' . time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
+                if ($file->move($dir, $name)) {
+                    $imagePath = 'img/chat/' . $name;
                 }
             }
         }
@@ -152,7 +219,7 @@ class AdminChatController extends Controller
     {
         $imageUrl = null;
         if ($m->image_path) {
-            $imageUrl = asset('storage/' . $m->image_path);
+            $imageUrl = str_starts_with($m->image_path, 'img/') ? asset($m->image_path) : asset('storage/' . $m->image_path);
         }
         return [
             'id' => $m->id,
