@@ -208,6 +208,21 @@
         gap: 10px;
     }
 
+    .bulk-delete-btn {
+        border: none;
+        background: transparent;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0;
+        cursor: pointer;
+        color: #6b7280;
+    }
+
+    .bulk-delete-btn:hover {
+        color: #ef4444;
+    }
+
     /* ========================
            TABLE BODY
         ======================== */
@@ -220,11 +235,22 @@
 
     .flavor-table tr {
         background: #fff;
+        position: relative;
     }
 
     .flavor-table td {
         padding: 16px 20px;
         vertical-align: middle;
+    }
+
+    .flavor-table tbody tr:not(:last-child)::after {
+        content: "";
+        position: absolute;
+        left: 20px;
+        right: 20px;
+        bottom: 0;
+        border-bottom: 1px solid #ececec;
+        pointer-events: none;
     }
 
 
@@ -349,7 +375,7 @@
         align-items: center;
         gap: 14px;
         padding: 14px 0 6px;
-        border-top: 1px solid #eee;
+        border-top: none;
         margin-top: auto;
     }
 
@@ -505,6 +531,10 @@
             border-radius: 16px;
             box-shadow: 0 6px 16px rgba(0, 0, 0, 0.05);
             margin-bottom: 14px;
+        }
+
+        .flavor-table tbody tr::after {
+            display: none;
         }
 
         .flavor-table td {

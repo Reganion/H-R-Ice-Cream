@@ -91,4 +91,23 @@ class FlavorController extends Controller
         $flavor->delete();
         return back()->with('success', 'Flavor deleted successfully');
     }
+
+    public function bulkDestroy(Request $request)
+    {
+        $validated = $request->validate([
+            'flavor_ids' => ['required', 'array', 'min:1'],
+            'flavor_ids.*' => ['integer', 'exists:flavors,id'],
+        ]);
+
+        $ids = collect($validated['flavor_ids'])
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->values();
+
+        $deletedCount = Flavor::query()
+            ->whereIn('id', $ids)
+            ->delete();
+
+        return back()->with('success', $deletedCount . ' selected item(s) deleted successfully');
+    }
 }

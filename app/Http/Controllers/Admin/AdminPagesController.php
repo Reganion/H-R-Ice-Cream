@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\Customer;
 use App\Models\Driver;
 use App\Models\Flavor;
 use App\Models\Gallon;
@@ -21,9 +22,10 @@ class AdminPagesController extends Controller
     public function dashboard()
     {
         $now = Carbon::now();
-        $startOfMonth = $now->copy()->startOfMonth();
         $startOfLastMonth = $now->copy()->subMonth()->startOfMonth();
         $endOfLastMonth = $now->copy()->subMonth()->endOfMonth();
+        $startOfYear = $now->copy()->startOfYear()->toDateString();
+        $endOfYear = $now->copy()->endOfYear()->toDateString();
 
         $orders = Order::orderBy('created_at', 'desc')->get();
         $fiveMinutesAgo = $now->copy()->subMinutes(5);
@@ -39,6 +41,45 @@ class AdminPagesController extends Controller
         $pendingLastMonth = $ordersLastMonth->where('status', 'pending')->count();
         $deliveredLastMonth = $ordersLastMonth->where('status', 'delivered')->count();
 
+        // Top 3 best sellers by ordered quantity (excluding cancelled orders)
+        $topSellers = Order::query()
+            ->select('product_name')
+            ->selectRaw('SUM(COALESCE(qty, 1)) as total_qty')
+            ->whereRaw("LOWER(status) IN ('completed', 'delivered')")
+            ->groupBy('product_name')
+            ->orderByDesc('total_qty')
+            ->limit(3)
+            ->get();
+
+        if ($topSellers->isEmpty()) {
+            $topSellersLabels = ['No Sales Data'];
+            $topSellersValues = [1];
+        } else {
+            $topSellersLabels = $topSellers
+                ->map(function ($row) {
+                    $name = trim((string) ($row->product_name ?? ''));
+                    return $name !== '' ? $name : 'Unknown Product';
+                })
+                ->values()
+                ->all();
+            $topSellersValues = $topSellers->pluck('total_qty')->map(fn ($v) => (int) $v)->values()->all();
+        }
+
+        // Monthly sales Jan-Dec for current year based on delivery date.
+        // Fallback to created_at when delivery_date is missing.
+        $salesByMonth = Order::query()
+            ->selectRaw('MONTH(COALESCE(delivery_date, created_at)) as month_num')
+            ->selectRaw('SUM(COALESCE(amount, 0)) as total_sales')
+            ->whereRaw("LOWER(status) IN ('completed', 'delivered')")
+            ->whereRaw('DATE(COALESCE(delivery_date, created_at)) BETWEEN ? AND ?', [$startOfYear, $endOfYear])
+            ->groupByRaw('MONTH(COALESCE(delivery_date, created_at))')
+            ->pluck('total_sales', 'month_num');
+
+        $monthlySalesValues = collect(range(1, 12))
+            ->map(fn ($month) => (int) round((float) ($salesByMonth[$month] ?? 0)))
+            ->values()
+            ->all();
+
         return view('admin.dashboard', compact(
             'orders',
             'totalOrders',
@@ -48,7 +89,10 @@ class AdminPagesController extends Controller
             'totalLastMonth',
             'assignedLastMonth',
             'pendingLastMonth',
-            'deliveredLastMonth'
+            'deliveredLastMonth',
+            'topSellersLabels',
+            'topSellersValues',
+            'monthlySalesValues'
         ));
     }
 
@@ -101,7 +145,11 @@ class AdminPagesController extends Controller
 
     public function customer()
     {
-        return view('admin.customer');
+        $customers = Customer::with(['addresses' => function ($query) {
+            $query->orderByDesc('is_default')->orderByDesc('created_at');
+        }])->orderBy('created_at', 'desc')->get();
+
+        return view('admin.customer', compact('customers'));
     }
 
     public function account()

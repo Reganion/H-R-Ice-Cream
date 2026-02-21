@@ -160,6 +160,7 @@
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
             gap: 20px;
+            align-items: stretch;
         }
 
         .driver-card {
@@ -168,6 +169,10 @@
             padding: 20px;
             text-align: center;
             box-shadow: 0 4px 12px rgba(0, 0, 0, .08);
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            position: relative;
         }
 
         .driver-card img {
@@ -188,6 +193,7 @@
             justify-content: center;
             gap: 8px;
             margin-bottom: 15px;
+            align-items: center;
         }
 
         .driver-tags .code {
@@ -196,6 +202,33 @@
             border-radius: 20px;
             font-size: 12px;
             font-weight: 400;
+        }
+
+        .card-delete-btn {
+            width: 28px;
+            height: 28px;
+            border-radius: 999px;
+            border: none;
+            background: #fee2e2;
+            color: #dc2626;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: background 0.2s ease, transform 0.2s ease;
+            position: absolute;
+            top: 12px;
+            right: 12px;
+        }
+
+        .card-delete-btn .material-symbols-outlined {
+            font-size: 18px;
+            line-height: 1;
+        }
+
+        .card-delete-btn:hover {
+            background: #fecaca;
+            transform: translateY(-1px);
         }
 
         .status {
@@ -258,14 +291,31 @@
             overflow-wrap: break-word;
         }
 
-        .btn-remove {
+        .driver-info p span.driver-email {
+            display: inline-block;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            word-break: normal;
+            overflow-wrap: normal;
+        }
+
+        .driver-status-row {
+            margin-top: auto;
+            padding-top: 12px;
+            display: flex;
+            justify-content: center;
             width: 100%;
-            border: none;
-            background: #e60023;
-            color: #fff;
-            padding: 10px;
+        }
+
+        .driver-status-row .status {
+            width: 100%;
             border-radius: 30px;
-            cursor: pointer;
+            padding: 8px 12px;
+            font-size: 13px;
+            font-weight: 600;
+            text-align: center;
+            box-sizing: border-box;
         }
 
         /* =======================
@@ -499,6 +549,100 @@
             }
         }
 
+        /* =======================
+        DELETE CONFIRM MODAL (same style as flavors)
+        ======================= */
+        .delete-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.45);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 4000;
+        }
+
+        .delete-overlay.show {
+            display: flex;
+        }
+
+        .delete-modal {
+            background: #fff;
+            width: 420px;
+            max-width: calc(100% - 32px);
+            border-radius: 16px;
+            padding: 26px;
+            text-align: left;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+        }
+
+        .delete-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #111827;
+            margin-bottom: 10px;
+        }
+
+        .delete-title span {
+            font-weight: 700;
+        }
+
+        .delete-text {
+            font-size: 14px;
+            color: #6b7280;
+            margin-bottom: 24px;
+        }
+
+        .delete-actions {
+            display: flex;
+            justify-content: center;
+            gap: 14px;
+        }
+
+        .btn-delete-cancel {
+            padding: 10px 18px;
+            border-radius: 999px;
+            border: none;
+            background: #f3f4f6;
+            color: #374151;
+            font-weight: 500;
+            cursor: pointer;
+        }
+
+        .btn-delete-confirm {
+            padding: 10px 18px;
+            border-radius: 999px;
+            border: none;
+            background: #ef4444;
+            color: #fff;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .btn-delete-confirm:hover {
+            background: #dc2626;
+        }
+
+        @media (max-width: 600px) {
+            .delete-modal {
+                width: calc(100% - 24px);
+                max-width: none;
+                padding: 20px 16px;
+                border-radius: 14px;
+            }
+
+            .delete-actions {
+                flex-direction: column;
+                gap: 10px;
+            }
+
+            .btn-delete-cancel,
+            .btn-delete-confirm {
+                width: 100%;
+                min-height: 42px;
+            }
+        }
+
         /* ======================= ADD DRIVER MODAL (same pattern as flavor) ======================= */
         .modal-overlay {
             position: fixed;
@@ -710,19 +854,23 @@
                                 $labelValue = $statusLabel[$driverStatus] ?? 'Available';
                             @endphp
                             <div class="driver-card" data-status="{{ $filterValue }}">
+                                <button type="button" class="card-delete-btn" title="Remove driver" aria-label="Remove driver" data-driver-id="{{ $driver->id }}" data-driver-name="{{ $driver->name }}">
+                                    <span class="material-symbols-outlined">remove</span>
+                                </button>
                                 <img src="{{ (isset($driver->image) && $driver->image) ? asset($driver->image) : asset('img/default-user.png') }}" alt="{{ $driver->name ?? '' }}">
                                 <h4>{{ $driver->name }}</h4>
                                 <div class="driver-tags">
                                     <span class="code">{{ $driver->driver_code ?? 'DRV' . str_pad((string)$driver->id, 3, '0', STR_PAD_LEFT) }}</span>
-                                    <span class="status {{ $filterValue }}">{{ $labelValue }}</span>
                                 </div>
                                 <div class="driver-info">
                                     <p><strong>Phone</strong><span>{{ $driver->phone ?? '—' }}</span></p>
-                                    <p><strong>Email</strong><span>{{ $driver->email ?? '—' }}</span></p>
+                                    <p><strong>Email</strong><span class="driver-email">{{ $driver->email ?? '—' }}</span></p>
                                     <p><strong>License No.</strong><span>{{ $driver->license_no ?? '—' }}</span></p>
                                     <p><strong>Type</strong><span>{{ $driver->license_type ?? '—' }}</span></p>
                                 </div>
-                                <button class="btn-remove" type="button">Remove</button>
+                                <div class="driver-status-row">
+                                    <span class="status {{ $filterValue }}">{{ $labelValue }}</span>
+                                </div>
                             </div>
                         @empty
                             <div style="grid-column:1/-1;text-align:center;padding:40px;color:#666;">
@@ -829,10 +977,47 @@
             </form>
         </div>
 
+        <div class="delete-overlay" id="deleteDriverConfirmModal">
+            <form class="delete-modal" method="POST" id="deleteDriverForm">
+                @csrf
+                @method('DELETE')
+
+                <h3 class="delete-title">
+                    Are you sure you want to remove
+                    <span id="deleteDriverName">this driver</span>?
+                </h3>
+
+                <p class="delete-text">
+                    If you remove this driver, the status will be set to deactivate and it will no longer show in this list.
+                </p>
+
+                <div class="delete-actions">
+                    <button type="button" class="btn-delete-cancel" id="cancelDriverDelete">
+                        No, Cancel
+                    </button>
+
+                    <button type="submit" class="btn-delete-confirm">
+                        Yes, I'm sure
+                    </button>
+                </div>
+            </form>
+        </div>
+
         </div>
     @endsection
     <script>
         document.addEventListener("DOMContentLoaded", () => {
+            const pendingAlertMessage = sessionStorage.getItem("driverPendingAlertMessage");
+            const pendingAlertType = sessionStorage.getItem("driverPendingAlertType");
+            if (
+                pendingAlertMessage &&
+                typeof window.showGlobalAlert === "function" &&
+                !document.getElementById("globalAlert")
+            ) {
+                window.showGlobalAlert(pendingAlertMessage, pendingAlertType || "success");
+            }
+            sessionStorage.removeItem("driverPendingAlertMessage");
+            sessionStorage.removeItem("driverPendingAlertType");
 
             const allCards = Array.from(document.querySelectorAll(".driver-card"));
             const tabs = document.querySelectorAll(".driver-tabs button");
@@ -846,6 +1031,18 @@
             let currentPage = 1;
             let activeFilter = "all";
             let filteredCards = [...allCards];
+
+            function applyEmailOverflowTooltip() {
+                const emailEls = document.querySelectorAll(".driver-email");
+                emailEls.forEach((el) => {
+                    // Add tooltip only when text is visually truncated.
+                    if (el.scrollWidth > el.clientWidth) {
+                        el.title = el.textContent.trim();
+                    } else {
+                        el.removeAttribute("title");
+                    }
+                });
+            }
 
             /* =========================
                APPLY FILTERS (TAB + SEARCH)
@@ -900,6 +1097,7 @@
                 });
 
                 renderPagination();
+                applyEmailOverflowTooltip();
             }
 
             function renderPagination() {
@@ -939,9 +1137,16 @@
             });
 
             renderPage();
+            window.addEventListener("resize", applyEmailOverflowTooltip);
 
             /* ===================== ADD DRIVER MODAL ===================== */
             const addDriverModal = document.getElementById("addDriverModal");
+            const addDriverForm = addDriverModal?.querySelector("form");
+
+            addDriverForm?.addEventListener("submit", () => {
+                sessionStorage.setItem("driverPendingAlertMessage", "Driver added successfully");
+                sessionStorage.setItem("driverPendingAlertType", "success");
+            });
 
             function closeDriverModalSmooth() {
                 const card = addDriverModal.querySelector(".modal-card");
@@ -996,6 +1201,37 @@
             };
             document.addEventListener("click", (e) => {
                 if (!licenseSelect.contains(e.target)) licenseSelect.classList.remove("open");
+            });
+
+            const deleteDriverModal = document.getElementById("deleteDriverConfirmModal");
+            const deleteDriverName = document.getElementById("deleteDriverName");
+            const deleteDriverForm = document.getElementById("deleteDriverForm");
+            const cancelDriverDelete = document.getElementById("cancelDriverDelete");
+
+            deleteDriverForm?.addEventListener("submit", () => {
+                sessionStorage.setItem("driverPendingAlertMessage", "Driver removed successfully");
+                sessionStorage.setItem("driverPendingAlertType", "success");
+            });
+
+            document.querySelectorAll(".card-delete-btn").forEach((btn) => {
+                btn.addEventListener("click", () => {
+                    const driverId = btn.dataset.driverId;
+                    const driverName = btn.dataset.driverName || "this driver";
+
+                    deleteDriverName.textContent = driverName;
+                    deleteDriverForm.action = `/admin/drivers/${driverId}`;
+                    deleteDriverModal.classList.add("show");
+                });
+            });
+
+            cancelDriverDelete.addEventListener("click", () => {
+                deleteDriverModal.classList.remove("show");
+            });
+
+            deleteDriverModal.addEventListener("click", (e) => {
+                if (e.target === deleteDriverModal) {
+                    deleteDriverModal.classList.remove("show");
+                }
             });
         });
 

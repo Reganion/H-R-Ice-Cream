@@ -88,8 +88,10 @@
                 <!-- HEADER -->
                 <div class="table-header ingredients">
                     <div class="col check">
-                        <input type="checkbox">
-                        <span class="material-symbols-outlined">delete</span>
+                        <input type="checkbox" id="selectAllIngredients" aria-label="Select all ingredients">
+                        <button type="button" class="bulk-delete-btn" aria-label="Delete selected">
+                            <span class="material-symbols-outlined">delete</span>
+                        </button>
                     </div>
                     <div class="col">
                         <span class="material-symbols-outlined">grocery</span> Product
@@ -131,7 +133,10 @@
                             <tbody>
                                 @foreach ($ingredients as $item)
                                     <tr>
-                                        <td><input type="checkbox"></td>
+                                        <td>
+                                            <input type="checkbox" class="row-select" value="{{ $item->id }}"
+                                                data-name="{{ e($item->name) }}">
+                                        </td>
                                         <td class="flavor-col">
                                             <img src="{{ $item->image ? asset($item->image) : asset('img/default.png') }}">
                                             <strong>{{ $item->name }}</strong>
@@ -158,6 +163,7 @@
                                                 data-name="{{ $item->name }}" data-type="{{ $item->type }}"
                                                 data-quantity="{{ $item->quantity }}" data-unit="{{ $item->unit }}"
                                                 data-image="{{ $item->image }}">
+                                                <span class="material-symbols-outlined">edit_square</span>
                                                 Edit
                                             </button>
 
@@ -168,6 +174,7 @@
                                                 @method('DELETE')
 
                                                 <button type="button" class="btn-delete" data-name="{{ $item->name }}">
+                                                    <span class="material-symbols-outlined">delete</span>
                                                     Delete
                                                 </button>
                                             </form>
@@ -306,7 +313,8 @@ ADD FLAVOR MODAL
     <div class="modal-overlay" id="addFlavorModal">
         <div class="modal-card">
 
-            <form action="{{ route('admin.ingredients.store') }}" method="POST" enctype="multipart/form-data">
+            <form id="addIngredientForm" action="{{ route('admin.ingredients.store') }}" method="POST"
+                enctype="multipart/form-data">
                 @csrf
 
                 <div class="modal-header">
@@ -433,6 +441,17 @@ DELETE CONFIRM MODAL
 
     <script>
         document.addEventListener("DOMContentLoaded", () => {
+            const pendingAlertMessage = sessionStorage.getItem("ingredientPendingAlertMessage");
+            const pendingAlertType = sessionStorage.getItem("ingredientPendingAlertType");
+            if (
+                pendingAlertMessage &&
+                typeof window.showGlobalAlert === "function" &&
+                !document.getElementById("globalAlert")
+            ) {
+                window.showGlobalAlert(pendingAlertMessage, pendingAlertType || "success");
+            }
+            sessionStorage.removeItem("ingredientPendingAlertMessage");
+            sessionStorage.removeItem("ingredientPendingAlertType");
 
             function resetAddFlavorForm() {
                 // text & number inputs
@@ -476,6 +495,8 @@ DELETE CONFIRM MODAL
             const filterCheckboxes = filterDropdown.querySelectorAll("input[type='checkbox']");
             const searchInput = document.getElementById("searchInput");
             const allRows = Array.from(document.querySelectorAll(".flavor-table tbody tr"));
+            const selectAllIngredients = document.getElementById("selectAllIngredients");
+            const bulkDeleteBtn = document.querySelector(".bulk-delete-btn");
 
             const pageNumbers = document.getElementById("pageNumbers");
             const pageInfo = document.getElementById("paginationInfo");
@@ -485,6 +506,27 @@ DELETE CONFIRM MODAL
             const rowsPerPage = 10;
             let currentPage = 1;
             let filteredRows = [...allRows];
+
+            function getRowCheckboxes() {
+                return Array.from(document.querySelectorAll(".row-select"));
+            }
+
+            function getSelectedIngredientIds() {
+                return getRowCheckboxes().filter(cb => cb.checked).map(cb => cb.value);
+            }
+
+            function syncSelectAllState() {
+                if (!selectAllIngredients) return;
+                const checkboxes = getRowCheckboxes();
+                if (checkboxes.length === 0) {
+                    selectAllIngredients.checked = false;
+                    selectAllIngredients.indeterminate = false;
+                    return;
+                }
+                const checkedCount = checkboxes.filter(cb => cb.checked).length;
+                selectAllIngredients.checked = checkedCount === checkboxes.length;
+                selectAllIngredients.indeterminate = checkedCount > 0 && checkedCount < checkboxes.length;
+            }
 
             filterBtn.onclick = e => {
                 e.stopPropagation();
@@ -577,6 +619,7 @@ DELETE CONFIRM MODAL
                     pageInfo.textContent = filteredRows.length ?
                         `Showing ${filteredRows.length} data` :
                         "No results found";
+                    syncSelectAllState();
                     return;
                 }
 
@@ -584,6 +627,7 @@ DELETE CONFIRM MODAL
                 nextBtn.disabled = page === totalPages;
 
                 renderPagination(totalPages);
+                syncSelectAllState();
             }
 
 
@@ -609,6 +653,22 @@ DELETE CONFIRM MODAL
                 applyFilters();
             });
 
+            if (selectAllIngredients) {
+                selectAllIngredients.addEventListener("change", () => {
+                    const shouldCheck = selectAllIngredients.checked;
+                    getRowCheckboxes().forEach(cb => {
+                        cb.checked = shouldCheck;
+                    });
+                    syncSelectAllState();
+                });
+            }
+
+            document.addEventListener("change", (e) => {
+                if (e.target.classList && e.target.classList.contains("row-select")) {
+                    syncSelectAllState();
+                }
+            });
+
 
             showPage(currentPage);
 
@@ -616,6 +676,11 @@ DELETE CONFIRM MODAL
             MODAL
             ===================== */
             const modal = document.getElementById("addFlavorModal");
+            const addIngredientForm = document.getElementById("addIngredientForm");
+            addIngredientForm?.addEventListener("submit", () => {
+                sessionStorage.setItem("ingredientPendingAlertMessage", "Ingredient added successfully");
+                sessionStorage.setItem("ingredientPendingAlertType", "success");
+            });
 
             document.querySelector(".btn-add").onclick = () => {
                 modal.classList.add("show");
@@ -728,6 +793,11 @@ DELETE CONFIRM MODAL
             const editModal = document.getElementById("editFlavorModal");
             const closeEdit = document.getElementById("closeEditModal");
             const cancelEdit = document.getElementById("cancelEditModal");
+            const editForm = document.getElementById("editForm");
+            editForm?.addEventListener("submit", () => {
+                sessionStorage.setItem("ingredientPendingAlertMessage", "Ingredient updated successfully");
+                sessionStorage.setItem("ingredientPendingAlertType", "success");
+            });
 
             document.querySelectorAll(".btn-edit").forEach(btn => {
                 btn.addEventListener("click", () => {
@@ -816,32 +886,6 @@ DELETE CONFIRM MODAL
             const cancelDelete = document.getElementById("cancelDelete");
             const confirmDelete = document.getElementById("confirmDelete");
 
-            let rowToDelete = null;
-
-            document.querySelectorAll(".btn-delete").forEach(btn => {
-                btn.addEventListener("click", () => {
-                    const row = btn.closest("tr");
-                    const name = row.querySelector(".flavor-col strong").textContent;
-
-                    rowToDelete = row;
-                    deleteName.textContent = name;
-
-                    deleteModal.classList.add("show");
-                });
-            });
-
-            cancelDelete.onclick = () => {
-                deleteModal.classList.remove("show");
-                rowToDelete = null;
-            };
-
-            deleteModal.onclick = e => {
-                if (e.target === deleteModal) {
-                    deleteModal.classList.remove("show");
-                    rowToDelete = null;
-                }
-            };
-
             let deleteForm = null;
 
             /* Open delete modal */
@@ -854,6 +898,40 @@ DELETE CONFIRM MODAL
                 });
             });
 
+            if (bulkDeleteBtn) {
+                bulkDeleteBtn.addEventListener("click", () => {
+                    const selectedIds = getSelectedIngredientIds();
+                    if (selectedIds.length === 0) {
+                        if (typeof window.showGlobalAlert === "function") {
+                            window.showGlobalAlert("Please select at least one ingredient to delete.", "error");
+                        }
+                        return;
+                    }
+
+                    const form = document.createElement("form");
+                    form.method = "POST";
+                    form.action = "{{ route('admin.ingredients.bulk-destroy') }}";
+
+                    form.innerHTML = `
+                        <input type="hidden" name="_token" value="{{ csrf_token() }}">
+                        <input type="hidden" name="_method" value="DELETE">
+                    `;
+
+                    selectedIds.forEach((id) => {
+                        const input = document.createElement("input");
+                        input.type = "hidden";
+                        input.name = "ingredient_ids[]";
+                        input.value = id;
+                        form.appendChild(input);
+                    });
+
+                    document.body.appendChild(form);
+                    deleteForm = form;
+                    deleteName.textContent = selectedIds.length + " selected product(s)";
+                    deleteModal.classList.add("show");
+                });
+            }
+
             /* Cancel delete */
             cancelDelete.onclick = () => {
                 deleteModal.classList.remove("show");
@@ -863,6 +941,8 @@ DELETE CONFIRM MODAL
             /* Confirm delete */
             confirmDelete.onclick = () => {
                 if (deleteForm) {
+                    sessionStorage.setItem("ingredientPendingAlertMessage", "Ingredient deleted successfully");
+                    sessionStorage.setItem("ingredientPendingAlertType", "success");
                     deleteForm.submit(); // ✅ Laravel DELETE happens here
                 }
             };

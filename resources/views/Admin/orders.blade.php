@@ -33,10 +33,9 @@
                         </button>
 
                         <div class="filter-dropdown" id="filterDropdown">
-                            <label><input type="checkbox" value="new_order"> New Order</label>
                             <label><input type="checkbox" value="pending"> Pending</label>
                             <label><input type="checkbox" value="assigned"> Assigned</label>
-                            <label><input type="checkbox" value="delivered"> Delivered</label>
+                            <label><input type="checkbox" value="completed"> Completed</label>
                             <label><input type="checkbox" value="cancelled"> Cancelled</label>
                             <label><input type="checkbox" value="walk_in"> Walk-In</label>
                         </div>
@@ -71,6 +70,17 @@
 
                         <tbody id="orders-tbody">
                             @forelse ($orders as $order)
+                                @php
+                                    $statusRaw = trim((string) ($order->status ?? ''));
+                                    $statusLower = strtolower($statusRaw);
+                                    $statusKey = match ($statusLower) {
+                                        'walk-in', 'walk_in', 'walk in' => 'walk_in',
+                                        'assigned' => 'assigned',
+                                        'completed', 'delivered' => 'completed',
+                                        'cancelled' => 'cancelled',
+                                        default => 'pending',
+                                    };
+                                @endphp
                                 <tr data-order-id="{{ $order->id }}"
                                     data-product-name="{{ e($order->product_name ?? '') }}"
                                     data-product-type="{{ e($order->product_type ?? '') }}"
@@ -85,6 +95,7 @@
                                     data-amount="{{ $order->amount ?? '' }}"
                                     data-payment-method="{{ e($order->payment_method ?? '') }}"
                                     data-status="{{ e($order->status ?? '') }}"
+                                    data-status-key="{{ $statusKey }}"
                                     data-driver-id="{{ $order->driver_id ?? '' }}"
                                     data-driver-name="{{ e($order->driver->name ?? '') }}"
                                     data-driver-phone="{{ e($order->driver->phone ?? '') }}"
@@ -132,27 +143,27 @@
 
                                     <!-- STATUS -->
                                     <td>
-                                        <span class="status-badge {{ $order->status }}">
-                                            ● {{ ucwords(str_replace('_', ' ', $order->status)) }}
+                                        <span class="status-badge {{ $statusKey }}">
+                                            ● {{ $statusRaw !== '' ? $statusRaw : 'Pending' }}
                                         </span>
                                     </td>
 
                                     <!-- ACTION -->
                                     <td>
-                                        @if ($order->status === 'walk_in')
+                                        @if ($statusKey === 'walk_in')
                                             <button type="button" class="action-btn edit-order" title="Edit order">
                                                 <span class="material-symbols-outlined">edit</span>
                                             </button>
                                         @endif
-                                        @if ($order->status === 'assigned')
+                                        @if ($statusKey === 'assigned')
                                             <button class="action-btn reassign">
                                                 <span class="material-symbols-outlined">person_edit</span>
                                             </button>
-                                        @elseif($order->status === 'delivered' || $order->status === 'cancelled')
+                                        @elseif($statusKey === 'completed' || $statusKey === 'cancelled')
                                             <button class="action-btn view">
                                                 <span class="material-symbols-outlined">visibility</span>
                                             </button>
-                                        @elseif($order->status !== 'walk_in')
+                                        @elseif($statusKey !== 'walk_in')
                                             <button class="action-btn assign">
                                                 <span class="material-symbols-outlined">person_check</span>
                                             </button>
@@ -352,7 +363,7 @@
                         </div>
 
                         <!-- STATUS -->
-                        <input type="hidden" name="status" value="walk_in">
+                        <input type="hidden" name="status" value="Walk-in">
 
                         <button type="submit" class="assign-driver-btn" style="width:100%;">
                             Save Order
@@ -602,6 +613,15 @@
             let currentPage = 1;
             let filteredRows = [...allRows];
 
+            function normalizeStatusKey(status) {
+                const s = String(status || '').trim().toLowerCase();
+                if (s === 'walk-in' || s === 'walk_in' || s === 'walk in') return 'walk_in';
+                if (s === 'assigned') return 'assigned';
+                if (s === 'completed' || s === 'delivered') return 'completed';
+                if (s === 'cancelled') return 'cancelled';
+                return 'pending';
+            }
+
             /* ======================
                FILTER TOGGLE
             ====================== */
@@ -629,11 +649,7 @@
                     const product = row.querySelector("td:nth-child(1)").innerText.toLowerCase();
                     const customer = row.querySelector("td:nth-child(2)").innerText.toLowerCase();
 
-                    const statusEl = row.querySelector(".status-badge");
-                    const statusClass = [...statusEl.classList].find(c => ["new_order", "pending",
-                        "assigned",
-                        "delivered", "cancelled", "walk_in"
-                    ].includes(c));
+                    const statusClass = row.dataset.statusKey || normalizeStatusKey(row.dataset.status || '');
 
                     const matchSearch =
                         product.includes(keyword) || customer.includes(keyword);
@@ -648,6 +664,12 @@
                 const totalPages = Math.ceil(filteredRows.length / rowsPerPage);
                 if (totalPages > 0 && currentPage > totalPages) currentPage = totalPages;
                 render(currentPage);
+            }
+
+            const urlParams = new URLSearchParams(window.location.search);
+            const customerKeyword = (urlParams.get("customer") || "").trim();
+            if (customerKeyword !== "") {
+                searchInput.value = customerKeyword;
             }
 
             searchInput.addEventListener("input", applyFilters);
@@ -721,18 +743,17 @@
             function escAttr(s) { return esc(s).replace(/"/g, '&quot;'); }
 
             function buildOrderRow(order) {
-                const statusDisplay = (order.status || '').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+                const statusKey = normalizeStatusKey(order.status);
+                const statusDisplay = String(order.status || '').trim() || 'Pending';
                 const amountFormatted = typeof order.amount === 'number' ? order.amount.toFixed(2) : (parseFloat(order.amount) || 0).toFixed(2);
                 let actionHtml = '';
-                if (order.status === 'walk_in') {
+                if (statusKey === 'walk_in') {
                     actionHtml = '<button type="button" class="action-btn edit-order" title="Edit order"><span class="material-symbols-outlined">edit</span></button>';
-                } else if (order.status === 'assigned') {
+                } else if (statusKey === 'assigned') {
                     actionHtml = '<button class="action-btn reassign"><span class="material-symbols-outlined">person_edit</span></button>';
-                } else if (order.status === 'delivered') {
+                } else if (statusKey === 'completed' || statusKey === 'cancelled') {
                     actionHtml = '<button class="action-btn view"><span class="material-symbols-outlined">visibility</span></button>';
-                } else if (order.status === 'cancelled') {
-                    actionHtml = '<button class="action-btn view"><span class="material-symbols-outlined">visibility</span></button>';
-                } else if (order.status !== 'walk_in') {
+                } else if (statusKey !== 'walk_in') {
                     actionHtml = '<button class="action-btn assign"><span class="material-symbols-outlined">person_check</span></button>';
                 }
                 return '<tr data-order-id="' + escAttr(String(order.id)) + '"' +
@@ -749,6 +770,7 @@
                     ' data-amount="' + escAttr(String(order.amount)) + '"' +
                     ' data-payment-method="' + escAttr(order.payment_method) + '"' +
                     ' data-status="' + escAttr(order.status) + '"' +
+                    ' data-status-key="' + escAttr(statusKey) + '"' +
                     ' data-driver-id="' + escAttr(order.driver_id || '') + '"' +
                     ' data-driver-name="' + escAttr(order.driver_name || '') + '"' +
                     ' data-driver-phone="' + escAttr(order.driver_phone || '') + '"' +
@@ -758,7 +780,7 @@
                     '<td><strong>#' + esc(order.transaction_id) + '</strong><small>' + esc(order.created_at_formatted) + '</small></td>' +
                     '<td class="delivery-schedule-cell"><strong>' + esc(order.delivery_date_formatted) + ', ' + esc(order.delivery_time_formatted) + '</strong><small class="delivery-address">' + esc(order.delivery_address) + '</small></td>' +
                     '<td><strong>₱' + esc(amountFormatted.replace(/\B(?=(\d{3})+(?!\d))/g, ',')) + '</strong><small>' + esc(order.payment_method) + '</small></td>' +
-                    '<td><span class="status-badge ' + escAttr(order.status) + '">● ' + esc(statusDisplay) + '</span></td>' +
+                    '<td><span class="status-badge ' + escAttr(statusKey) + '">● ' + esc(statusDisplay) + '</span></td>' +
                     '<td>' + actionHtml + '</td></tr>';
             }
 

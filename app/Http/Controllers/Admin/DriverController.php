@@ -57,4 +57,14 @@ class DriverController extends Controller
 
         return back()->with('success', 'Driver added successfully.');
     }
+
+    public function destroy($id)
+    {
+        $driver = Driver::findOrFail($id);
+        $driver->update([
+            'status' => Driver::STATUS_DEACTIVATE,
+        ]);
+
+        return back()->with('success', 'Driver removed successfully.');
+    }
 }

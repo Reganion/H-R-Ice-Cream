@@ -65,6 +65,25 @@ class GallonController extends Controller
     {
         $gallon = Gallon::findOrFail($id);
         $gallon->delete();
-        return back()->with('success', 'Gallon deleted');
+        return back()->with('success', 'Gallon deleted successfully');
+    }
+
+    public function bulkDestroy(Request $request)
+    {
+        $validated = $request->validate([
+            'gallon_ids' => ['required', 'array', 'min:1'],
+            'gallon_ids.*' => ['integer', 'exists:gallons,id'],
+        ]);
+
+        $ids = collect($validated['gallon_ids'])
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->values();
+
+        $deletedCount = Gallon::query()
+            ->whereIn('id', $ids)
+            ->delete();
+
+        return back()->with('success', $deletedCount . ' selected item(s) deleted successfully');
     }
 }

@@ -74,8 +74,146 @@
             flex: 1;
             min-height: 0;
             width: 100%;
-            background: #ffffff;
+            background: rgb(242, 242, 242);
             border-radius: 18px;
+            padding: 16px;
+            box-sizing: border-box;
+        }
+
+        .main-panel-grid {
+            height: 100%;
+            display: grid;
+            grid-template-columns: 1fr 1.4fr;
+            gap: 16px;
+        }
+
+        .panel-section {
+            min-height: 0;
+            border: 1px solid #ececec;
+            border-radius: 14px;
+            background: #fafafa;
+            padding: 14px;
+        }
+
+        .panel-section h4 {
+            margin: 0;
+            color: #5f5f5f;
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .panel-list {
+            margin: 14px 0 0;
+            padding: 0;
+            list-style: none;
+            display: grid;
+            gap: 10px;
+        }
+
+        .panel-list li {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 10px;
+            border-radius: 10px;
+            background: #ffffff;
+            border: 1px solid #f0f0f0;
+            font-size: 13px;
+            color: #666;
+        }
+
+        .panel-list li strong {
+            color: #222;
+            font-size: 14px;
+        }
+
+        .status-progress-list {
+            margin-top: 14px;
+            display: grid;
+            gap: 12px;
+        }
+
+        .status-progress-head {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 6px;
+            font-size: 13px;
+            color: #666;
+        }
+
+        .status-progress-head strong {
+            color: #222;
+        }
+
+        .status-progress-track {
+            width: 100%;
+            height: 8px;
+            background: #ececec;
+            border-radius: 999px;
+            overflow: hidden;
+        }
+
+        .status-progress-fill {
+            height: 100%;
+            border-radius: 999px;
+        }
+
+        .status-progress-fill.assigned {
+            background: #3b82f6;
+        }
+
+        .status-progress-fill.pending {
+            background: #f59e0b;
+        }
+
+        .status-progress-fill.delivered {
+            background: #22c55e;
+        }
+
+        .insights-grid {
+            margin-top: 14px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .insight-card {
+            border-radius: 12px;
+            background: #ffffff;
+            border: 1px solid #f0f0f0;
+            padding: 12px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .insight-card span {
+            font-size: 12px;
+            color: #7a7a7a;
+        }
+
+        .insight-card strong {
+            font-size: 18px;
+            color: #222;
+            line-height: 1;
+        }
+
+        .panel-section-full {
+            width: 100%;
+            height: 100%;
+        }
+
+        .chart-panel {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .chart-canvas-wrap {
+            position: relative;
+            flex: 1;
+            min-height: 280px;
+            margin-top: 12px;
         }
 
         /* TAB BUTTON STYLE */
@@ -469,6 +607,20 @@
         }
 
         @media (max-width: 768px) {
+            html,
+            body {
+                overflow: auto;
+            }
+
+            .content-area {
+                overflow-y: auto;
+            }
+
+            .dashboard-page {
+                display: block;
+                min-height: auto;
+            }
+
             .summary-boxes {
                 grid-template-columns: 1fr;
                 gap: 12px;
@@ -498,7 +650,27 @@
 
             .dashboard-main-panel {
                 border-radius: 14px;
-                min-height: 280px;
+                min-height: 0;
+                padding: 12px;
+                flex: none;
+            }
+
+            .main-panel-grid {
+                grid-template-columns: 1fr;
+                height: auto;
+            }
+
+            .insight-card strong {
+                font-size: 16px;
+            }
+
+            .panel-section {
+                padding: 12px;
+            }
+
+            .chart-canvas-wrap {
+                min-height: 240px;
+                width: 100%;
             }
         }
 
@@ -568,8 +740,28 @@
             }
 
             .dashboard-main-panel {
-                min-height: 240px;
+                min-height: 0;
                 border-radius: 12px;
+                padding: 10px;
+            }
+
+            .main-panel-grid {
+                gap: 10px;
+                height: auto;
+            }
+
+            .insights-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .panel-section {
+                padding: 10px;
+                border-radius: 12px;
+            }
+
+            .chart-canvas-wrap {
+                min-height: 200px;
+                margin-top: 8px;
             }
         }
 

@@ -80,6 +80,25 @@ class IngredientController extends Controller
     {
         $ingredient = Ingredient::findOrFail($id);
         $ingredient->delete();
-        return back()->with('success', 'Ingredient deleted');
+        return back()->with('success', 'Ingredient deleted successfully');
+    }
+
+    public function bulkDestroy(Request $request)
+    {
+        $validated = $request->validate([
+            'ingredient_ids' => ['required', 'array', 'min:1'],
+            'ingredient_ids.*' => ['integer', 'exists:ingredients,id'],
+        ]);
+
+        $ids = collect($validated['ingredient_ids'])
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->values();
+
+        $deletedCount = Ingredient::query()
+            ->whereIn('id', $ids)
+            ->delete();
+
+        return back()->with('success', $deletedCount . ' selected item(s) deleted successfully');
     }
 }

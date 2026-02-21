@@ -106,11 +106,17 @@ Route::prefix('admin')->group(function () {
 
     Route::delete('/ingredients/{id}', [IngredientController::class, 'destroy'])
         ->name('admin.ingredients.destroy');
+
+    Route::delete('/ingredients', [IngredientController::class, 'bulkDestroy'])
+        ->name('admin.ingredients.bulk-destroy');
 });
 
 Route::prefix('admin')->group(function () {
     Route::post('/drivers', [DriverController::class, 'store'])
         ->name('admin.drivers.store');
+
+    Route::delete('/drivers/{id}', [DriverController::class, 'destroy'])
+        ->name('admin.drivers.destroy');
 });
 
 Route::prefix('admin')->group(function () {
@@ -129,6 +135,9 @@ Route::prefix('admin')->group(function () {
     Route::delete('/flavors/{id}', [FlavorController::class, 'flavordestroy'])
         ->name('admin.flavors.destroy');
 
+    Route::delete('/flavors', [FlavorController::class, 'bulkDestroy'])
+        ->name('admin.flavors.bulk-destroy');
+
 });
 
 Route::prefix('admin')->group(function () {
@@ -141,6 +150,9 @@ Route::put('/gallons/{id}', [GallonController::class, 'gallonupdate'])
 
 Route::delete('/gallons/{id}', [GallonController::class, 'gallondestroy'])
     ->name('admin.gallons.destroy');
+
+Route::delete('/gallons', [GallonController::class, 'bulkDestroy'])
+    ->name('admin.gallons.bulk-destroy');
 
 });
 

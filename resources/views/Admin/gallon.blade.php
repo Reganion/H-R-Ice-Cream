@@ -80,8 +80,10 @@
                 <!-- HEADER -->
                 <div class="table-header gallon">
                     <div class="col check">
-                        <input type="checkbox">
-                        <span class="material-symbols-outlined">delete</span>
+                        <input type="checkbox" id="selectAllGallons" aria-label="Select all gallons">
+                        <button type="button" class="bulk-delete-btn" aria-label="Delete selected">
+                            <span class="material-symbols-outlined">delete</span>
+                        </button>
                     </div>
                     <div class="col">
                         <span class="material-symbols-outlined">specific_gravity</span> Gallon Size
@@ -118,7 +120,10 @@
                                 @foreach ($gallons as $gallon)
                                     <tr data-size="{{ strtolower($gallon->size) }}">
 
-                                        <td><input type="checkbox"></td>
+                                        <td>
+                                            <input type="checkbox" class="row-select" value="{{ $gallon->id }}"
+                                                data-name="{{ e($gallon->size) }}">
+                                        </td>
 
                                         <td class="flavor-col">
                                             <img src="{{ $gallon->image ? asset($gallon->image) : asset('img/gallon.png') }}"
@@ -143,7 +148,7 @@
                                                 data-size="{{ $gallon->size }}" data-qty="{{ $gallon->quantity }}"
                                                 data-price="{{ $gallon->addon_price }}"
                                                 data-image="{{ $gallon->image ? asset($gallon->image) : '' }}">
-                                                <span class="material-symbols-outlined">edit</span> Edit
+                                                <span class="material-symbols-outlined">edit_square</span> Edit
                                             </button>
 
 
@@ -352,6 +357,17 @@
 
     <script>
         document.addEventListener("DOMContentLoaded", () => {
+            const pendingAlertMessage = sessionStorage.getItem("gallonPendingAlertMessage");
+            const pendingAlertType = sessionStorage.getItem("gallonPendingAlertType");
+            if (
+                pendingAlertMessage &&
+                typeof window.showGlobalAlert === "function" &&
+                !document.getElementById("globalAlert")
+            ) {
+                window.showGlobalAlert(pendingAlertMessage, pendingAlertType || "success");
+            }
+            sessionStorage.removeItem("gallonPendingAlertMessage");
+            sessionStorage.removeItem("gallonPendingAlertType");
 
             function openModal(modal) {
                 modal.classList.add("show");
@@ -387,6 +403,8 @@
             const filterCheckboxes = filterDropdown.querySelectorAll("input[type='checkbox']");
             const searchInput = document.getElementById("searchInput");
             const allRows = Array.from(document.querySelectorAll(".flavor-table tbody tr"));
+            const selectAllGallons = document.getElementById("selectAllGallons");
+            const bulkDeleteBtn = document.querySelector(".bulk-delete-btn");
 
             const pageNumbers = document.getElementById("pageNumbers");
             const pageInfo = document.getElementById("paginationInfo");
@@ -396,6 +414,27 @@
             const rowsPerPage = 10;
             let currentPage = 1;
             let filteredRows = [...allRows];
+
+            function getRowCheckboxes() {
+                return Array.from(document.querySelectorAll(".row-select"));
+            }
+
+            function getSelectedGallonIds() {
+                return getRowCheckboxes().filter(cb => cb.checked).map(cb => cb.value);
+            }
+
+            function syncSelectAllState() {
+                if (!selectAllGallons) return;
+                const checkboxes = getRowCheckboxes();
+                if (checkboxes.length === 0) {
+                    selectAllGallons.checked = false;
+                    selectAllGallons.indeterminate = false;
+                    return;
+                }
+                const checkedCount = checkboxes.filter(cb => cb.checked).length;
+                selectAllGallons.checked = checkedCount === checkboxes.length;
+                selectAllGallons.indeterminate = checkedCount > 0 && checkedCount < checkboxes.length;
+            }
 
             filterBtn.onclick = e => {
                 e.stopPropagation();
@@ -474,12 +513,14 @@
                     pageInfo.textContent = filteredRows.length ?
                         `Showing ${filteredRows.length} data` :
                         "No results found";
+                    syncSelectAllState();
                     return;
                 }
 
                 prevBtn.disabled = page === 1;
                 nextBtn.disabled = page === totalPages;
                 pageInfo.style.display = "none";
+                syncSelectAllState();
 
                 pageNumbers.innerHTML = "";
                 for (let i = 1; i <= totalPages; i++) {
@@ -499,6 +540,22 @@
                 currentPage);
             searchInput.addEventListener("input", applyFilters);
 
+            if (selectAllGallons) {
+                selectAllGallons.addEventListener("change", () => {
+                    const shouldCheck = selectAllGallons.checked;
+                    getRowCheckboxes().forEach(cb => {
+                        cb.checked = shouldCheck;
+                    });
+                    syncSelectAllState();
+                });
+            }
+
+            document.addEventListener("change", (e) => {
+                if (e.target.classList && e.target.classList.contains("row-select")) {
+                    syncSelectAllState();
+                }
+            });
+
             showPage(currentPage);
             /* =====================
                ADD MODAL (FIXED & SAFE)
@@ -509,6 +566,10 @@
 
             const addForm = document.getElementById("addGallonForm");
             const addBtn = document.querySelector(".btn-add");
+            addForm?.addEventListener("submit", () => {
+                sessionStorage.setItem("gallonPendingAlertMessage", "Gallon added successfully");
+                sessionStorage.setItem("gallonPendingAlertType", "success");
+            });
 
             // open modal
             if (addBtn) {
@@ -562,6 +623,10 @@
 
             const editModal = document.getElementById("editFlavorModal");
             const editForm = document.getElementById("editGallonForm");
+            editForm?.addEventListener("submit", () => {
+                sessionStorage.setItem("gallonPendingAlertMessage", "Gallon updated successfully");
+                sessionStorage.setItem("gallonPendingAlertType", "success");
+            });
 
             // open edit modal
             document.querySelectorAll(".btn-edit").forEach(btn => {
@@ -627,6 +692,10 @@
             const deleteName = document.getElementById("deleteFlavorName");
             const deleteForm = document.getElementById("deleteForm");
             const cancelDelete = document.getElementById("cancelDelete");
+            deleteForm?.addEventListener("submit", () => {
+                sessionStorage.setItem("gallonPendingAlertMessage", "Gallon deleted successfully");
+                sessionStorage.setItem("gallonPendingAlertType", "success");
+            });
 
             document.querySelectorAll(".btn-delete").forEach(btn => {
                 btn.addEventListener("click", () => {
@@ -638,10 +707,37 @@
 
                     // set form action (Laravel route)
                     deleteForm.action = `/admin/gallons/${id}`;
+                    deleteForm.querySelectorAll("input[name='gallon_ids[]']").forEach(i => i.remove());
 
                     deleteModal.classList.add("show");
                 });
             });
+
+            if (bulkDeleteBtn) {
+                bulkDeleteBtn.addEventListener("click", () => {
+                    const selectedIds = getSelectedGallonIds();
+                    if (selectedIds.length === 0) {
+                        if (typeof window.showGlobalAlert === "function") {
+                            window.showGlobalAlert("Please select at least one gallon to delete.", "error");
+                        }
+                        return;
+                    }
+
+                    deleteName.textContent = selectedIds.length + " selected gallon(s)";
+                    deleteForm.action = "{{ route('admin.gallons.bulk-destroy') }}";
+                    deleteForm.querySelectorAll("input[name='gallon_ids[]']").forEach(i => i.remove());
+
+                    selectedIds.forEach((id) => {
+                        const input = document.createElement("input");
+                        input.type = "hidden";
+                        input.name = "gallon_ids[]";
+                        input.value = id;
+                        deleteForm.appendChild(input);
+                    });
+
+                    deleteModal.classList.add("show");
+                });
+            }
 
             cancelDelete.onclick = () => {
                 deleteModal.classList.remove("show");
