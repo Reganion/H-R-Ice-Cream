@@ -85,10 +85,54 @@ class AdminChatController extends Controller
             ];
         }
 
+        // Build stacked unread senders (newest unread on top).
+        $unreadByCustomer = ChatMessage::query()
+            ->where('sender_type', ChatMessage::SENDER_CUSTOMER)
+            ->whereNull('read_at')
+            ->selectRaw('customer_id, COUNT(*) as unread_count, MAX(created_at) as last_unread_at')
+            ->groupBy('customer_id')
+            ->orderByDesc('last_unread_at')
+            ->get();
+
+        $customerIds = $unreadByCustomer->pluck('customer_id')->filter()->values();
+        $customers = Customer::query()
+            ->whereIn('id', $customerIds)
+            ->get()
+            ->keyBy('id');
+
+        $latestUnreadByCustomer = ChatMessage::query()
+            ->where('sender_type', ChatMessage::SENDER_CUSTOMER)
+            ->whereNull('read_at')
+            ->whereIn('customer_id', $customerIds)
+            ->orderByDesc('created_at')
+            ->get()
+            ->groupBy('customer_id')
+            ->map(function ($rows) {
+                return $rows->first();
+            });
+
+        $senders = $unreadByCustomer->map(function ($row) use ($customers, $latestUnreadByCustomer) {
+            $customerId = (int) $row->customer_id;
+            $customer = $customers->get($customerId);
+            $latestUnread = $latestUnreadByCustomer->get($customerId);
+            if (!$customer || !$latestUnread) {
+                return null;
+            }
+
+            return [
+                'customer_id' => $customerId,
+                'full_name' => $customer->full_name,
+                'image_url' => asset($customer->image ?? 'img/default-user.png'),
+                'preview' => $this->preview($latestUnread),
+                'unread_count' => (int) $row->unread_count,
+            ];
+        })->filter()->values();
+
         return response()->json([
             'success'       => true,
             'unread_count'  => $totalUnread,
             'last_from'     => $lastFrom,
+            'senders'       => $senders,
         ]);
     }
 

@@ -13,17 +13,45 @@ use Illuminate\Support\Str;
 
 class AdminOrderController extends Controller
 {
+    private function normalizeOrderStatus(?string $status): string
+    {
+        $normalized = strtolower((string) ($status ?? ''));
+
+        if ($normalized === '' || $normalized === 'new_order') {
+            return 'pending';
+        }
+
+        if ($normalized === 'delivered') {
+            return 'completed';
+        }
+
+        return $normalized;
+    }
+
     /**
      * Return orders as JSON for real-time polling on the admin orders page.
      */
     public function listJson(Request $request)
     {
-        $orders = Order::orderBy('created_at', 'desc')->get();
+        $orders = Order::query()
+            ->orderByRaw("
+                CASE
+                    WHEN LOWER(status) IN ('pending', 'new_order') THEN 1
+                    WHEN LOWER(status) = 'walk_in' THEN 2
+                    WHEN LOWER(status) = 'assigned' THEN 3
+                    WHEN LOWER(status) IN ('completed', 'delivered') THEN 4
+                    WHEN LOWER(status) = 'cancelled' THEN 5
+                    ELSE 6
+                END
+            ")
+            ->orderBy('created_at', 'desc')
+            ->get();
 
         $data = $orders->map(function (Order $order) {
             $deliveryDate = $order->delivery_date ? Carbon::parse($order->delivery_date) : null;
             $deliveryTime = $order->delivery_time ? Carbon::parse($order->delivery_time) : null;
             $createdAt = $order->created_at ? Carbon::parse($order->created_at) : null;
+            $status = $this->normalizeOrderStatus($order->status);
 
             $driver = $order->driver;
             return [
@@ -39,7 +67,7 @@ class AdminOrderController extends Controller
                 'delivery_address' => $order->delivery_address ?? '',
                 'amount' => (float) $order->amount,
                 'payment_method' => $order->payment_method ?? '',
-                'status' => $order->status ?? '',
+                'status' => $status,
                 'driver_id' => $order->driver_id,
                 'driver_name' => $driver ? $driver->name : null,
                 'driver_phone' => $driver ? $driver->phone : null,
@@ -69,6 +97,7 @@ class AdminOrderController extends Controller
         $deliveryTime = $order->delivery_time ? Carbon::parse($order->delivery_time) : null;
         $createdAt = $order->created_at ? Carbon::parse($order->created_at) : null;
         $driver = $order->driver;
+        $status = $this->normalizeOrderStatus($order->status);
 
         $data = [
             'id' => $order->id,
@@ -83,7 +112,7 @@ class AdminOrderController extends Controller
             'delivery_address' => $order->delivery_address ?? '',
             'amount' => (float) $order->amount,
             'payment_method' => $order->payment_method ?? '',
-            'status' => $order->status ?? '',
+            'status' => $status,
             'driver_id' => $order->driver_id,
             'driver_name' => $driver ? $driver->name : null,
             'driver_phone' => $driver ? $driver->phone : null,

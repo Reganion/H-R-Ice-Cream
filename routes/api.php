@@ -22,6 +22,7 @@ Route::prefix('v1')->group(function () {
     Route::post('/register', [ApiAuthController::class, 'register']);
     Route::post('/verify-otp', [ApiAuthController::class, 'verifyOtp']);
     Route::post('/resend-otp', [ApiAuthController::class, 'resendOtp']);
+    Route::post('/google-login', [ApiAuthController::class, 'googleLogin']); 
 
     // Forgot password (email -> OTP -> verify -> reset)
     Route::post('/forgot-password', [ApiAuthController::class, 'forgotPassword']);

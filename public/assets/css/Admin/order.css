@@ -202,6 +202,10 @@ ORDERS PAGE
     color: #22c55e;
 }
 
+.status-badge.completed {
+    color: #22c55e;
+}
+
 .status-badge.cancelled {
     color: #ef4444;
 }

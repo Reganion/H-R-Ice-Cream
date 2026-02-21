@@ -4,6 +4,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate, max-age=0">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
     <link rel="icon" href="{{ asset('img/Mask group.png') }}">
     <title>H & R Ice Cream - Admin Login</title>
 
@@ -80,6 +83,13 @@
     </div>
 
     <script>
+        // Force a fresh page when restored from browser back/forward cache to avoid stale CSRF tokens.
+        window.addEventListener('pageshow', function(event) {
+            if (event.persisted) {
+                window.location.reload();
+            }
+        });
+
         function togglePassword(id) {
             const input = document.getElementById(id);
             const group = input.closest('.input-group-password') || input.closest('.input-group');

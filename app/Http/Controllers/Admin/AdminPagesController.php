@@ -73,7 +73,19 @@ class AdminPagesController extends Controller
 
     public function orders()
     {
-        $orders = Order::orderBy('created_at', 'desc')->get();
+        $orders = Order::query()
+            ->orderByRaw("
+                CASE
+                    WHEN LOWER(status) = 'pending' THEN 1
+                    WHEN LOWER(status) = 'walk_in' THEN 2
+                    WHEN LOWER(status) = 'assigned' THEN 3
+                    WHEN LOWER(status) IN ('completed', 'delivered') THEN 4
+                    WHEN LOWER(status) = 'cancelled' THEN 5
+                    ELSE 6
+                END
+            ")
+            ->orderBy('created_at', 'desc')
+            ->get();
         $flavors = Flavor::orderBy('name', 'asc')->get();
         $gallons = Gallon::orderBy('size', 'asc')->get();
         return view('admin.orders', compact('orders', 'flavors', 'gallons'));

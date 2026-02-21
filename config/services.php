@@ -35,4 +35,9 @@ return [
         ],
     ],
 
+    // Google Sign-In (ID token verification)
+    'google' => [
+        'client_id' => env('GOOGLE_CLIENT_ID'),
+    ],
+
 ];

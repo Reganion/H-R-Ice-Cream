@@ -14,6 +14,8 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
+use Google_Client;
+
 
 class ApiAuthController extends Controller
 {
@@ -52,6 +54,85 @@ class ApiAuthController extends Controller
             'token' => $token,
         ]);
     }
+ public function googleLogin(Request $request): JsonResponse
+{
+    $request->validate([
+        'id_token' => 'required|string',
+    ]);
+
+    $clientId = config('services.google.client_id');
+
+    if (!$clientId) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Google Client ID not configured.',
+        ], 500);
+    }
+
+    $client = new Google_Client([
+        'client_id' => $clientId,
+    ]);
+
+    $payload = $client->verifyIdToken($request->id_token);
+
+    if (!$payload) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Invalid Google token.',
+        ], 401);
+    }
+
+    $email = $payload['email'] ?? null;
+    if (!$email) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Google token missing email.',
+        ], 422);
+    }
+
+    $firstname = $payload['given_name'] ?? null;
+    $lastname  = $payload['family_name'] ?? null;
+
+    $customer = Customer::firstOrCreate(
+        ['email' => $email],
+        [
+            'firstname' => $firstname ?: 'Google',
+            'lastname'  => $lastname ?: 'User',
+            'contact_no'=> null,
+            'image'     => 'img/default-user.png',
+            'status'    => Customer::STATUS_ACTIVE,
+            'password'  => Hash::make(Str::random(32)),
+            'email_verified_at' => now(), // auto verified
+        ]
+    );
+
+    // Ensure verified + clean OTP if account existed already
+    if (!$customer->isVerified()) {
+        $customer->email_verified_at = now();
+        $customer->otp = null;
+        $customer->otp_expires_at = null;
+    }
+
+    // Optional: fill names if missing
+    if (!$customer->firstname && $firstname) $customer->firstname = $firstname;
+    if (!$customer->lastname && $lastname)   $customer->lastname  = $lastname;
+
+    $customer->save();
+
+    $token = Str::random(64);
+    Cache::put(
+        AuthenticateApiCustomer::CACHE_PREFIX . $token,
+        $customer->id,
+        now()->addMinutes(AuthenticateApiCustomer::TTL_MINUTES)
+    );
+
+    return response()->json([
+        'success' => true,
+        'message' => 'Google login successful.',
+        'customer' => $this->customerProfileArray($customer),
+        'token' => $token,
+    ]);
+}
 
     /**
      * Customer register (for Flutter). Sends OTP to email; verify via verify-otp before login.
@@ -583,7 +664,7 @@ class ApiAuthController extends Controller
             ], 404);
         }
 
-        $customer->update(['password' => $request->password]);
+        $customer->update(['password' => Hash::make($request->password)]);
         Cache::forget('password_reset:' . $request->reset_token);
 
         return response()->json([
@@ -779,7 +860,7 @@ class ApiAuthController extends Controller
             ], 422);
         }
 
-        $customer->update(['password' => $request->password]);
+        $customer->update(['password' => Hash::make($request->password)]);
         Cache::forget(self::CHANGE_PASSWORD_VERIFIED_PREFIX . $customer->id);
 
         $keepLoggedIn = $request->boolean('keep_logged_in');

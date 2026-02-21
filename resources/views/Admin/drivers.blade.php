@@ -313,16 +313,27 @@
 
         /* Prev / Next buttons */
         .page-btn {
-            display: flex;
+            display: inline-flex;
             align-items: center;
-            gap: 6px;
-            padding: 6px 14px;
-            border-radius: 10px;
-            border: 1px solid #ddd;
+            gap: 8px;
+            padding: 10px 18px;
+            border-radius: 12px;
+            border: 1px solid #e5e7eb;
             background: #fff;
             font-size: 14px;
+            font-weight: 500;
+            color: #374151;
             cursor: pointer;
-            transition: 0.2s ease;
+            transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+            white-space: nowrap;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+        }
+
+        .page-btn .material-symbols-outlined {
+            font-size: 18px;
+            display: inline-flex;
+            align-items: center;
+            line-height: 1;
         }
 
         .page-btn:disabled {
@@ -331,7 +342,9 @@
         }
 
         .page-btn:hover:not(:disabled) {
-            background: #f3f3f3;
+            background: #f9fafb;
+            border-color: #d1d5db;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.06);
         }
 
         /* Page numbers */
@@ -721,9 +734,15 @@
 
                 <!-- PAGINATION (STICKS BOTTOM) -->
                 <div class="pagination-wrapper">
-                    <button class="page-btn prev" disabled>← Previous</button>
+                    <button class="page-btn prev" disabled>
+                        <span class="material-symbols-outlined">arrow_left_alt</span>
+                        Previous
+                    </button>
                     <div class="page-numbers" id="pageNumbers"></div>
-                    <button class="page-btn next">Next →</button>
+                    <button class="page-btn next">
+                        Next
+                        <span class="material-symbols-outlined">arrow_right_alt</span>
+                    </button>
                 </div>
 
             </div>
