@@ -208,6 +208,43 @@
         gap: 10px;
     }
 
+    .table-header .col-sortable .sort-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        color: inherit;
+        text-decoration: none;
+        font-weight: inherit;
+        cursor: pointer;
+        transition: color 0.15s ease, opacity 0.15s ease;
+    }
+
+    .table-header .col-sortable .sort-link:hover {
+        color: #374151;
+    }
+
+    .table-header .col-sortable .sort-link:active {
+        opacity: 0.85;
+    }
+
+    .table-header .col-sortable .sort-arrow {
+        display: inline-flex;
+        align-items: center;
+        margin-left: 6px;
+        color: #1f2937;
+    }
+
+    .table-header .col-sortable .sort-arrow .sort-icon {
+        width: 12px;
+        height: 14px;
+        color: #1f2937;
+        transition: color 0.15s ease;
+    }
+
+    .table-header .col-sortable .sort-link:hover .sort-icon {
+        color: #111827;
+    }
+
     .bulk-delete-btn {
         border: none;
         background: transparent;
@@ -230,7 +267,14 @@
         width: 100%;
         border-collapse: separate;
         border-spacing: 0 1px;
+    }
 
+    .flavor-table tbody {
+        transition: opacity 0.2s ease;
+    }
+
+    .flavor-table tbody.is-sorting {
+        opacity: 0.65;
     }
 
     .flavor-table tr {

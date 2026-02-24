@@ -100,11 +100,35 @@
                     <div class="col">
                         <span class="material-symbols-outlined">icecream</span> Flavors
                     </div>
-                    <div class="col">
-                        <span class="material-symbols-outlined">payments</span> Price
+                    @php
+                        $sortBy = $sortBy ?? 'created_at';
+                        $order = $order ?? 'desc';
+                        $priceOrder = ($sortBy === 'price' && $order === 'asc') ? 'desc' : 'asc';
+                        $statusOrder = ($sortBy === 'status' && $order === 'desc') ? 'asc' : 'desc';
+                    @endphp
+                    <div class="col col-sortable">
+                        <a href="{{ route('admin.flavors', ['sort_by' => 'price', 'order' => $sortBy === 'price' ? $priceOrder : 'desc']) }}" class="sort-link" data-sort-by="price" data-order="{{ $sortBy === 'price' ? $priceOrder : 'desc' }}" aria-label="Sort by price">
+                            <span class="material-symbols-outlined">payments</span>
+                            <span>Price</span>
+                            <span class="sort-arrow" aria-hidden="true">
+                                <svg class="sort-icon" viewBox="0 0 12 14" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                                    <path d="M6 1L2 5.5h8L6 1z" fill="currentColor"/>
+                                    <path d="M6 13l4-4.5H2l4 4.5z" fill="currentColor"/>
+                                </svg>
+                            </span>
+                        </a>
                     </div>
-                    <div class="col">
-                        <span class="material-symbols-outlined">signal_cellular_alt</span> Status
+                    <div class="col col-sortable">
+                        <a href="{{ route('admin.flavors', ['sort_by' => 'status', 'order' => $sortBy === 'status' ? $statusOrder : 'asc']) }}" class="sort-link" data-sort-by="status" data-order="{{ $sortBy === 'status' ? $statusOrder : 'asc' }}" aria-label="Sort by status">
+                            <span class="material-symbols-outlined">signal_cellular_alt</span>
+                            <span>Status</span>
+                            <span class="sort-arrow" aria-hidden="true">
+                                <svg class="sort-icon" viewBox="0 0 12 14" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                                    <path d="M6 1L2 5.5h8L6 1z" fill="currentColor"/>
+                                    <path d="M6 13l4-4.5H2l4 4.5z" fill="currentColor"/>
+                                </svg>
+                            </span>
+                        </a>
                     </div>
                     <div class="col">
                         <span class="material-symbols-outlined">arrow_selector_tool</span> Action
@@ -122,7 +146,7 @@
                                 <col style="width:17%">
                                 <col style="width:30%">
                             </colgroup>
-                            <tbody>
+                            <tbody id="flavorTableBody">
                                 @foreach ($flavors as $flavor)
                                     @php
                                         $ingredient = $flavorTypes->firstWhere('name', $flavor->flavor_type);
@@ -130,7 +154,7 @@
                                             $ingredient && $ingredient->status === 'available' ? 'available' : 'out';
                                     @endphp
 
-                                    <tr>
+                                    <tr data-price="{{ (float) $flavor->price }}" data-status="{{ $status }}">
                                         <td>
                                             <input type="checkbox" class="row-select" value="{{ $flavor->id }}"
                                                 data-flavor-name="{{ e($flavor->name) }}">
@@ -554,7 +578,7 @@
             const filterDropdown = document.getElementById("filterDropdown");
             const filterCheckboxes = filterDropdown.querySelectorAll("input[type='checkbox']");
             const searchInput = document.getElementById("searchInput");
-            const allRows = Array.from(document.querySelectorAll(".flavor-table tbody tr"));
+            let allRows = Array.from(document.querySelectorAll(".flavor-table tbody tr"));
             const selectAllFlavors = document.getElementById("selectAllFlavors");
             const bulkDeleteBtn = document.getElementById("bulkDeleteBtn");
 
@@ -706,6 +730,47 @@
             prevBtn.onclick = () => currentPage > 1 && showPage(--currentPage);
             nextBtn.onclick = () => currentPage < Math.ceil(filteredRows.length / rowsPerPage) && showPage(++
                 currentPage);
+
+            /* =====================
+               SMOOTH CLIENT-SIDE SORT (no page refresh)
+            ===================== */
+            const tbody = document.getElementById("flavorTableBody");
+            document.querySelectorAll(".sort-link").forEach(link => {
+                link.addEventListener("click", function(e) {
+                    e.preventDefault();
+                    const sortBy = this.dataset.sortBy;
+                    const order = this.dataset.order;
+                    if (!sortBy || !tbody) return;
+
+                    const rows = Array.from(tbody.querySelectorAll("tr"));
+                    const isAsc = order === "asc";
+
+                    rows.sort((a, b) => {
+                        if (sortBy === "price") {
+                            const pa = parseFloat(a.dataset.price) || 0;
+                            const pb = parseFloat(b.dataset.price) || 0;
+                            return isAsc ? pa - pb : pb - pa;
+                        }
+                        if (sortBy === "status") {
+                            const sa = a.dataset.status || "";
+                            const sb = b.dataset.status || "";
+                            const cmp = sa.localeCompare(sb);
+                            return isAsc ? cmp : -cmp;
+                        }
+                        return 0;
+                    });
+
+                    tbody.classList.add("is-sorting");
+                    setTimeout(() => {
+                        rows.forEach(row => tbody.appendChild(row));
+                        allRows = Array.from(tbody.querySelectorAll("tr"));
+                        applyFilters();
+                        tbody.classList.remove("is-sorting");
+                    }, 120);
+                    this.dataset.order = isAsc ? "desc" : "asc";
+                });
+            });
+
             searchInput.addEventListener("input", applyFilters);
             if (selectAllFlavors) {
                 selectAllFlavors.addEventListener("change", () => {

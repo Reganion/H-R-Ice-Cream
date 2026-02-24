@@ -96,17 +96,44 @@
                     <div class="col">
                         <span class="material-symbols-outlined">grocery</span> Product
                     </div>
-                    <div class="col">
-                        <span class="material-symbols-outlined">sort</span> Type
+                    <div class="col col-sortable">
+                        <a href="#" class="sort-link" data-sort-by="type" data-order="asc" aria-label="Sort by type">
+                            <span class="material-symbols-outlined">sort</span>
+                            <span>Type</span>
+                            <span class="sort-arrow" aria-hidden="true">
+                                <svg class="sort-icon" viewBox="0 0 12 14" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                                    <path d="M6 1L2 5.5h8L6 1z" fill="currentColor"/>
+                                    <path d="M6 13l4-4.5H2l4 4.5z" fill="currentColor"/>
+                                </svg>
+                            </span>
+                        </a>
                     </div>
-                    <div class="col">
-                        <span class="material-symbols-outlined">format_list_numbered</span> Quantity
+                    <div class="col col-sortable">
+                        <a href="#" class="sort-link" data-sort-by="quantity" data-order="desc" aria-label="Sort by quantity">
+                            <span class="material-symbols-outlined">format_list_numbered</span>
+                            <span>Quantity</span>
+                            <span class="sort-arrow" aria-hidden="true">
+                                <svg class="sort-icon" viewBox="0 0 12 14" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                                    <path d="M6 1L2 5.5h8L6 1z" fill="currentColor"/>
+                                    <path d="M6 13l4-4.5H2l4 4.5z" fill="currentColor"/>
+                                </svg>
+                            </span>
+                        </a>
                     </div>
                     <div class="col">
                         <span class="material-symbols-outlined">mitre</span> Unit
                     </div>
-                    <div class="col">
-                        <span class="material-symbols-outlined">android_cell_5_bar</span> Status
+                    <div class="col col-sortable">
+                        <a href="#" class="sort-link" data-sort-by="status" data-order="asc" aria-label="Sort by status">
+                            <span class="material-symbols-outlined">android_cell_5_bar</span>
+                            <span>Status</span>
+                            <span class="sort-arrow" aria-hidden="true">
+                                <svg class="sort-icon" viewBox="0 0 12 14" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                                    <path d="M6 1L2 5.5h8L6 1z" fill="currentColor"/>
+                                    <path d="M6 13l4-4.5H2l4 4.5z" fill="currentColor"/>
+                                </svg>
+                            </span>
+                        </a>
                     </div>
                     <div class="col">
                         <span class="material-symbols-outlined">arrow_selector_tool</span> Action
@@ -130,9 +157,13 @@
 
 
 
-                            <tbody>
+                            <tbody id="ingredientTableBody">
                                 @foreach ($ingredients as $item)
-                                    <tr>
+                                    @php
+                                        $isOut = $item->quantity == 0;
+                                        $statusKey = $isOut ? 'out' : 'available';
+                                    @endphp
+                                    <tr data-type="{{ e($item->type) }}" data-quantity="{{ (int) $item->quantity }}" data-status="{{ $statusKey }}">
                                         <td>
                                             <input type="checkbox" class="row-select" value="{{ $item->id }}"
                                                 data-name="{{ e($item->name) }}">
@@ -147,9 +178,6 @@
                                         <td>{{ $item->quantity }}</td>
                                         <td>{{ $item->unit }}</td>
                                         <td>
-                                            @php
-                                                $isOut = $item->quantity == 0;
-                                            @endphp
 
                                             <span class="status {{ $isOut ? 'out' : 'available' }}">
                                                 <span class="dot"></span>
@@ -494,7 +522,7 @@ DELETE CONFIRM MODAL
             const filterDropdown = document.getElementById("filterDropdown");
             const filterCheckboxes = filterDropdown.querySelectorAll("input[type='checkbox']");
             const searchInput = document.getElementById("searchInput");
-            const allRows = Array.from(document.querySelectorAll(".flavor-table tbody tr"));
+            let allRows = Array.from(document.querySelectorAll(".flavor-table tbody tr"));
             const selectAllIngredients = document.getElementById("selectAllIngredients");
             const bulkDeleteBtn = document.querySelector(".bulk-delete-btn");
 
@@ -648,6 +676,53 @@ DELETE CONFIRM MODAL
             prevBtn.onclick = () => currentPage > 1 && showPage(--currentPage);
             nextBtn.onclick = () => currentPage < Math.ceil(filteredRows.length / rowsPerPage) && showPage(++
                 currentPage);
+
+            /* =====================
+               SMOOTH CLIENT-SIDE SORT (no page refresh)
+            ===================== */
+            const ingredientTbody = document.getElementById("ingredientTableBody");
+            document.querySelectorAll(".sort-link").forEach(link => {
+                link.addEventListener("click", function(e) {
+                    e.preventDefault();
+                    const sortBy = this.dataset.sortBy;
+                    const order = this.dataset.order;
+                    if (!sortBy || !ingredientTbody) return;
+
+                    const rows = Array.from(ingredientTbody.querySelectorAll("tr"));
+                    const isAsc = order === "asc";
+
+                    rows.sort((a, b) => {
+                        if (sortBy === "type") {
+                            const ta = (a.dataset.type || "").toLowerCase();
+                            const tb = (b.dataset.type || "").toLowerCase();
+                            const cmp = ta.localeCompare(tb);
+                            return isAsc ? cmp : -cmp;
+                        }
+                        if (sortBy === "quantity") {
+                            const qa = parseInt(a.dataset.quantity, 10) || 0;
+                            const qb = parseInt(b.dataset.quantity, 10) || 0;
+                            return isAsc ? qa - qb : qb - qa;
+                        }
+                        if (sortBy === "status") {
+                            const sa = a.dataset.status || "";
+                            const sb = b.dataset.status || "";
+                            const cmp = sa.localeCompare(sb);
+                            return isAsc ? cmp : -cmp;
+                        }
+                        return 0;
+                    });
+
+                    ingredientTbody.classList.add("is-sorting");
+                    setTimeout(() => {
+                        rows.forEach(row => ingredientTbody.appendChild(row));
+                        allRows = Array.from(ingredientTbody.querySelectorAll("tr"));
+                        applyFilters();
+                        ingredientTbody.classList.remove("is-sorting");
+                    }, 120);
+                    this.dataset.order = isAsc ? "desc" : "asc";
+                });
+            });
+
             searchInput.addEventListener("input", () => {
                 currentPage = 1;
                 applyFilters();

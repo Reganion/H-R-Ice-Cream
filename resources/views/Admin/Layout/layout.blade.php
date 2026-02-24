@@ -400,13 +400,30 @@
     document.querySelector('.top-bar').prepend(hamburger);
 
     const sidebar = document.querySelector('.sidebar');
+    const sidebarOverlay = document.getElementById('sidebarOverlay');
     hamburger.addEventListener('click', () => {
         sidebar.classList.toggle('active');
+        if (sidebarOverlay) {
+            sidebarOverlay.classList.toggle('visible', sidebar.classList.contains('active'));
+            sidebarOverlay.setAttribute('aria-hidden', sidebar.classList.contains('active') ? 'false' : 'true');
+        }
     });
+
+    if (sidebarOverlay) {
+        sidebarOverlay.addEventListener('click', () => {
+            sidebar.classList.remove('active');
+            sidebarOverlay.classList.remove('visible');
+            sidebarOverlay.setAttribute('aria-hidden', 'true');
+        });
+    }
 
     document.addEventListener('click', (e) => {
         if (!sidebar.contains(e.target) && !hamburger.contains(e.target)) {
             sidebar.classList.remove('active');
+            if (sidebarOverlay) {
+                sidebarOverlay.classList.remove('visible');
+                sidebarOverlay.setAttribute('aria-hidden', 'true');
+            }
         }
     });
 

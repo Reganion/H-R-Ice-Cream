@@ -65,14 +65,15 @@
         .driver-tabs {
             display: inline-flex;
             background: #fff;
-
             border-radius: 10px;
+            
+           
         }
 
         .driver-tabs button {
             border: none;
             background: transparent;
-            padding: 10px 20px;
+            padding: 10px 18px;
             border-radius: 10px;
             font-size: 14px;
             font-weight: 500;
@@ -85,7 +86,7 @@
         .driver-tabs button.active {
             background: #0066ff;
             color: #fff;
-            box-shadow: 0 2px 6px rgba(0, 102, 255, 0.35);
+           
         }
 
         .driver-tabs button:not(.active):hover {
@@ -98,11 +99,12 @@
         }
 
         .driver-search input {
-            padding: 12px 40px;
-            border-radius: 10px;
+            padding: 12px 16px 12px 40px;
+            border-radius: 12px;
             border: none;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, .1);
-            width: 320px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+            width: 280px;
+            font-size: 14px;
         }
 
         .driver-search span {
@@ -132,7 +134,6 @@
             cursor: pointer;
             white-space: nowrap;
 
-            box-shadow: 0 6px 16px rgba(0, 102, 255, 0.35);
             transition: all 0.25s ease;
         }
 
@@ -143,12 +144,40 @@
 
         .btn-add:hover {
             transform: translateY(-1px);
-            box-shadow: 0 10px 22px rgba(0, 102, 255, 0.45);
+            
         }
 
         .btn-add:active {
             transform: translateY(0);
-            box-shadow: 0 4px 10px rgba(0, 102, 255, 0.35);
+           
+        }
+
+        .btn-archive {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            background: #ffffff;
+            color: #3a3a3a;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 12px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            white-space: nowrap;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+            transition: background 0.2s ease, border-color 0.2s ease;
+        }
+
+        .btn-archive .material-symbols-outlined {
+            font-size: 20px;
+            line-height: 1;
+        }
+
+        .btn-archive:hover {
+            background: #f9fafb;
+            border-color: #d1d5db;
         }
 
 
@@ -165,10 +194,10 @@
 
         .driver-card {
             background: #fff;
-            border-radius: 14px;
+            border-radius: 16px;
             padding: 20px;
             text-align: center;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, .08);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
             display: flex;
             flex-direction: column;
             height: 100%;
@@ -176,59 +205,72 @@
         }
 
         .driver-card img {
-            width: 70px;
-            height: 70px;
+            width: 80px;
+            height: 80px;
             border-radius: 50%;
             object-fit: cover;
-            margin-bottom: 10px;
+            margin: 0 auto 12px;
+            display: block;
+        }
+
+        .driver-name-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            margin-bottom: 12px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid #e5e7eb;
+            flex-wrap: wrap;
         }
 
         .driver-card h4 {
-            margin-bottom: 10px;
+            margin: 0;
             font-size: 16px;
+            font-weight: 700;
+            color: #111827;
         }
 
-        .driver-tags {
-            display: flex;
-            justify-content: center;
-            gap: 8px;
-            margin-bottom: 15px;
-            align-items: center;
-        }
-
-        .driver-tags .code {
-            background: #eee;
-            padding: 8px 14px;
-            border-radius: 20px;
+        .driver-name-row .code {
             font-size: 12px;
-            font-weight: 400;
+            font-weight: 500;
+            
         }
 
-        .card-delete-btn {
-            width: 28px;
-            height: 28px;
-            border-radius: 999px;
+        .card-actions {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .card-inactive-btn,
+        .card-archive-btn {
+            width: 24px;
+            height: 24px;
+            border-radius: 8px;
             border: none;
-            background: #fee2e2;
-            color: #dc2626;
+            background: transparent;
+            color: #3a3a3a;
             display: inline-flex;
             align-items: center;
             justify-content: center;
             cursor: pointer;
-            transition: background 0.2s ease, transform 0.2s ease;
-            position: absolute;
-            top: 12px;
-            right: 12px;
+            transition: background 0.2s ease, color 0.2s ease;
         }
 
-        .card-delete-btn .material-symbols-outlined {
-            font-size: 18px;
+        .card-inactive-btn .material-symbols-outlined,
+        .card-archive-btn .material-symbols-outlined {
+            font-size: 24px;
             line-height: 1;
         }
 
-        .card-delete-btn:hover {
-            background: #fecaca;
-            transform: translateY(-1px);
+        .card-inactive-btn:hover,
+        .card-archive-btn:hover {
+            background: #e5e7eb;
+            color: #374151;
         }
 
         .status {
@@ -239,19 +281,18 @@
         }
 
         .status.on {
-            background: #cce0ff;
-            color: #0056ff;
-
+            background: #D3E0FB;
+            color: #2563EB;
         }
 
         .status.off {
-            background: #ffd6d6;
-            color: #d40000;
+            background: #FDECCE;
+            color: #F59E0B;
         }
 
         .status.available {
-            background: #d4f5e9;
-            color: #0b8f5a;
+            background: #D3F3DF;
+            color: #22C55E;
         }
 
         .status.deactivate {
@@ -436,8 +477,8 @@
         }
 
         /* =======================
-   MOBILE RESPONSIVENESS
-======================= */
+        MOBILE RESPONSIVENESS
+        ======================= */
 
         @media (max-width: 768px) {
 
@@ -832,6 +873,11 @@
                     <button class="btn-add" id="addDriverBtn">
                         <span class="material-symbols-outlined">add</span> Add New Driver
                     </button>
+
+                    <button type="button" class="btn-archive" title="Archive">
+                        <span class="material-symbols-outlined">archive</span>
+                        Archive
+                    </button>
                 </div>
 
             </div>
@@ -845,22 +891,24 @@
                     <div class="driver-grid">
                         @php
                             $statusMap = ['available' => 'available', 'on_route' => 'on', 'off_duty' => 'off', 'deactivate' => 'deactivate'];
-                            $statusLabel = ['available' => 'Available', 'on_route' => 'On Route', 'off_duty' => 'Off Duty', 'deactivate' => 'Deactivate'];
+                            $statusLabel = ['available' => 'Available', 'on_route' => 'On Route', 'off_duty' => 'Off Duty', 'deactivate' => 'Inactive'];
                         @endphp
                         @forelse ($drivers as $driver)
                             @php
                                 $driverStatus = $driver->status ?? 'available';
                                 $filterValue = $statusMap[$driverStatus] ?? 'available';
                                 $labelValue = $statusLabel[$driverStatus] ?? 'Available';
+                                $driverCode = $driver->driver_code ?? 'DRV' . str_pad((string)$driver->id, 3, '0', STR_PAD_LEFT);
                             @endphp
                             <div class="driver-card" data-status="{{ $filterValue }}">
-                                <button type="button" class="card-delete-btn" title="Remove driver" aria-label="Remove driver" data-driver-id="{{ $driver->id }}" data-driver-name="{{ $driver->name }}">
-                                    <span class="material-symbols-outlined">remove</span>
-                                </button>
+                                <div class="card-actions">
+                                    <button type="button" class="card-archive-btn" title="Archive" aria-label="Archive driver"><span class="material-symbols-outlined">archive</span></button>
+                                    <button type="button" class="card-inactive-btn" title="Set inactive" aria-label="Set driver inactive" data-driver-id="{{ $driver->id }}" data-driver-name="{{ $driver->name }}"><span class="material-symbols-outlined">do_not_disturb</span></button>
+                                </div>
                                 <img src="{{ (isset($driver->image) && $driver->image) ? asset($driver->image) : asset('img/default-user.png') }}" alt="{{ $driver->name ?? '' }}">
-                                <h4>{{ $driver->name }}</h4>
-                                <div class="driver-tags">
-                                    <span class="code">{{ $driver->driver_code ?? 'DRV' . str_pad((string)$driver->id, 3, '0', STR_PAD_LEFT) }}</span>
+                                <div class="driver-name-row">
+                                    <h4>{{ $driver->name }}</h4>
+                                    <span class="code">{{ $driverCode }}</span>
                                 </div>
                                 <div class="driver-info">
                                     <p><strong>Phone</strong><span>{{ $driver->phone ?? '—' }}</span></p>
@@ -1213,14 +1261,20 @@
                 sessionStorage.setItem("driverPendingAlertType", "success");
             });
 
-            document.querySelectorAll(".card-delete-btn").forEach((btn) => {
+            document.querySelectorAll(".card-inactive-btn").forEach((btn) => {
                 btn.addEventListener("click", () => {
                     const driverId = btn.dataset.driverId;
                     const driverName = btn.dataset.driverName || "this driver";
-
-                    deleteDriverName.textContent = driverName;
-                    deleteDriverForm.action = `/admin/drivers/${driverId}`;
-                    deleteDriverModal.classList.add("show");
+                    if (confirm(`Set ${driverName} as inactive?`)) {
+                        const form = document.createElement("form");
+                        form.method = "POST";
+                        form.action = `/admin/drivers/${driverId}/inactive`;
+                        const csrf = document.createElement("input");
+                        csrf.type = "hidden"; csrf.name = "_token"; csrf.value = document.querySelector('input[name="_token"]')?.value || '';
+                        form.appendChild(csrf);
+                        document.body.appendChild(form);
+                        form.submit();
+                    }
                 });
             });
 

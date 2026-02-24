@@ -88,14 +88,41 @@
                     <div class="col">
                         <span class="material-symbols-outlined">specific_gravity</span> Gallon Size
                     </div>
-                    <div class="col">
-                        <span class="material-symbols-outlined">sort</span> Quantity
+                    <div class="col col-sortable">
+                        <a href="#" class="sort-link" data-sort-by="quantity" data-order="desc" aria-label="Sort by quantity">
+                            <span class="material-symbols-outlined">sort</span>
+                            <span>Quantity</span>
+                            <span class="sort-arrow" aria-hidden="true">
+                                <svg class="sort-icon" viewBox="0 0 12 14" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                                    <path d="M6 1L2 5.5h8L6 1z" fill="currentColor"/>
+                                    <path d="M6 13l4-4.5H2l4 4.5z" fill="currentColor"/>
+                                </svg>
+                            </span>
+                        </a>
                     </div>
-                    <div class="col">
-                        <span class="material-symbols-outlined">sell</span> Add-on Price
+                    <div class="col col-sortable">
+                        <a href="#" class="sort-link" data-sort-by="price" data-order="desc" aria-label="Sort by add-on price">
+                            <span class="material-symbols-outlined">sell</span>
+                            <span>Add-on Price</span>
+                            <span class="sort-arrow" aria-hidden="true">
+                                <svg class="sort-icon" viewBox="0 0 12 14" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                                    <path d="M6 1L2 5.5h8L6 1z" fill="currentColor"/>
+                                    <path d="M6 13l4-4.5H2l4 4.5z" fill="currentColor"/>
+                                </svg>
+                            </span>
+                        </a>
                     </div>
-                    <div class="col">
-                        <span class="material-symbols-outlined">android_cell_5_bar</span> Status
+                    <div class="col col-sortable">
+                        <a href="#" class="sort-link" data-sort-by="status" data-order="asc" aria-label="Sort by status">
+                            <span class="material-symbols-outlined">android_cell_5_bar</span>
+                            <span>Status</span>
+                            <span class="sort-arrow" aria-hidden="true">
+                                <svg class="sort-icon" viewBox="0 0 12 14" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                                    <path d="M6 1L2 5.5h8L6 1z" fill="currentColor"/>
+                                    <path d="M6 13l4-4.5H2l4 4.5z" fill="currentColor"/>
+                                </svg>
+                            </span>
+                        </a>
                     </div>
                     <div class="col">
                         <span class="material-symbols-outlined">arrow_selector_tool</span> Action
@@ -116,9 +143,12 @@
                                 <col style="width:20%">
                             </colgroup>
 
-                            <tbody>
+                            <tbody id="gallonTableBody">
                                 @foreach ($gallons as $gallon)
-                                    <tr data-size="{{ strtolower($gallon->size) }}">
+                                    @php
+                                        $statusKey = $gallon->status === 'available' ? 'available' : 'out';
+                                    @endphp
+                                    <tr data-size="{{ strtolower($gallon->size) }}" data-quantity="{{ (int) $gallon->quantity }}" data-price="{{ (float) $gallon->addon_price }}" data-status="{{ $statusKey }}">
 
                                         <td>
                                             <input type="checkbox" class="row-select" value="{{ $gallon->id }}"
@@ -402,7 +432,7 @@
             const filterDropdown = document.getElementById("filterDropdown");
             const filterCheckboxes = filterDropdown.querySelectorAll("input[type='checkbox']");
             const searchInput = document.getElementById("searchInput");
-            const allRows = Array.from(document.querySelectorAll(".flavor-table tbody tr"));
+            let allRows = Array.from(document.querySelectorAll(".flavor-table tbody tr"));
             const selectAllGallons = document.getElementById("selectAllGallons");
             const bulkDeleteBtn = document.querySelector(".bulk-delete-btn");
 
@@ -538,6 +568,52 @@
             prevBtn.onclick = () => currentPage > 1 && showPage(--currentPage);
             nextBtn.onclick = () => currentPage < Math.ceil(filteredRows.length / rowsPerPage) && showPage(++
                 currentPage);
+
+            /* =====================
+               SMOOTH CLIENT-SIDE SORT (no page refresh)
+            ===================== */
+            const gallonTbody = document.getElementById("gallonTableBody");
+            document.querySelectorAll(".sort-link").forEach(link => {
+                link.addEventListener("click", function(e) {
+                    e.preventDefault();
+                    const sortBy = this.dataset.sortBy;
+                    const order = this.dataset.order;
+                    if (!sortBy || !gallonTbody) return;
+
+                    const rows = Array.from(gallonTbody.querySelectorAll("tr"));
+                    const isAsc = order === "asc";
+
+                    rows.sort((a, b) => {
+                        if (sortBy === "quantity") {
+                            const qa = parseInt(a.dataset.quantity, 10) || 0;
+                            const qb = parseInt(b.dataset.quantity, 10) || 0;
+                            return isAsc ? qa - qb : qb - qa;
+                        }
+                        if (sortBy === "price") {
+                            const pa = parseFloat(a.dataset.price) || 0;
+                            const pb = parseFloat(b.dataset.price) || 0;
+                            return isAsc ? pa - pb : pb - pa;
+                        }
+                        if (sortBy === "status") {
+                            const sa = a.dataset.status || "";
+                            const sb = b.dataset.status || "";
+                            const cmp = sa.localeCompare(sb);
+                            return isAsc ? cmp : -cmp;
+                        }
+                        return 0;
+                    });
+
+                    gallonTbody.classList.add("is-sorting");
+                    setTimeout(() => {
+                        rows.forEach(row => gallonTbody.appendChild(row));
+                        allRows = Array.from(gallonTbody.querySelectorAll("tr"));
+                        applyFilters();
+                        gallonTbody.classList.remove("is-sorting");
+                    }, 120);
+                    this.dataset.order = isAsc ? "desc" : "asc";
+                });
+            });
+
             searchInput.addEventListener("input", applyFilters);
 
             if (selectAllGallons) {

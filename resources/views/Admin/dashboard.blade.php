@@ -26,28 +26,28 @@
 
             <!-- SUMMARY BOXES -->
             <div class="summary-boxes">
-                <div class="summary-box">
+                <div class="summary-box summary-total">
                     <h4>Total Orders</h4>
-                    <h2>{{ $totalOrders ?? 0 }} <span class="icon" style="background:#3b82f6"></span></h2>
-                    <p>Last month: {{ $totalLastMonth ?? 0 }}</p>
+                    <h2>{{ $totalOrders ?? 0 }} <span class="icon"></span></h2>
+                    <p>Last month: <strong>{{ $totalLastMonth ?? 0 }}</strong></p>
                 </div>
 
-                <div class="summary-box">
+                <div class="summary-box summary-assigned">
                     <h4>Assigned Orders</h4>
-                    <h2>{{ $assignedCount ?? 0 }} <span class="icon" style="background:#3b82f6"></span></h2>
-                    <p>Last month: {{ $assignedLastMonth ?? 0 }}</p>
+                    <h2>{{ $assignedCount ?? 0 }} <span class="icon"></span></h2>
+                    <p>Last month: <strong>{{ $assignedLastMonth ?? 0 }}</strong></p>
                 </div>
 
-                <div class="summary-box">
+                <div class="summary-box summary-pending">
                     <h4>Pending Orders</h4>
-                    <h2>{{ $pendingCount ?? 0 }} <span class="icon" style="background:#f59e0b"></span></h2>
-                    <p>Last month: {{ $pendingLastMonth ?? 0 }}</p>
+                    <h2>{{ $pendingCount ?? 0 }} <span class="icon"></span></h2>
+                    <p>Last month: <strong>{{ $pendingLastMonth ?? 0 }}</strong></p>
                 </div>
 
-                <div class="summary-box">
-                    <h4>Delivered Orders</h4>
-                    <h2>{{ $deliveredCount ?? 0 }} <span class="icon" style="background:#22c55e"></span></h2>
-                    <p>Last month: {{ $deliveredLastMonth ?? 0 }}</p>
+                <div class="summary-box summary-completed">
+                    <h4>Completed Orders</h4>
+                    <h2>{{ $completedCount ?? 0 }} <span class="icon"></span></h2>
+                    <p>Last month: <strong>{{ $completedLastMonth ?? 0 }}</strong></p>
                 </div>
             </div>
 
@@ -55,13 +55,31 @@
             <div class="dashboard-main-panel">
                 <div class="main-panel-grid">
                     <div class="panel-section chart-panel">
-                        <h4>Top 3 Best Sellers</h4>
+                        <div class="panel-header">
+                            <h4>Top flavors this month</h4>
+                            <select class="month-filter js-month-filter" data-chart="pie" aria-label="Filter top sellers by month">
+                                @foreach ($availableMonths ?? [now()->format('Y-m')] as $month)
+                                    <option value="{{ $month }}" {{ ($selectedMonth ?? now()->format('Y-m')) === $month ? 'selected' : '' }}>
+                                        {{ $month === now()->format('Y-m') ? 'This month' : \Carbon\Carbon::createFromFormat('Y-m', $month)->format('M Y') }}
+                                    </option>
+                                @endforeach
+                            </select>
+                        </div>
                         <div class="chart-canvas-wrap">
                             <canvas id="topSellersPieChart"></canvas>
                         </div>
                     </div>
                     <div class="panel-section chart-panel">
-                        <h4>Monthly Sales (Jan - Dec)</h4>
+                        <div class="panel-header">
+                            <h4>Total sales this year</h4>
+                            <select class="year-filter js-year-filter" data-chart="bar" aria-label="Filter monthly sales by year">
+                                @foreach ($availableYears ?? [now()->year] as $year)
+                                    <option value="{{ $year }}" {{ (int) ($selectedYear ?? now()->year) === (int) $year ? 'selected' : '' }}>
+                                        {{ (int) $year === (int) now()->year ? 'This year' : $year }}
+                                    </option>
+                                @endforeach
+                            </select>
+                        </div>
                         <div class="chart-canvas-wrap">
                             <canvas id="monthlySalesBarChart"></canvas>
                         </div>
@@ -75,92 +93,353 @@
             (function() {
                 if (typeof Chart === 'undefined') return;
                 const isPhone = window.matchMedia('(max-width: 480px)').matches;
-
-                const topSellersLabels = @json($topSellersLabelsData);
-                const topSellersValues = @json($topSellersValuesData);
+                const selectedYear = Number(@json($selectedYear ?? now()->year));
+                const selectedMonth = @json($selectedMonth ?? now()->format('Y-m'));
+                const dashboardChartDataUrl = @json(route('admin.dashboard.chart-data'));
+                const currentYear = Number(new Date().getFullYear());
+                const now = new Date();
+                const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 
                 const monthlySalesLabels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-                const monthlySalesValues = (@json($monthlySalesValuesData) || []).map(v => Number(v) || 0);
                 const yStep = 5000;
-                const monthlyMaxValue = Math.max(...monthlySalesValues, 0);
-                const yAxisMax = Math.max(20000, Math.ceil(monthlyMaxValue / yStep) * yStep);
+                const initialTopSellersLabels = @json($topSellersLabelsData);
+                const initialTopSellersValues = @json($topSellersValuesData);
+                const initialMonthlySalesValues = (@json($monthlySalesValuesData) || []).map(v => Number(v) || 0);
+
+                const piePercentLabelPlugin = {
+                    id: 'piePercentLabelPlugin',
+                    afterDatasetsDraw(chart) {
+                        const { ctx } = chart;
+                        const meta = chart.getDatasetMeta(0);
+                        const data = chart.data.datasets[0].data || [];
+                        const total = data.reduce((sum, v) => sum + (Number(v) || 0), 0);
+                        ctx.save();
+                        ctx.fillStyle = '#1f2937';
+                        ctx.font = `${isPhone ? 11 : 13}px Inter, sans-serif`;
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'middle';
+
+                        meta.data.forEach((arc, index) => {
+                            const value = Number(data[index]) || 0;
+                            if (value <= 0) return;
+                            const pos = arc.tooltipPosition();
+                            const percent = total > 0 ? Math.round((value / total) * 100) : 0;
+                            ctx.fillText(`${percent}%`, pos.x, pos.y);
+                        });
+                        ctx.restore();
+                    }
+                };
 
                 const pieEl = document.getElementById('topSellersPieChart');
-                if (pieEl) {
-                    new Chart(pieEl, {
-                        type: 'pie',
-                        data: {
-                            labels: topSellersLabels,
-                            datasets: [{
-                                data: topSellersValues,
-                                backgroundColor: ['#3b82f6', '#22c55e', '#f59e0b'],
-                                borderWidth: 0
-                            }]
-                        },
-                        options: {
-                            responsive: true,
-                            maintainAspectRatio: false,
-                            plugins: {
-                                legend: {
-                                    position: 'bottom',
-                                    labels: {
-                                        boxWidth: isPhone ? 10 : 14,
-                                        font: {
-                                            size: isPhone ? 10 : 12
+                const barEl = document.getElementById('monthlySalesBarChart');
+                let pieChartInstance = null;
+                let barChartInstance = null;
+
+                function renderPieChart(labels, values) {
+                    if (!pieEl) return;
+                    if (!pieChartInstance) {
+                        pieChartInstance = new Chart(pieEl, {
+                            type: 'pie',
+                            data: {
+                                labels: labels,
+                                datasets: [{
+                                    data: values,
+                                    backgroundColor: ['#f4b531', '#ff1f6a', '#8daa3d'],
+                                    borderWidth: 0
+                                }]
+                            },
+                            plugins: [piePercentLabelPlugin],
+                            options: {
+                                responsive: true,
+                                maintainAspectRatio: false,
+                                animation: {
+                                    duration: 420,
+                                    easing: 'easeOutCubic'
+                                },
+                                plugins: {
+                                    legend: {
+                                        position: 'top',
+                                        align: 'center',
+                                        labels: {
+                                            usePointStyle: true,
+                                            pointStyle: 'rect',
+                                            boxWidth: isPhone ? 10 : 14,
+                                            color: '#374151',
+                                            font: {
+                                                size: isPhone ? 10 : 14
+                                            }
                                         }
                                     }
                                 }
                             }
-                        }
-                    });
+                        });
+                        return;
+                    }
+
+                    pieChartInstance.data.labels = labels;
+                    pieChartInstance.data.datasets[0].data = values;
+                    pieChartInstance.update();
                 }
 
-                const barEl = document.getElementById('monthlySalesBarChart');
-                if (barEl) {
-                    new Chart(barEl, {
-                        type: 'bar',
-                        data: {
-                            labels: monthlySalesLabels,
-                            datasets: [{
-                                label: 'Sales',
-                                data: monthlySalesValues,
-                                backgroundColor: '#3b82f6',
-                                borderRadius: 6,
-                                maxBarThickness: 28
-                            }]
-                        },
-                        options: {
-                            responsive: true,
-                            maintainAspectRatio: false,
-                            plugins: {
-                                legend: {
-                                    display: false
-                                }
+                function renderBarChart(values) {
+                    if (!barEl) return;
+                    const cleanValues = (values || []).map(v => Number(v) || 0);
+                    const monthlyMaxValue = Math.max(...cleanValues, 0);
+                    const yAxisMax = Math.max(30000, Math.ceil(monthlyMaxValue / yStep) * yStep);
+                    if (!barChartInstance) {
+                        barChartInstance = new Chart(barEl, {
+                            type: 'bar',
+                            data: {
+                                labels: monthlySalesLabels,
+                                datasets: [{
+                                    label: 'Sales',
+                                    data: cleanValues,
+                                    backgroundColor: '#3b82f6',
+                                    borderRadius: 2,
+                                    maxBarThickness: 30
+                                }]
                             },
-                            scales: {
-                                y: {
-                                    beginAtZero: true,
-                                    max: yAxisMax,
-                                    ticks: {
-                                        stepSize: yStep,
-                                        callback: function(value) {
-                                            return '₱' + Number(value).toLocaleString('en-PH');
-                                        }
+                            options: {
+                                responsive: true,
+                                maintainAspectRatio: false,
+                                animation: {
+                                    duration: 420,
+                                    easing: 'easeOutCubic'
+                                },
+                                plugins: {
+                                    legend: {
+                                        display: false
                                     }
                                 },
-                                x: {
-                                    ticks: {
-                                        autoSkip: false,
-                                        maxRotation: isPhone ? 50 : 0,
-                                        minRotation: isPhone ? 50 : 0,
-                                        font: {
-                                            size: isPhone ? 10 : 12
+                                scales: {
+                                    y: {
+                                        beginAtZero: true,
+                                        max: yAxisMax,
+                                        grid: {
+                                            color: '#dfe3ea',
+                                            drawBorder: false
+                                        },
+                                        ticks: {
+                                            stepSize: yStep,
+                                            color: '#4b5563',
+                                            font: {
+                                                size: isPhone ? 10 : 12
+                                            },
+                                            callback: function(value) {
+                                                return Number(value).toLocaleString('en-PH');
+                                            }
+                                        }
+                                    },
+                                    x: {
+                                        grid: {
+                                            display: false,
+                                            drawBorder: false
+                                        },
+                                        ticks: {
+                                            autoSkip: false,
+                                            maxRotation: isPhone ? 50 : 0,
+                                            minRotation: isPhone ? 50 : 0,
+                                            color: '#374151',
+                                            font: {
+                                                size: isPhone ? 10 : 12
+                                            }
                                         }
                                     }
                                 }
                             }
+                        });
+                        return;
+                    }
+
+                    barChartInstance.data.datasets[0].data = cleanValues;
+                    barChartInstance.options.scales.y.max = yAxisMax;
+                    barChartInstance.update();
+                }
+
+                function formatYearLabel(year) {
+                    const yearNum = Number(year) || currentYear;
+                    return yearNum === currentYear ? 'This year' : String(yearNum);
+                }
+
+                async function fetchDashboardData(year, month) {
+                    const endpoint = new URL(dashboardChartDataUrl, window.location.origin);
+                    endpoint.searchParams.set('year', String(year));
+                    endpoint.searchParams.set('month', String(month));
+                    const response = await fetch(endpoint.toString(), {
+                        headers: {
+                            'Accept': 'application/json',
+                            'X-Requested-With': 'XMLHttpRequest'
+                        },
+                        credentials: 'same-origin'
+                    });
+                    if (!response.ok) {
+                        throw new Error('Failed to fetch dashboard chart data');
+                    }
+                    return response.json();
+                }
+
+                function formatMonthLabel(monthKey) {
+                    if (!monthKey || monthKey === currentMonth) return 'This month';
+                    const [y, m] = String(monthKey).split('-').map(Number);
+                    if (!y || !m) return monthKey;
+                    const names = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                    return `${names[m - 1] || ''} ${y}`;
+                }
+
+                function syncMonthOptionsForFilter(filter, months, activeMonth) {
+                    const list = Array.from(new Set((months || []).filter(Boolean)));
+                    if (!list.length) return;
+                    filter.innerHTML = list
+                        .map(m => `<option value="${m}">${formatMonthLabel(m)}</option>`)
+                        .join('');
+                    filter.value = String(activeMonth);
+                }
+
+                function syncYearOptionsForFilter(filter, years, activeYear) {
+                    const uniqueYears = Array.from(new Set((years || []).map(y => Number(y)).filter(Boolean)));
+                    if (!uniqueYears.length) return;
+                    filter.innerHTML = uniqueYears
+                        .map(year => `<option value="${year}">${formatYearLabel(year)}</option>`)
+                        .join('');
+                    filter.value = String(activeYear);
+                }
+
+                function setFilterLoading(filter, isLoading) {
+                    filter.disabled = isLoading;
+                    filter.style.opacity = isLoading ? '0.72' : '1';
+                    filter.style.cursor = isLoading ? 'wait' : 'pointer';
+                }
+
+                function readSavedFilterYear(chartType) {
+                    try {
+                        const key = chartType === 'bar' ? 'admin.dashboard.barYear' : null;
+                        if (!key) return null;
+                        const raw = window.localStorage.getItem(key);
+                        const year = Number(raw);
+                        return Number.isFinite(year) && year > 0 ? year : null;
+                    } catch (error) {
+                        return null;
+                    }
+                }
+
+                function saveFilterYear(chartType, year) {
+                    try {
+                        const key = chartType === 'bar' ? 'admin.dashboard.barYear' : null;
+                        if (key) window.localStorage.setItem(key, String(year));
+                    } catch (error) {
+                        // Ignore storage failures (private mode, storage blocked, etc.)
+                    }
+                }
+
+                function readSavedFilterMonth() {
+                    try {
+                        const raw = window.localStorage.getItem('admin.dashboard.pieMonth');
+                        if (raw && /^\d{4}-\d{2}$/.test(raw)) return raw;
+                        return null;
+                    } catch (error) {
+                        return null;
+                    }
+                }
+
+                function saveFilterMonth(month) {
+                    try {
+                        window.localStorage.setItem('admin.dashboard.pieMonth', String(month));
+                    } catch (error) {
+                        // Ignore storage failures
+                    }
+                }
+
+                function renderDashboardCharts(payload) {
+                    const labels = Array.isArray(payload.topSellersLabels) && payload.topSellersLabels.length
+                        ? payload.topSellersLabels
+                        : ['No Sales Data'];
+                    const values = Array.isArray(payload.topSellersValues) && payload.topSellersValues.length
+                        ? payload.topSellersValues
+                        : [1];
+                    const monthlyValues = Array.isArray(payload.monthlySalesValues)
+                        ? payload.monthlySalesValues
+                        : Array(12).fill(0);
+                    renderPieChart(labels, values);
+                    renderBarChart(monthlyValues);
+                }
+
+                renderDashboardCharts({
+                    topSellersLabels: initialTopSellersLabels,
+                    topSellersValues: initialTopSellersValues,
+                    monthlySalesValues: initialMonthlySalesValues
+                });
+
+                function resizeCharts() {
+                    if (pieChartInstance) pieChartInstance.resize();
+                    if (barChartInstance) barChartInstance.resize();
+                }
+                window.addEventListener('resize', resizeCharts);
+                setTimeout(resizeCharts, 100);
+                requestAnimationFrame(resizeCharts);
+
+                let pieMonth = readSavedFilterMonth() || selectedMonth;
+                let barYear = readSavedFilterYear('bar') || selectedYear;
+                const monthFilters = Array.from(document.querySelectorAll('.js-month-filter'));
+                const yearFilters = Array.from(document.querySelectorAll('.js-year-filter'));
+
+                monthFilters.forEach(filter => {
+                    filter.value = String(pieMonth);
+                    filter.addEventListener('change', async function() {
+                        const selected = this.value || currentMonth;
+                        setFilterLoading(this, true);
+                        try {
+                            const data = await fetchDashboardData(barYear, selected);
+                            const active = data.selectedMonth || selected;
+                            syncMonthOptionsForFilter(this, data.availableMonths || [], active);
+                            pieMonth = active;
+                            saveFilterMonth(active);
+                            const labels = Array.isArray(data.topSellersLabels) && data.topSellersLabels.length
+                                ? data.topSellersLabels
+                                : ['No Sales Data'];
+                            const values = Array.isArray(data.topSellersValues) && data.topSellersValues.length
+                                ? data.topSellersValues
+                                : [1];
+                            renderPieChart(labels, values);
+                        } catch (error) {
+                            console.error(error);
+                        } finally {
+                            setFilterLoading(this, false);
                         }
                     });
+                });
+
+                yearFilters.forEach(filter => {
+                    filter.value = String(barYear);
+                    filter.addEventListener('change', async function() {
+                        const selected = Number(this.value) || selectedYear;
+                        setFilterLoading(this, true);
+                        try {
+                            const data = await fetchDashboardData(selected, pieMonth);
+                            const active = Number(data.selectedYear) || selected;
+                            syncYearOptionsForFilter(this, data.availableYears || [], active);
+                            barYear = active;
+                            saveFilterYear('bar', active);
+                            const values = Array.isArray(data.monthlySalesValues)
+                                ? data.monthlySalesValues
+                                : Array(12).fill(0);
+                            renderBarChart(values);
+                        } catch (error) {
+                            console.error(error);
+                        } finally {
+                            setFilterLoading(this, false);
+                        }
+                    });
+                });
+
+                const pieFilter = monthFilters[0];
+                const barFilter = yearFilters[0];
+                if (pieFilter && pieMonth !== selectedMonth) {
+                    pieFilter.value = String(pieMonth);
+                    pieFilter.dispatchEvent(new Event('change'));
+                }
+                if (barFilter && barYear !== selectedYear) {
+                    barFilter.value = String(barYear);
+                    barFilter.dispatchEvent(new Event('change'));
                 }
             })();
         </script>

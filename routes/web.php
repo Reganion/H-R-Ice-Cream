@@ -84,6 +84,7 @@ Route::post('/admin/forgot-password/reset-password', [AdminAuthController::class
 
 Route::prefix('admin')->name('admin.')->group(function () {
     Route::get('/dashboard', [AdminPagesController::class, 'dashboard'])->name('dashboard');
+    Route::get('/dashboard/chart-data', [AdminPagesController::class, 'dashboardChartData'])->name('dashboard.chart-data');
     Route::get('/flavors', [AdminPagesController::class, 'flavors'])->name('flavors');
     Route::get('/ingredients', [AdminPagesController::class, 'ingredients'])->name('ingredients');
     Route::get('/gallon', [AdminPagesController::class, 'gallon'])->name('gallon');
@@ -117,6 +118,9 @@ Route::prefix('admin')->group(function () {
 
     Route::delete('/drivers/{id}', [DriverController::class, 'destroy'])
         ->name('admin.drivers.destroy');
+
+    Route::post('/drivers/{id}/inactive', [DriverController::class, 'setInactive'])
+        ->name('admin.drivers.inactive');
 });
 
 Route::prefix('admin')->group(function () {
