@@ -30,6 +30,13 @@
 
     <!-- RIGHT LOGIN FORM -->
     <div class="right">
+            <!-- Decorative shapes -->
+    <div class="right-design">
+        <span class="circle circle1"></span>
+        <span class="circle circle2"></span>
+        <span class="circle circle3"></span>
+    </div>
+
         <div class="container">
 
             <div class="logo">

@@ -40,14 +40,64 @@
          height: auto;
      }
 
-     /* RIGHT LOGIN FORM */
-     .right {
-         width: 50%;
-         display: flex;
-         justify-content: center;
-         align-items: center;
-         padding: 20px;
-     }
+/* RIGHT SIDE DECORATION */
+.right {
+    width: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 20px;
+    position: relative;
+    overflow: hidden;
+}
+
+/* decorative container */
+.right-design {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    z-index: 0;
+}
+
+/* circle shapes */
+.circle {
+    position: absolute;
+    border-radius: 50%;
+    opacity: 0.15;
+}
+
+/* big blue */
+.circle1 {
+    width: 350px;
+    height: 350px;
+    background: #1a7ab5;
+    top: -120px;
+    right: -120px;
+}
+
+/* medium red */
+.circle2 {
+    width: 250px;
+    height: 250px;
+    background: #d90000;
+    bottom: -80px;
+    right: 120px;
+}
+
+/* small blue */
+.circle3 {
+    width: 150px;
+    height: 150px;
+    background: #1a7ab5;
+    bottom: 60px;
+    right: -40px;
+}
+
+/* keep form above design */
+.container {
+    position: relative;
+    z-index: 2;
+}
 
      .container {
          max-width: 500px;
