@@ -15,7 +15,7 @@ use App\Http\Controllers\Admin\DriverController;
 use App\Http\Controllers\Admin\AdminController;
 use App\Http\Controllers\Admin\AdminNotificationController;
 use App\Http\Controllers\Admin\AdminChatController;
-
+use App\Http\Controllers\Api\ApiOrderPaymentController;
 
 Route::get('/', [CustomerPageController::class, 'landing'])
     ->name('landing');
@@ -25,6 +25,8 @@ Route::get('/home', [CustomerPageController::class, 'home'])
 
 Route::get('/customer/dashboard', [CustomerPageController::class, 'dashboard'])
     ->name('customer.dashboard');
+
+Route::get('/payment/qrph/qrph', [ApiOrderPaymentController::class, 'qrindex']);
 
 Route::get('/top-orders', [CustomerPageController::class, 'topOrders'])->name('customer.topOrders');
 Route::get('/order/{id}', [CustomerPageController::class, 'orderDetail'])->name('customer.order.detail');

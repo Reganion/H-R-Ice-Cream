@@ -4,10 +4,12 @@ namespace App\Services;
 
 use Illuminate\Support\Facades\Http;
 use App\Models\Invoice;
+use Illuminate\Support\Facades\Log;
 
 class PayMongoService
 {
-    public function createPaymentIntent($amount, $description) 
+
+    public function createPaymentIntent($amount, $description)
     {
         $secretKey = env('PAYMONGO_SECRET_KEY');
 
@@ -15,58 +17,70 @@ class PayMongoService
             ->post('https://api.paymongo.com/v1/payment_intents', [
                 'data' => [
                     'attributes' => [
-                        'amount' => $amount, // in centavos (₱10 = 1000)
+                        'amount' => $amount, // in centavos (₱1 = 100)
                         'currency' => 'PHP',
-                        'payment_method_allowed' => ['gcash'],
-                        'payment_method_options' => [
-                            'gcash' => ['type' => 'redirect']
-                        ],
+                        'payment_method_allowed' => ['qrph'],
                         'description' => $description,
                     ]
                 ]
             ]);
 
-        return $response->json();
+        $responseJson = $response->json();
+
+        Log::info('PayMongo Payment Intent Response', [
+            'response' => $responseJson
+        ]);
+
+        return $responseJson['data'] ?? null;
     }
-    
-    public function createGcashResource($paymentIntentId, $amount, $successUrl, $failedUrl) 
+
+    public function createQrphPaymentMethod($name, $email, $phone)
     {
         $secretKey = env('PAYMONGO_SECRET_KEY');
 
         $response = Http::withBasicAuth($secretKey, '')
-            ->post('https://api.paymongo.com/v1/sources', [
+            ->post("https://api.paymongo.com/v1/payment_methods", [
                 'data' => [
                     'attributes' => [
-                        'type' => 'gcash',
-                        'amount' => $amount,
-                        'currency' => 'PHP',
-                        'redirect' => [
-                            'success' => $successUrl,
-                            'failed' => $failedUrl,
-                        ],
-                        'payment_intent' => $paymentIntentId,
+                        'type' => 'qrph',
+                        'billing' => [
+                            'name' => $name,
+                            'email' => $email,
+                            'phone' => $phone
+                        ]
                     ]
                 ]
             ]);
 
-        return $response->json();
+        $responseJson = $response->json();
+
+        Log::info('PayMongo Create QRPH Payment Method', [
+            'response' => $responseJson
+        ]);
+
+        return $responseJson['data'] ?? null;
     }
 
-    public function getGCashCheckoutUrl($source) 
+    public function attachPaymentMethodToIntent($paymentIntentId, $paymentMethodId)
     {
-        return $source['data']['attributes']['redirect']['checkout_url'] ?? null;
-    }
+        $secretKey = env('PAYMONGO_SECRET_KEY');
 
-    public function markInvoiceAsPaid($invoiceId) 
-    {
-        $invoice = Invoice::find($invoiceId);
+        $response = Http::withBasicAuth($secretKey, '')
+            ->post("https://api.paymongo.com/v1/payment_intents/{$paymentIntentId}/attach", [
+                'data' => [
+                    'attributes' => [
+                        'payment_method' => $paymentMethodId
+                    ]
+                ]
+            ]);
 
-        if ($invoice) {
-            $invoice->status = 'paid';
-            $invoice->save();
-            return true;
-        }
-        return false;
+        $responseJson = $response->json();
+
+        Log::info('PayMongo Attach QRPH Response', [
+            'response' => $responseJson
+        ]);
+
+        return $responseJson;
     }
 
     public function getPaymentStatus($paymentIntentId)
@@ -77,5 +91,18 @@ class PayMongoService
             ->get("https://api.paymongo.com/v1/payment_intents/{$paymentIntentId}");
 
         return $response->json()['data']['attributes']['status'] ?? null;
+    }
+
+    public function markInvoiceAsPaid($invoiceId)
+    {
+        $invoice = Invoice::find($invoiceId);
+
+        if ($invoice) {
+            $invoice->status = 'paid';
+            $invoice->save();
+            return true;
+        }
+
+        return false;
     }
 }
