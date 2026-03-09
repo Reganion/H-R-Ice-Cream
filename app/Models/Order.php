@@ -38,4 +38,13 @@ class Order extends Model
     {
         return $this->belongsTo(Driver::class);
     }
+
+    /**
+     * One-to-Many relationship with Invoice
+     * Each invoice = one partial payment or full payment
+     */
+    public function invoices()
+    {
+        return $this->hasMany(Invoice::class);
+    }
 }
