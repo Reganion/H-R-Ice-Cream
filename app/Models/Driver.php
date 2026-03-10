@@ -42,5 +42,10 @@ class Driver extends Model
         'image',
         'status',
         'driver_code',
+        'password',
+    ];
+
+    protected $hidden = [
+        'password',
     ];
 }

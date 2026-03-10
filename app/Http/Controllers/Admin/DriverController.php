@@ -3,8 +3,13 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Mail\DriverWelcomePasswordMail;
 use App\Models\Driver;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Str;
+use Throwable;
 
 class DriverController extends Controller
 {
@@ -43,8 +48,9 @@ class DriverController extends Controller
             ? (int) preg_replace('/\D/', '', $lastDriver->driver_code) + 1
             : 1;
         $driverCode = 'DRV' . str_pad((string) $nextNum, 3, '0', STR_PAD_LEFT);
+        $temporaryPassword = Str::upper(Str::random(10));
 
-        Driver::create([
+        $driver = Driver::create([
             'name'         => $request->name,
             'phone'        => $request->phone,
             'email'        => $request->email,
@@ -53,7 +59,18 @@ class DriverController extends Controller
             'image'        => $imagePath,
             'status'       => Driver::STATUS_AVAILABLE,
             'driver_code'  => $driverCode,
+            'password'     => Hash::make($temporaryPassword),
         ]);
+
+        try {
+            Mail::to($driver->email)->send(
+                new DriverWelcomePasswordMail($driver, $temporaryPassword)
+            );
+        } catch (Throwable $e) {
+            report($e);
+
+            return back()->with('error', 'Driver was added, but sending the password email failed.');
+        }
 
         return back()->with('success', 'Driver added successfully.');
     }

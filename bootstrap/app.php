@@ -14,6 +14,7 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->alias([
             'api.customer' => \App\Http\Middleware\AuthenticateApiCustomer::class,
+            'api.driver' => \App\Http\Middleware\AuthenticateApiDriver::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

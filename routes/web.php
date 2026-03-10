@@ -23,18 +23,9 @@ Route::get('/', [CustomerPageController::class, 'landing'])
 Route::get('/home', [CustomerPageController::class, 'home'])
     ->name('customer.home');
 
-Route::get('/customer/dashboard', [CustomerPageController::class, 'dashboard'])
-    ->name('customer.dashboard');
-
 Route::get('/payment/qrph/qrph', [ApiOrderPaymentController::class, 'qrindex']);
 
-Route::get('/top-orders', [CustomerPageController::class, 'topOrders'])->name('customer.topOrders');
-Route::get('/order/{id}', [CustomerPageController::class, 'orderDetail'])->name('customer.order.detail');
-Route::get('/customer/order-history', [CustomerPageController::class, 'orderHistory'])->name('customer.order.history');
-Route::get('/customer/favorite', [CustomerPageController::class, 'favorite'])->name('customer.favorite');
-Route::get('/customer/messages', [CustomerPageController::class, 'messages'])->name('customer.messages');
-Route::get('/customer/chat/{id}', [CustomerPageController::class, 'chat'])->name('customer.chat');
-Route::get('/customer/flavors', [CustomerPageController::class, 'flavors'])->name('customer.flavors');
+Route::get('/about', [CustomerPageController::class, 'about'])->name('customer.about');
 Route::get('/about', [CustomerPageController::class, 'about'])->name('customer.about');
 Route::get('/Customer/login', [CustomerPageController::class, 'Customerlogin'])->name('customer.login');
 Route::post('/Customer/login', [CustomerAuthController::class, 'login'])->name('customer.login.submit');
@@ -57,11 +48,6 @@ Route::get('/driver', function () {
 })->name('driver.landing');
 
 Route::get('/customer/logout', [CustomerAuthController::class, 'logout'])->name('customer.logout');
-
-Route::get('/customer/my-account', [CustomerPageController::class, 'myAccount'])->name('customer.my-account');
-Route::get('/customer/account-information', [CustomerPageController::class, 'accountInformation'])->name('customer.account-information');
-Route::get('/customer/edit-profile', [CustomerPageController::class, 'editProfile'])->name('customer.edit-profile');
-Route::post('/customer/update-profile', [CustomerPageController::class, 'updateProfile'])->name('customer.update-profile');
 
 Route::get('/customer/change-password', [CustomerAuthController::class, 'showChangePasswordForm'])->name('customer.change-password');
 Route::post('/customer/change-password/send-otp', [CustomerAuthController::class, 'sendChangePasswordOtp'])->name('customer.change-password.send-otp');
@@ -87,6 +73,7 @@ Route::post('/admin/forgot-password/reset-password', [AdminAuthController::class
 Route::prefix('admin')->name('admin.')->group(function () {
     Route::get('/dashboard', [AdminPagesController::class, 'dashboard'])->name('dashboard');
     Route::get('/dashboard/chart-data', [AdminPagesController::class, 'dashboardChartData'])->name('dashboard.chart-data');
+    Route::get('/dashboard/completed-orders', [AdminPagesController::class, 'dashboardCompletedOrders'])->name('dashboard.completed-orders');
     Route::get('/flavors', [AdminPagesController::class, 'flavors'])->name('flavors');
     Route::get('/ingredients', [AdminPagesController::class, 'ingredients'])->name('ingredients');
     Route::get('/gallon', [AdminPagesController::class, 'gallon'])->name('gallon');

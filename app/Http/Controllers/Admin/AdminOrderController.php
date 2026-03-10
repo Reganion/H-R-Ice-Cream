@@ -273,6 +273,7 @@ class AdminOrderController extends Controller
         $order->update([
             'driver_id' => $request->driver_id,
             'status' => 'assigned',
+            'status_driver' => null,
         ]);
 
         if ($request->wantsJson()) {

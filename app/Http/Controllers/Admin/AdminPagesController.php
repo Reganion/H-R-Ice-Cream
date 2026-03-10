@@ -122,6 +122,54 @@ class AdminPagesController extends Controller
         ]);
     }
 
+    public function dashboardCompletedOrders(Request $request)
+    {
+        $now = Carbon::now();
+        $year = (int) $request->query('year', $now->year);
+        $month = (int) $request->query('month', $now->month);
+        $month = max(1, min(12, $month));
+
+        $startOfMonth = Carbon::create($year, $month, 1)->startOfMonth()->toDateString();
+        $endOfMonth = Carbon::create($year, $month, 1)->endOfMonth()->toDateString();
+
+        $orders = Order::query()
+            ->whereRaw("LOWER(status) IN ('completed', 'delivered')")
+            ->whereRaw('DATE(COALESCE(delivery_date, created_at)) BETWEEN ? AND ?', [$startOfMonth, $endOfMonth])
+            ->orderByRaw('COALESCE(delivery_date, created_at) DESC')
+            ->get()
+            ->map(function (Order $order) {
+                $deliveryDate = $order->delivery_date ? Carbon::parse($order->delivery_date) : null;
+                $deliveryTime = $order->delivery_time ? Carbon::parse($order->delivery_time) : null;
+                $createdAt = $order->created_at ? Carbon::parse($order->created_at) : null;
+
+                return [
+                    'id' => $order->id,
+                    'transaction_id' => $order->transaction_id ?? '',
+                    'customer_name' => $order->customer_name ?? '',
+                    'product_name' => $order->product_name ?? '',
+                    'product_type' => $order->product_type ?? '',
+                    'gallon_size' => $order->gallon_size ?? '',
+                    'delivery_address' => $order->delivery_address ?? '',
+                    'customer_phone' => $order->customer_phone ?? '',
+                    'customer_image_url' => asset($order->customer_image ?? 'img/default-user.png'),
+                    'product_image_url' => asset($order->product_image ?? 'img/default-product.png'),
+                    'payment_method' => $order->payment_method ?? '',
+                    'amount' => (float) $order->amount,
+                    'status' => 'completed',
+                    'delivery_date_formatted' => $deliveryDate ? $deliveryDate->format('d M Y') : '—',
+                    'delivery_time_formatted' => $deliveryTime ? $deliveryTime->format('h:i A') : '—',
+                    'created_at_formatted' => $createdAt ? $createdAt->format('d M Y') : '—',
+                ];
+            })
+            ->values();
+
+        return response()->json([
+            'selectedYear' => $year,
+            'selectedMonth' => str_pad((string) $month, 2, '0', STR_PAD_LEFT),
+            'orders' => $orders,
+        ]);
+    }
+
     private function getDashboardAvailableYears(int $fallbackYear): array
     {
         $years = Order::query()

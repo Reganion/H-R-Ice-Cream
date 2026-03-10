@@ -3,12 +3,15 @@
 use App\Http\Controllers\Api\ApiAddressController;
 use App\Http\Controllers\Api\ApiAuthController;
 use App\Http\Controllers\Api\ApiCartController;
+use App\Http\Controllers\Api\ApiDriverAuthController;
+use App\Http\Controllers\Api\ApiDriverShipmentController;
 use App\Http\Controllers\Api\ApiFavoriteController;
 use App\Http\Controllers\Api\ApiFlavorController;
 use App\Http\Controllers\Api\ApiNotificationController;
 use App\Http\Controllers\Api\ApiOrderController;
 use App\Http\Controllers\Api\ApiChatController;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\Api\ApiOrderPaymentController;
 
 /*
 |--------------------------------------------------------------------------
@@ -17,8 +20,11 @@ use Illuminate\Support\Facades\Route;
 */
 
 Route::prefix('v1')->group(function () {
+
+    Route::post('/orders/downpayment', [ApiOrderPaymentController::class, 'createDownpayment']);
     // Public
     Route::post('/login', [ApiAuthController::class, 'login']);
+    Route::post('/driver/login', [ApiDriverAuthController::class, 'login']);
     Route::post('/register', [ApiAuthController::class, 'register']);
     Route::post('/verify-otp', [ApiAuthController::class, 'verifyOtp']);
     Route::post('/resend-otp', [ApiAuthController::class, 'resendOtp']);
@@ -86,5 +92,16 @@ Route::prefix('v1')->group(function () {
         Route::get('/chat/messages', [ApiChatController::class, 'messages']);
         Route::post('/chat/messages', [ApiChatController::class, 'store']);
         Route::post('/chat/read', [ApiChatController::class, 'markRead']);
+    });
+
+    // Driver protected endpoints
+    Route::middleware('api.driver')->prefix('driver')->group(function () {
+        Route::get('/me', [ApiDriverAuthController::class, 'me']);
+        Route::post('/logout', [ApiDriverAuthController::class, 'logout']);
+        Route::get('/shipments', [ApiDriverShipmentController::class, 'index']);
+        Route::get('/shipments/{id}', [ApiDriverShipmentController::class, 'show']);
+        Route::post('/shipments/{id}/accept', [ApiDriverShipmentController::class, 'accept']);
+        Route::post('/shipments/{id}/reject', [ApiDriverShipmentController::class, 'reject']);
+        Route::post('/shipments/{id}/deliver', [ApiDriverShipmentController::class, 'deliver']);
     });
 });

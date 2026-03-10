@@ -88,6 +88,33 @@
             </div>
         </div>
 
+        <div class="orders-view-modal orders-view-modal--orders" id="completedOrdersModal">
+            <div class="orders-view-card">
+                <div class="orders-view-header">
+                    <h3 id="completedOrdersModalTitle">Completed Orders</h3>
+                    <button class="orders-view-close" id="closeCompletedOrdersModal">&times;</button>
+                </div>
+                <div class="orders-view-content">
+                    <div class="details-section-card">
+                        <div class="completed-orders-summary">
+                            <div class="completed-orders-summary-item">
+                                <span>Total Sales</span>
+                                <strong id="completedOrdersTotalPrice">₱0.00</strong>
+                            </div>
+                            <div class="completed-orders-summary-item">
+                                <span>Total Orders</span>
+                                <strong id="completedOrdersTotalCount">0</strong>
+                            </div>
+                        </div>
+                        <h4 class="details-section-title">Completed Orders List</h4>
+                        <div id="completedOrdersList" class="completed-orders-list">
+                            <p class="completed-orders-empty">Select a month bar to load orders.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
         <script>
             (function() {
@@ -96,6 +123,7 @@
                 const selectedYear = Number(@json($selectedYear ?? now()->year));
                 const selectedMonth = @json($selectedMonth ?? now()->format('Y-m'));
                 const dashboardChartDataUrl = @json(route('admin.dashboard.chart-data'));
+                const dashboardCompletedOrdersUrl = @json(route('admin.dashboard.completed-orders'));
                 const currentYear = Number(new Date().getFullYear());
                 const now = new Date();
                 const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
@@ -132,8 +160,89 @@
 
                 const pieEl = document.getElementById('topSellersPieChart');
                 const barEl = document.getElementById('monthlySalesBarChart');
+                const completedOrdersModal = document.getElementById('completedOrdersModal');
+                const completedOrdersModalTitle = document.getElementById('completedOrdersModalTitle');
+                const completedOrdersTotalPrice = document.getElementById('completedOrdersTotalPrice');
+                const completedOrdersTotalCount = document.getElementById('completedOrdersTotalCount');
+                const completedOrdersList = document.getElementById('completedOrdersList');
+                const closeCompletedOrdersModal = document.getElementById('closeCompletedOrdersModal');
                 let pieChartInstance = null;
                 let barChartInstance = null;
+
+                function formatCurrency(value) {
+                    return `₱${Number(value || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+                }
+
+                function escapeHtml(text) {
+                    const div = document.createElement('div');
+                    div.textContent = text == null ? '' : String(text);
+                    return div.innerHTML;
+                }
+
+                function renderCompletedOrdersList(orders) {
+                    if (!completedOrdersList) return;
+                    const safeOrders = Array.isArray(orders) ? orders : [];
+                    const totalPrice = safeOrders.reduce((sum, order) => sum + (Number(order.amount) || 0), 0);
+                    if (completedOrdersTotalPrice) completedOrdersTotalPrice.textContent = formatCurrency(totalPrice);
+                    if (completedOrdersTotalCount) completedOrdersTotalCount.textContent = String(safeOrders.length);
+                    if (!safeOrders.length) {
+                        completedOrdersList.innerHTML = '<p class="completed-orders-empty">No completed orders for this month.</p>';
+                        return;
+                    }
+
+                    completedOrdersList.innerHTML = safeOrders.map(order => `
+                        <article class="completed-order-item">
+                            <div class="completed-order-main">
+                                <img src="${escapeHtml(order.product_image_url || "{{ asset('img/default-product.png') }}")}" alt="Product">
+                                <div class="completed-order-info">
+                                    <strong>${escapeHtml(order.product_name || 'Unknown product')}</strong>
+                                    <small>#${escapeHtml(order.transaction_id || '—')}</small>
+                                    <small>${escapeHtml(order.customer_name || '—')} · ${escapeHtml(order.delivery_date_formatted || '—')} ${escapeHtml(order.delivery_time_formatted || '')}</small>
+                                </div>
+                            </div>
+                            <div class="completed-order-meta">
+                                <span class="status-badge-details completed">Completed</span>
+                                <strong>${formatCurrency(order.amount)}</strong>
+                            </div>
+                        </article>
+                    `).join('');
+                }
+
+                async function openCompletedOrdersModal(monthIndex) {
+                    const monthNum = Number(monthIndex) + 1;
+                    const monthLabel = monthlySalesLabels[monthIndex] || 'Month';
+                    const activeYear = Number(barYear) || selectedYear;
+                    if (completedOrdersModalTitle) {
+                        completedOrdersModalTitle.textContent = `Completed Orders - ${monthLabel} ${activeYear}`;
+                    }
+                    if (completedOrdersTotalPrice) completedOrdersTotalPrice.textContent = '...';
+                    if (completedOrdersTotalCount) completedOrdersTotalCount.textContent = '...';
+                    if (completedOrdersList) {
+                        completedOrdersList.innerHTML = '<p class="completed-orders-empty">Loading completed orders...</p>';
+                    }
+                    if (completedOrdersModal) completedOrdersModal.classList.add('show');
+
+                    try {
+                        const endpoint = new URL(dashboardCompletedOrdersUrl, window.location.origin);
+                        endpoint.searchParams.set('year', String(activeYear));
+                        endpoint.searchParams.set('month', String(monthNum));
+                        const response = await fetch(endpoint.toString(), {
+                            headers: {
+                                'Accept': 'application/json',
+                                'X-Requested-With': 'XMLHttpRequest'
+                            },
+                            credentials: 'same-origin'
+                        });
+                        if (!response.ok) throw new Error('Failed to load completed orders');
+                        const payload = await response.json();
+                        renderCompletedOrdersList(payload.orders || []);
+                    } catch (error) {
+                        if (completedOrdersList) {
+                            completedOrdersList.innerHTML = '<p class="completed-orders-empty">Failed to load completed orders.</p>';
+                        }
+                        console.error(error);
+                    }
+                }
 
                 function renderPieChart(labels, values) {
                     if (!pieEl) return;
@@ -202,6 +311,18 @@
                             options: {
                                 responsive: true,
                                 maintainAspectRatio: false,
+                                onClick: function(event, elements) {
+                                    if (!elements || !elements.length) return;
+                                    const index = Number(elements[0].index);
+                                    if (!Number.isFinite(index)) return;
+                                    openCompletedOrdersModal(index);
+                                },
+                                onHover: function(event, elements) {
+                                    const target = event?.native?.target;
+                                    if (target && target.style) {
+                                        target.style.cursor = elements && elements.length ? 'pointer' : 'default';
+                                    }
+                                },
                                 animation: {
                                     duration: 420,
                                     easing: 'easeOutCubic'
@@ -440,6 +561,22 @@
                 if (barFilter && barYear !== selectedYear) {
                     barFilter.value = String(barYear);
                     barFilter.dispatchEvent(new Event('change'));
+                }
+
+                if (closeCompletedOrdersModal && completedOrdersModal) {
+                    closeCompletedOrdersModal.addEventListener('click', () => {
+                        completedOrdersModal.classList.remove('show');
+                    });
+                    completedOrdersModal.addEventListener('click', (event) => {
+                        if (event.target === completedOrdersModal) {
+                            completedOrdersModal.classList.remove('show');
+                        }
+                    });
+                    document.addEventListener('keydown', (event) => {
+                        if (event.key === 'Escape' && completedOrdersModal.classList.contains('show')) {
+                            completedOrdersModal.classList.remove('show');
+                        }
+                    });
                 }
             })();
         </script>

@@ -2,8 +2,6 @@
 
 namespace App\Models;
 
-use App\Models\Driver;
-
 use Illuminate\Database\Eloquent\Model;
 
 class Order extends Model
@@ -32,6 +30,7 @@ class Order extends Model
         'status',
         'reason',
         'driver_id',
+        'status_driver',
     ];
 
     public function driver()
@@ -39,12 +38,9 @@ class Order extends Model
         return $this->belongsTo(Driver::class);
     }
 
-    /**
-     * One-to-Many relationship with Invoice
-     * Each invoice = one partial payment or full payment
-     */
     public function invoices()
     {
         return $this->hasMany(Invoice::class);
     }
 }
+

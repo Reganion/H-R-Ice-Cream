@@ -1010,7 +1010,7 @@ ADD ORDER MODAL (with enter/exit transition like product)
 /* =========================
 ORDER DETAILS MODAL (Orders page slide-over)
 ========================= */
-.order-details-modal.order-details-modal--orders {
+.orders-view-modal.orders-view-modal--orders {
     position: fixed;
     inset: 0;
     background: rgba(0, 0, 0, 0.35);
@@ -1026,13 +1026,13 @@ ORDER DETAILS MODAL (Orders page slide-over)
     transition: opacity 0.35s ease, visibility 0.35s ease;
 }
 
-.order-details-modal.order-details-modal--orders.show {
+.orders-view-modal.orders-view-modal--orders.show {
     opacity: 1;
     visibility: visible;
     pointer-events: auto;
 }
 
-.order-details-modal.order-details-modal--orders .order-details-card {
+.orders-view-modal.orders-view-modal--orders .orders-view-card {
     width: 500px;
     max-width: 100%;
     height: calc(100vh - 40px);
@@ -1049,12 +1049,12 @@ ORDER DETAILS MODAL (Orders page slide-over)
     transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.35s ease;
 }
 
-.order-details-modal.order-details-modal--orders.show .order-details-card {
+.orders-view-modal.orders-view-modal--orders.show .orders-view-card {
     transform: translateX(0);
     opacity: 1;
 }
 
-.order-details-header {
+.orders-view-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -1062,14 +1062,14 @@ ORDER DETAILS MODAL (Orders page slide-over)
     border-bottom: 1px solid #e5e7eb;
 }
 
-.order-details-header h3 {
+.orders-view-header h3 {
     font-size: 20px;
     font-weight: 600;
     color: #111827;
     margin: 0;
 }
 
-.close-order-details {
+.orders-view-close {
     border: none;
     background: transparent;
     font-size: 24px;
@@ -1085,12 +1085,12 @@ ORDER DETAILS MODAL (Orders page slide-over)
     transition: background 0.2s ease, color 0.2s ease;
 }
 
-.close-order-details:hover {
+.orders-view-close:hover {
     background: #f3f4f6;
     color: #111827;
 }
 
-.order-details-content {
+.orders-view-content {
     padding: 24px;
     overflow-y: auto;
     flex: 1;
@@ -1099,16 +1099,16 @@ ORDER DETAILS MODAL (Orders page slide-over)
     gap: 20px;
 }
 
-.order-details-content::-webkit-scrollbar {
+.orders-view-content::-webkit-scrollbar {
     width: 8px;
 }
 
-.order-details-content::-webkit-scrollbar-thumb {
+.orders-view-content::-webkit-scrollbar-thumb {
     background: #d1d5db;
     border-radius: 4px;
 }
 
-.order-details-content::-webkit-scrollbar-track {
+.orders-view-content::-webkit-scrollbar-track {
     background: #f3f4f6;
 }
 
@@ -1294,17 +1294,17 @@ ORDER DETAILS MODAL (Orders page slide-over)
 }
 
 @media (max-width: 768px) {
-    .order-details-card {
+    .orders-view-modal.orders-view-modal--orders .orders-view-card {
         width: 100%;
         height: calc(100vh - 20px);
         border-radius: 16px;
     }
 
-    .order-details-header {
+    .orders-view-header {
         padding: 16px 20px;
     }
 
-    .order-details-content {
+    .orders-view-content {
         padding: 20px;
     }
 }

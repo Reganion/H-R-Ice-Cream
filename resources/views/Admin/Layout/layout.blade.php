@@ -260,36 +260,6 @@
         </div>
     </div>
 
-    <!-- Order details modal (only for order notifications) -->
-    <div class="order-details-modal" id="orderDetailsModal" aria-hidden="true" role="dialog" aria-labelledby="orderDetailsModalTitle">
-        <div class="order-details-backdrop" id="orderDetailsBackdrop"></div>
-        <div class="order-details-panel">
-            <div class="order-details-header">
-                <h2 id="orderDetailsModalTitle" class="order-details-title">
-                    <span class="material-symbols-outlined">receipt_long</span>
-                    Order details
-                </h2>
-                <button type="button" class="order-details-close" id="orderDetailsClose" aria-label="Close">
-                    <span class="material-symbols-outlined">close</span>
-                </button>
-            </div>
-            <div class="order-details-body" id="orderDetailsBody">
-                <div class="order-details-loading" id="orderDetailsLoading">
-                    <span class="material-symbols-outlined spin">progress_activity</span>
-                    <span>Loading order…</span>
-                </div>
-                <div class="order-details-content" id="orderDetailsContent" style="display: none;"></div>
-                <div class="order-details-error" id="orderDetailsError" style="display: none;">
-                    <span class="material-symbols-outlined">error_outline</span>
-                    <span>Could not load order details.</span>
-                </div>
-            </div>
-            <div class="order-details-footer">
-                <a href="{{ route('admin.orders') }}" class="order-details-btn order-details-btn-primary" id="orderDetailsViewAll">View all orders</a>
-            </div>
-        </div>
-    </div>
-
     <!-- Floating chat: Admin ↔ Customer (available on all admin pages) -->
     <div class="float-chat-wrap" id="floatChatWrap">
         <div class="float-chat-panel view-new-message" id="floatChatPanel" aria-hidden="true">
@@ -363,15 +333,18 @@
 
 <script>
     // ========================
-    // Dropdown Menu Toggle
+    // Dropdown Menu Toggle (Product sidebar)
     // ========================
     const dropdownParent = document.querySelector('.dropdown-parent');
-    const dropdownLink = dropdownParent.querySelector('a.dropdown');
-
-    dropdownLink.addEventListener('click', (e) => {
-        e.preventDefault();
-        dropdownParent.classList.toggle('open');
-    });
+    if (dropdownParent) {
+        const dropdownLink = dropdownParent.querySelector('a.dropdown');
+        if (dropdownLink) {
+            dropdownLink.addEventListener('click', (e) => {
+                e.preventDefault();
+                dropdownParent.classList.toggle('open');
+            });
+        }
+    }
 
     // ========================
     // Manila Time Display
@@ -543,82 +516,11 @@
         }
     });
 
-    // Order details modal elements
-    const orderDetailsModal = document.getElementById("orderDetailsModal");
-    const orderDetailsBackdrop = document.getElementById("orderDetailsBackdrop");
-    const orderDetailsClose = document.getElementById("orderDetailsClose");
-    const orderDetailsBody = document.getElementById("orderDetailsBody");
-    const orderDetailsLoading = document.getElementById("orderDetailsLoading");
-    const orderDetailsContent = document.getElementById("orderDetailsContent");
-    const orderDetailsError = document.getElementById("orderDetailsError");
-
-    function openOrderDetailsModal() {
-        if (orderDetailsModal) {
-            orderDetailsModal.classList.add("is-open");
-            orderDetailsModal.setAttribute("aria-hidden", "false");
-            document.body.style.overflow = "hidden";
-        }
-    }
-
-    function closeOrderDetailsModal() {
-        if (orderDetailsModal) {
-            orderDetailsModal.classList.remove("is-open");
-            orderDetailsModal.setAttribute("aria-hidden", "true");
-            document.body.style.overflow = "";
-        }
-    }
-
-    function renderOrderDetailsContent(order) {
-        const o = order || {};
-        const productHtml = `<div class="product-row"><img src="${escapeHtml(o.product_image_url || '')}" alt=""><div class="product-info"><div class="product-name">${escapeHtml(o.product_name || '—')}</div><div class="product-meta">${escapeHtml(o.product_type || '')} ${escapeHtml(o.gallon_size || '')}</div></div></div>`;
-        const customerHtml = `<div class="detail-row"><img class="detail-avatar" src="${escapeHtml(o.customer_image_url || '')}" alt=""><div><div class="detail-value">${escapeHtml(o.customer_name || '—')}</div><div class="detail-value" style="font-weight:400;font-size:13px;">${escapeHtml(o.customer_phone || '')}</div></div></div>`;
-        const deliveryHtml = `<div class="detail-row"><span class="detail-label">Address</span><span class="detail-value">${escapeHtml(o.delivery_address || '—')}</span></div><div class="detail-row"><span class="detail-label">Date & time</span><span class="detail-value">${escapeHtml((o.delivery_date_formatted || '') + ' ' + (o.delivery_time_formatted || ''))}</span></div>`;
-        const paymentHtml = `<div class="detail-row"><span class="detail-label">Payment</span><span class="detail-value">${escapeHtml(o.payment_method || '—')}</span></div><div class="detail-row"><span class="detail-label">Amount</span><span class="detail-value amount">₱${Number(o.amount || 0).toLocaleString('en-PH', { minimumFractionDigits: 2 })}</span></div><div class="detail-row"><span class="detail-label">Status</span><span class="detail-value">${escapeHtml((o.status || '—') + '')}</span></div>`;
-        return `<div class="detail-section"><div class="detail-section-title"><span class="material-symbols-outlined">inventory_2</span> Product</div>${productHtml}</div><div class="detail-section"><div class="detail-section-title"><span class="material-symbols-outlined">person</span> Customer</div>${customerHtml}</div><div class="detail-section"><div class="detail-section-title"><span class="material-symbols-outlined">location_on</span> Delivery</div>${deliveryHtml}</div><div class="detail-section"><div class="detail-section-title"><span class="material-symbols-outlined">payments</span> Payment & status</div>${paymentHtml}</div>`;
-    }
-
-    async function showOrderDetailsModal(orderId) {
-        if (!orderDetailsModal || !orderId) return;
-        orderDetailsLoading.style.display = "flex";
-        orderDetailsContent.style.display = "none";
-        orderDetailsError.style.display = "none";
-        openOrderDetailsModal();
-
-        try {
-            const res = await fetch(`/admin/orders/${orderId}`, {
-                headers: { "Accept": "application/json", "X-Requested-With": "XMLHttpRequest" },
-                credentials: "same-origin"
-            });
-            const data = await res.json().catch(() => ({}));
-            orderDetailsLoading.style.display = "none";
-            if (res.ok && data.order) {
-                orderDetailsContent.innerHTML = renderOrderDetailsContent(data.order);
-                orderDetailsContent.style.display = "block";
-            } else {
-                orderDetailsError.style.display = "flex";
-            }
-        } catch (err) {
-            orderDetailsLoading.style.display = "none";
-            orderDetailsError.style.display = "flex";
-        }
-    }
-
-    if (orderDetailsBackdrop) orderDetailsBackdrop.addEventListener("click", closeOrderDetailsModal);
-    if (orderDetailsClose) orderDetailsClose.addEventListener("click", closeOrderDetailsModal);
-    document.addEventListener("keydown", (e) => { if (e.key === "Escape" && orderDetailsModal && orderDetailsModal.classList.contains("is-open")) closeOrderDetailsModal(); });
-
-    // Click on individual notification: mark as read; if order notification, show order details modal
+    // Click on individual notification: mark as read
     if (notifList) {
         notifList.addEventListener("click", async (e) => {
             const item = e.target.closest(".notif-item[data-id]");
             if (!item) return;
-
-            const notifType = item.getAttribute("data-type");
-            const relatedId = item.getAttribute("data-related-id");
-            if (notifType === "order_new" && relatedId) {
-                notifDropdown.style.display = "none";
-                showOrderDetailsModal(relatedId);
-            }
 
             if (item.classList.contains("unread")) {
                 const id = item.getAttribute("data-id");
@@ -783,82 +685,13 @@
     }
 
     async function pollNotifications() {
-        try {
-            const res = await fetch(NOTIFICATIONS_POLL_URL, {
-                headers: { "Accept": "application/json", "X-Requested-With": "XMLHttpRequest" },
-                credentials: "same-origin"
-            });
-            if (!res.ok) return;
-            const data = await res.json();
-            if (!data || !Array.isArray(data.notifications)) return;
-
-            const currentIds = new Set((data.notifications || []).map(n => String(n.id)));
-
-            // First poll after page load = set baseline only, never show toasts (fixes refresh showing all)
-            if (!firstPollDone) {
-                firstPollDone = true;
-                lastSeenNotifIds = new Set(currentIds);
-                const list = document.querySelector(".notif-list");
-                if (list) {
-                    const activeTab = document.querySelector(".notif-tab.active");
-                    const tabType = activeTab ? activeTab.getAttribute("data-tab") : "all";
-                    if (data.notifications.length === 0) {
-                        list.innerHTML = '<div class="notif-empty">No notifications yet.</div>';
-                    } else {
-                        list.innerHTML = data.notifications.map(renderNotifItem).join("");
-                        if (tabType === "unread") {
-                            list.querySelectorAll(".notif-item").forEach(item => {
-                                item.style.display = item.classList.contains("unread") ? "flex" : "none";
-                            });
-                        }
-                    }
-                }
-            } else {
-                const hasNew = [...currentIds].some(id => !lastSeenNotifIds.has(id));
-                if (hasNew) {
-                    const list = document.querySelector(".notif-list");
-                    if (list) {
-                        const activeTab = document.querySelector(".notif-tab.active");
-                        const tabType = activeTab ? activeTab.getAttribute("data-tab") : "all";
-                        if (data.notifications.length === 0) {
-                            list.innerHTML = '<div class="notif-empty">No notifications yet.</div>';
-                        } else {
-                            list.innerHTML = data.notifications.map(renderNotifItem).join("");
-                            if (tabType === "unread") {
-                                list.querySelectorAll(".notif-item").forEach(item => {
-                                    item.style.display = item.classList.contains("unread") ? "flex" : "none";
-                                });
-                            }
-                        }
-                    }
-                    const newNotifs = data.notifications.filter(n => !lastSeenNotifIds.has(String(n.id)));
-                    newNotifs.forEach(showToast);
-                    lastSeenNotifIds = new Set(currentIds);
-                }
-            }
-
-            // Always update badge count so it stays accurate
-            const count = typeof data.unread_count === 'number' ? data.unread_count : 0;
-            if (notifBadge) {
-                notifBadge.textContent = count;
-                notifBadge.setAttribute("data-count", count);
-                notifBadge.classList.toggle("zero", count === 0);
-            }
-            if (notifBtn) notifBtn.classList.toggle("has-unread", count > 0);
-            if (unreadCountElem) {
-                unreadCountElem.textContent = count;
-                unreadCountElem.style.display = count === 0 ? "none" : "inline-block";
-            }
-            if (markAll) markAll.classList.toggle("read", count === 0);
-        } catch (err) {
-            console.warn("Notifications poll failed", err);
-        }
+        // Disabled real-time notifications polling to avoid repeated
+        // /admin/notifications requests and noisy logs.
+        return;
     }
 
-    if (NOTIFICATIONS_POLL_URL && document.getElementById("notifBtn")) {
-        setInterval(pollNotifications, NOTIFICATIONS_POLL_INTERVAL_MS);
-        setTimeout(pollNotifications, 2000); // First refresh shortly after load
-    }
+    // Real-time notifications polling disabled; badge/list will only
+    // change on full page reload.
 </script>
 
 {{-- Admin floating chat (available on all admin pages) --}}
@@ -885,7 +718,7 @@ document.addEventListener("DOMContentLoaded", function() {
     const logoutConfirmCancel = document.getElementById("logoutConfirmCancel");
     const logoutConfirmOk = document.getElementById("logoutConfirmOk");
 
-    const csrfToken = document.querySelector('meta[name="csrf-token"]') ? document.querySelector('meta[name="csrf-token"]').getAttribute('content') : '';
+    const chatCsrfToken = document.querySelector('meta[name="csrf-token"]') ? document.querySelector('meta[name="csrf-token"]').getAttribute('content') : '';
     const chatCustomersUrl = "{{ route('admin.chat.customers') }}";
     const chatCustomerShowUrl = "{{ url('admin/chat/customers') }}";
     const chatUnreadSummaryUrl = "{{ route('admin.chat.unread-summary') }}";
@@ -916,7 +749,7 @@ document.addEventListener("DOMContentLoaded", function() {
     const CHAT_RINGTONE_MIN_GAP_MS = 1200;
 
     function getHeaders() {
-        return { 'X-CSRF-TOKEN': csrfToken, 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' };
+        return { 'X-CSRF-TOKEN': chatCsrfToken, 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' };
     }
 
     function ensureChatAudioContext() {
@@ -1020,8 +853,8 @@ document.addEventListener("DOMContentLoaded", function() {
     }
 
     function startPolling() {
+        // Realtime chat polling disabled to reduce server log noise.
         stopPolling();
-        pollIntervalId = setInterval(pollNewMessages, CHAT_POLL_INTERVAL_MS);
     }
 
     function pollNewMessages() {
@@ -1330,34 +1163,14 @@ document.addEventListener("DOMContentLoaded", function() {
     }
 
     function pollUnreadSummary() {
-        if (panel.classList.contains('open')) return;
-        fetch(chatUnreadSummaryUrl, { headers: getHeaders(), credentials: 'same-origin' })
-            .then(function(res) { return res.json(); })
-            .then(function(data) {
-                if (!data.success) return;
-                var n = data.unread_count || 0;
-                if (lastUnreadSummaryCount !== null && n > lastUnreadSummaryCount) {
-                    playIncomingRingtone();
-                }
-                lastUnreadSummaryCount = n;
-                unreadCount = n;
-                updateUnreadUI();
-                if (n > 0) {
-                    renderChatHeads(Array.isArray(data.senders) ? data.senders : []);
-                } else {
-                    if (!keepHeadsPinned && pinnedHeads.length === 0) {
-                        hideChatHeads();
-                    } else {
-                        renderChatHeads([]);
-                    }
-                }
-            });
+        // Disabled unread-summary polling to avoid repeated /admin/chat/unread-summary
+        // requests and noisy logs.
+        return;
     }
 
     function startUnreadSummaryPoll() {
+        // Realtime unread summary polling disabled to reduce server log noise.
         stopUnreadSummaryPoll();
-        pollUnreadSummary();
-        unreadSummaryPollId = setInterval(pollUnreadSummary, UNREAD_SUMMARY_POLL_MS);
     }
 
     function closeChat(shouldKeepProfile) {
@@ -1467,11 +1280,11 @@ document.addEventListener("DOMContentLoaded", function() {
             if (!imageFiles.length) { chatFileInput.value = ''; return; }
             imageFiles.forEach(function(file) {
                 var formData = new FormData();
-                formData.append('_token', csrfToken);
+                formData.append('_token', chatCsrfToken);
                 formData.append('image', file);
                 fetch(chatSendUrl + '/' + selectedCustomerId + '/messages', {
                     method: 'POST',
-                    headers: { 'X-CSRF-TOKEN': csrfToken, 'X-Requested-With': 'XMLHttpRequest' },
+                    headers: { 'X-CSRF-TOKEN': chatCsrfToken, 'X-Requested-With': 'XMLHttpRequest' },
                     body: formData,
                     credentials: 'same-origin'
                 }).then(function(res) { return res.json(); }).then(function(data) {
@@ -1504,11 +1317,11 @@ document.addEventListener("DOMContentLoaded", function() {
     function sendMessage(text, appendOnSuccess) {
         if (!selectedCustomerId) return;
         var formData = new FormData();
-        formData.append('_token', csrfToken);
+        formData.append('_token', chatCsrfToken);
         formData.append('body', text);
         fetch(chatSendUrl + '/' + selectedCustomerId + '/messages', {
             method: 'POST',
-            headers: { 'X-CSRF-TOKEN': csrfToken, 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+            headers: { 'X-CSRF-TOKEN': chatCsrfToken, 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
             body: formData,
             credentials: 'same-origin'
         }).then(function(res) { return res.json(); }).then(function(data) {

@@ -502,16 +502,16 @@
     </div>
 
     <!-- ORDER DETAILS MODAL (slide-over on RIGHT for Orders page only) -->
-    <div class="order-details-modal order-details-modal--orders" id="orderDetailsModal">
-        <div class="order-details-card">
+    <div class="orders-view-modal orders-view-modal--orders" id="orderDetailsModal">
+        <div class="orders-view-card">
             <!-- HEADER -->
-            <div class="order-details-header">
+            <div class="orders-view-header">
                 <h3>Order Details</h3>
-                <button class="close-order-details" id="closeOrderDetails">&times;</button>
+                <button class="orders-view-close" id="closeOrderDetails">&times;</button>
             </div>
 
             <!-- CONTENT -->
-            <div class="order-details-content">
+            <div class="orders-view-content">
                 <!-- ORDER SUMMARY -->
                 <div class="details-section-card">
                     <h4 class="details-section-title">Order Summary</h4>
@@ -1373,6 +1373,7 @@
             ====================== */
         const orderDetailsModal = document.getElementById("orderDetailsModal");
         const closeOrderDetails = document.getElementById("closeOrderDetails");
+        const orderShowBaseUrl = "{{ url('admin/orders') }}";
 
         function normalizeStatusForDisplay(status) {
             const s = String(status || '').trim().toLowerCase();
@@ -1399,91 +1400,95 @@
             });
         }
 
-        function calculatePaymentBreakdown(row) {
-            const amount = parseFloat(row.dataset.amount) || 0;
-            const paymentMethod = row.dataset.paymentMethod || '';
+        function setOrderDetailsLoading() {
+            document.getElementById("detailsStatus").textContent = "Loading...";
+            document.getElementById("detailsStatus").className = 'status-badge-details pending';
+            document.getElementById("detailsTransactionId").textContent = '—';
+            document.getElementById("detailsCustomerImage").src = "{{ asset('img/default-user.png') }}";
+            document.getElementById("detailsCustomerName").textContent = 'Loading...';
+            document.getElementById("detailsCustomerEmail").textContent = '—';
+            document.getElementById("detailsCustomerPhone").textContent = '—';
+            document.getElementById("detailsDeliveryAddress").textContent = '—';
+            document.getElementById("detailsProductImage").src = "{{ asset('img/default-product.png') }}";
+            document.getElementById("detailsProductName").textContent = 'Loading...';
+            document.getElementById("detailsProductType").textContent = '—';
+            document.getElementById("detailsProductPrice").textContent = '—';
+            document.getElementById("detailsGallon").textContent = '—';
+            document.getElementById("detailsSubtotal").textContent = '—';
+            document.getElementById("detailsShippingFee").textContent = formatCurrency(0);
+            document.getElementById("detailsDownpayment").textContent = formatCurrency(0);
+            document.getElementById("detailsTotal").textContent = '—';
+        }
 
-            // For now, we'll estimate the breakdown
-            // In a real scenario, you'd want to store these values separately
-            // Assuming: Subtotal (flavor) + Gallon + Shipping = Total
-            // For GCash/Cash of Delivery, shipping fee might be included
-            // For Paymaya, shipping is typically 0
-
-            let subtotal = amount;
-            let gallon = 0;
-            let shippingFee = 0;
-            let downpayment = 0;
-
-            // Try to extract gallon price from the product info if available
-            // This is an estimation - ideally these should be stored separately
-            if (paymentMethod === 'GCash' || paymentMethod === 'Cash of Delivery') {
-                // Estimate: 70% subtotal, 20% gallon, 10% shipping
-                subtotal = amount * 0.7;
-                gallon = amount * 0.2;
-                shippingFee = amount * 0.1;
-            } else {
-                // For Paymaya: 85% subtotal, 15% gallon, 0% shipping
-                subtotal = amount * 0.85;
-                gallon = amount * 0.15;
-                shippingFee = 0;
-            }
-
-            // Round to 2 decimal places
-            subtotal = Math.round(subtotal * 100) / 100;
-            gallon = Math.round(gallon * 100) / 100;
-            shippingFee = Math.round(shippingFee * 100) / 100;
-
-            // Ensure total matches
-            const calculatedTotal = subtotal + gallon + shippingFee;
-            const difference = amount - calculatedTotal;
-            subtotal += difference; // Adjust subtotal to match total
-
+        function buildOrderDetailsFromRow(row) {
             return {
-                subtotal: subtotal,
-                gallon: gallon,
-                shippingFee: shippingFee,
-                downpayment: downpayment,
-                total: amount
+                transaction_id: row.dataset.transactionId || '',
+                status: row.dataset.status || '',
+                customer_name: row.dataset.customerName || '',
+                customer_phone: row.dataset.customerPhone || '',
+                customer_image_url: row.dataset.customerImage || '',
+                delivery_address: row.dataset.deliveryAddress || '',
+                product_name: row.dataset.productName || '',
+                product_type: row.dataset.productType || '',
+                gallon_size: row.dataset.gallonSize || '',
+                product_image_url: row.dataset.productImage || '',
+                amount: parseFloat(row.dataset.amount || '0') || 0,
+                payment_method: row.dataset.paymentMethod || ''
             };
         }
 
-        function openOrderDetailsModal(row) {
-            if (!row || !row.dataset.orderId) return;
+        function fillOrderDetailsModal(orderData) {
+            const amount = parseFloat(orderData.amount || 0) || 0;
+            const status = normalizeStatusForDisplay(orderData.status);
+            const statusClass = getStatusClass(orderData.status);
+            const productType = orderData.product_type || '—';
+            const gallonSize = orderData.gallon_size || '—';
 
-            const status = normalizeStatusForDisplay(row.dataset.status);
-            const statusClass = getStatusClass(row.dataset.status);
-            const breakdown = calculatePaymentBreakdown(row);
-
-            // Populate Order Summary
             document.getElementById("detailsStatus").textContent = status;
             document.getElementById("detailsStatus").className = 'status-badge-details ' + statusClass;
-            document.getElementById("detailsTransactionId").textContent = '#' + (row.dataset.transactionId || '—');
+            document.getElementById("detailsTransactionId").textContent = '#' + (orderData.transaction_id || '—');
 
-            // Populate Customer Info
-            document.getElementById("detailsCustomerImage").src = row.dataset.customerImage || row.querySelector(
-                '.cell-flex img')?.src || "{{ asset('img/default-user.png') }}";
-            document.getElementById("detailsCustomerName").textContent = row.dataset.customerName || '—';
-            document.getElementById("detailsCustomerEmail").textContent = row.dataset.customerEmail || '—';
-            document.getElementById("detailsCustomerPhone").textContent = row.dataset.customerPhone || '—';
-            document.getElementById("detailsDeliveryAddress").textContent = row.dataset.deliveryAddress || '—';
+            document.getElementById("detailsCustomerImage").src = orderData.customer_image_url || "{{ asset('img/default-user.png') }}";
+            document.getElementById("detailsCustomerName").textContent = orderData.customer_name || '—';
+            document.getElementById("detailsCustomerEmail").textContent = orderData.customer_email || 'No email provided';
+            document.getElementById("detailsCustomerPhone").textContent = orderData.customer_phone || '—';
+            document.getElementById("detailsDeliveryAddress").textContent = orderData.delivery_address || '—';
 
-            // Populate Items
-            document.getElementById("detailsProductImage").src = row.dataset.productImage ||
-                "{{ asset('img/default-product.png') }}";
-            document.getElementById("detailsProductName").textContent = row.dataset.productName || '—';
-            document.getElementById("detailsProductType").textContent = (row.dataset.productType || '—') + ' (' + (row
-                .dataset.gallonSize || '—') + ')';
-            document.getElementById("detailsProductPrice").textContent = formatCurrency(row.dataset.amount);
+            document.getElementById("detailsProductImage").src = orderData.product_image_url || "{{ asset('img/default-product.png') }}";
+            document.getElementById("detailsProductName").textContent = orderData.product_name || '—';
+            document.getElementById("detailsProductType").textContent = productType + ' (' + gallonSize + ')';
+            document.getElementById("detailsProductPrice").textContent = formatCurrency(amount);
 
-            // Populate Payment
-            document.getElementById("detailsSubtotal").textContent = formatCurrency(breakdown.subtotal);
-            document.getElementById("detailsGallon").textContent = formatCurrency(breakdown.gallon);
-            document.getElementById("detailsShippingFee").textContent = formatCurrency(breakdown.shippingFee);
-            document.getElementById("detailsDownpayment").textContent = formatCurrency(breakdown.downpayment);
-            document.getElementById("detailsTotal").textContent = formatCurrency(breakdown.total);
+            document.getElementById("detailsSubtotal").textContent = formatCurrency(amount);
+            document.getElementById("detailsGallon").textContent = gallonSize;
+            document.getElementById("detailsShippingFee").textContent = formatCurrency(0);
+            document.getElementById("detailsDownpayment").textContent = formatCurrency(0);
+            document.getElementById("detailsTotal").textContent = formatCurrency(amount);
+        }
 
-            // Show modal with smooth transition
+        async function openOrderDetailsModal(row) {
+            if (!row || !row.dataset.orderId) return;
+            setOrderDetailsLoading();
             orderDetailsModal.classList.add("show");
+
+            try {
+                const res = await fetch(orderShowBaseUrl + '/' + encodeURIComponent(row.dataset.orderId), {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
+                    credentials: 'same-origin'
+                });
+                const data = await res.json().catch(() => ({}));
+                if (res.ok && data.order) {
+                    fillOrderDetailsModal(data.order);
+                } else {
+                    fillOrderDetailsModal(buildOrderDetailsFromRow(row));
+                }
+            } catch (e) {
+                fillOrderDetailsModal(buildOrderDetailsFromRow(row));
+            }
         }
 
         // Handle view order button clicks
