@@ -259,6 +259,49 @@ class ApiDriverAuthController extends Controller
     }
 
     /**
+     * Update driver's phone number.
+     * POST /api/v1/driver/change-phone
+     */
+    public function changePhone(Request $request): JsonResponse
+    {
+        $driver = $request->user();
+        if (!$driver instanceof Driver) {
+            return response()->json(['success' => false, 'message' => 'Not authenticated.'], 401);
+        }
+
+        $request->validate([
+            'phone' => 'required|string|max:30|unique:drivers,phone,' . $driver->id,
+        ], [
+            'phone.required' => 'Please enter your phone number.',
+            'phone.unique' => 'This phone number is already used by another driver.',
+        ]);
+
+        $newPhone = trim((string) $request->phone);
+        if ($newPhone === '') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Please enter your phone number.',
+            ], 422);
+        }
+
+        if (($driver->phone ?? '') === $newPhone) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Phone number is already up to date.',
+                'driver' => $this->driverProfileArray($driver),
+            ]);
+        }
+
+        $driver->update(['phone' => $newPhone]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Phone number updated successfully.',
+            'driver' => $this->driverProfileArray($driver->fresh()),
+        ]);
+    }
+
+    /**
      * Change password step 1: validate current/new password, then send OTP to driver's current email.
      * POST /api/v1/driver/change-password/send-otp
      */

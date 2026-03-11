@@ -44,7 +44,7 @@ class ApiDriverShipmentController extends Controller
                     ->orWhereRaw('TRIM(status_driver) = ? ', ['']);
             });
         } elseif ($tab === 'accepted') {
-            $query->whereRaw('LOWER(COALESCE(status_driver, "")) = ?', ['accepted']);
+            $query->whereRaw('LOWER(COALESCE(status_driver, "")) IN (?, ?)', ['accepted', 'on_route']);
         } else {
             $query->whereRaw('LOWER(COALESCE(status_driver, "")) = ?', ['completed']);
         }
@@ -63,6 +63,12 @@ class ApiDriverShipmentController extends Controller
             $deliveryDate = $order->delivery_date ? Carbon::parse($order->delivery_date) : null;
             $deliveryTime = $order->delivery_time ? Carbon::parse($order->delivery_time) : null;
             $schedule = $this->formatSchedule($deliveryDate, $deliveryTime);
+            $proofUrl = $order->delivery_proof_image
+                ? asset('storage/' . ltrim((string) $order->delivery_proof_image, '/'))
+                : null;
+            $deliveredTime = $order->delivered_at ? Carbon::parse($order->delivered_at)->format('h:i A') : null;
+            $deliveredDate = $order->delivery_date ? Carbon::parse($order->delivery_date)->format('d F Y') : null;
+            $deliveredTimeCompact = $order->delivered_at ? strtoupper(Carbon::parse($order->delivered_at)->format('h:ia')) : null;
 
             return [
                 'id' => $order->id,
@@ -75,6 +81,18 @@ class ApiDriverShipmentController extends Controller
                 'location' => (string) ($order->delivery_address ?? '—'),
                 'status' => strtolower((string) ($order->status ?? '')),
                 'status_driver' => strtolower((string) ($order->status_driver ?? '')),
+                'received_amount' => $order->received_amount !== null ? (float) $order->received_amount : null,
+                'delivery_payment_method' => (string) ($order->delivery_payment_method ?? ''),
+                'delivery_proof_url' => $proofUrl,
+                'delivery_proof_image' => (string) ($order->delivery_proof_image ?? ''),
+                'proof_image_url' => $proofUrl,
+                'proof_image' => (string) ($order->delivery_proof_image ?? ''),
+                'expected_time' => $deliveryTime ? $deliveryTime->format('h:i A') : null,
+                'time' => $deliveryTime ? $deliveryTime->format('h:i A') : null,
+                'delivery_time_compact' => $this->formatTimeCompact($order->delivery_time),
+                'delivered_time' => $deliveredTime,
+                'delivered_time_compact' => $deliveredTimeCompact,
+                'delivered_date' => $deliveredDate,
                 'badge' => $this->badgeForTab($tab),
                 'badge_color' => $this->badgeColorForTab($tab),
                 'customer_name' => (string) ($order->customer_name ?? ''),
@@ -117,6 +135,12 @@ class ApiDriverShipmentController extends Controller
 
         $deliveryDate = $order->delivery_date ? Carbon::parse($order->delivery_date) : null;
         $deliveryTime = $order->delivery_time ? Carbon::parse($order->delivery_time) : null;
+        $proofUrl = $order->delivery_proof_image
+            ? asset('storage/' . ltrim((string) $order->delivery_proof_image, '/'))
+            : null;
+        $deliveredTime = $order->delivered_at ? Carbon::parse($order->delivered_at)->format('h:i A') : null;
+        $deliveredDate = $order->delivery_date ? Carbon::parse($order->delivery_date)->format('d F Y') : null;
+        $deliveredTimeCompact = $order->delivered_at ? strtoupper(Carbon::parse($order->delivered_at)->format('h:ia')) : null;
 
         return response()->json([
             'success' => true,
@@ -136,6 +160,18 @@ class ApiDriverShipmentController extends Controller
                 'cost_text' => 'PHP ' . number_format((float) ($order->amount ?? 0), 2),
                 'status' => strtolower((string) ($order->status ?? '')),
                 'status_driver' => strtolower((string) ($order->status_driver ?? '')),
+                'received_amount' => $order->received_amount !== null ? (float) $order->received_amount : null,
+                'delivery_payment_method' => (string) ($order->delivery_payment_method ?? ''),
+                'delivery_proof_url' => $proofUrl,
+                'delivery_proof_image' => (string) ($order->delivery_proof_image ?? ''),
+                'proof_image_url' => $proofUrl,
+                'proof_image' => (string) ($order->delivery_proof_image ?? ''),
+                'expected_time' => $deliveryTime ? $deliveryTime->format('h:i A') : null,
+                'time' => $deliveryTime ? $deliveryTime->format('h:i A') : null,
+                'delivery_time_compact' => $this->formatTimeCompact($order->delivery_time),
+                'delivered_time' => $deliveredTime,
+                'delivered_time_compact' => $deliveredTimeCompact,
+                'delivered_date' => $deliveredDate,
             ],
         ]);
     }
@@ -215,8 +251,8 @@ class ApiDriverShipmentController extends Controller
     }
 
     /**
-     * Driver marks shipment completed.
-     * Keep order status assigned; set status_driver=completed.
+     * Driver starts the route for an accepted shipment.
+     * Keep order status as assigned and keep status_driver as accepted.
      */
     public function deliver(Request $request, string $id): JsonResponse
     {
@@ -240,16 +276,112 @@ class ApiDriverShipmentController extends Controller
         if (strtolower((string) ($order->status ?? '')) !== 'assigned') {
             return response()->json([
                 'success' => false,
-                'message' => 'Only assigned shipments can be completed.',
+                'message' => 'Only assigned shipments can be started for delivery.',
             ], 422);
         }
 
-        $order->status_driver = 'completed';
-        $order->save();
+        $currentDriverStatus = strtolower((string) ($order->status_driver ?? ''));
+        if ($currentDriverStatus !== 'accepted' && $currentDriverStatus !== 'on_route') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Shipment must be accepted before starting delivery.',
+            ], 422);
+        }
+
+        $driver->status = Driver::STATUS_ON_ROUTE;
+        $driver->save();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Driver is now on route.',
+        ]);
+    }
+
+    /**
+     * Driver completes delivery after collecting amount and proof image.
+     * Set order status to completed and status_driver=completed.
+     */
+    public function complete(Request $request, string $id): JsonResponse
+    {
+        $driver = $request->user();
+        if (!$driver instanceof Driver) {
+            return response()->json(['success' => false, 'message' => 'Not authenticated.'], 401);
+        }
+
+        $order = Order::query()
+            ->where('driver_id', $driver->id)
+            ->whereKey($id)
+            ->first();
+
+        if (!$order) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Shipment not found.',
+            ], 404);
+        }
+
+        $orderStatus = strtolower((string) ($order->status ?? ''));
+        if ($orderStatus !== 'assigned') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Only assigned shipments can be submitted.',
+            ], 422);
+        }
+
+        $driverShipmentStatus = strtolower((string) ($order->status_driver ?? ''));
+        if (!in_array($driverShipmentStatus, ['accepted', 'on_route'], true)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Shipment must be accepted before completion.',
+            ], 422);
+        }
+
+        $validated = $request->validate([
+            'received_amount' => ['required', 'numeric', 'min:0'],
+            'payment_method' => ['nullable', 'string', 'max:50'],
+            'proof_photo' => ['required', 'image', 'max:5120'],
+        ]);
+
+        $proofPath = $request->file('proof_photo')->store('delivery-proofs', 'public');
+
+        $order->update([
+            'status' => 'completed',
+            'status_driver' => 'completed',
+            'received_amount' => (float) $validated['received_amount'],
+            'delivery_payment_method' => (string) ($validated['payment_method'] ?? ''),
+            'delivery_proof_image' => $proofPath,
+            'delivered_at' => now(),
+        ]);
+
+        $hasActiveRoute = Order::query()
+            ->where('driver_id', $driver->id)
+            ->whereRaw('LOWER(COALESCE(status, "")) = ?', ['assigned'])
+            ->whereIn('status_driver', ['accepted', 'on_route'])
+            ->exists();
+
+        if (!$hasActiveRoute) {
+            $driver->status = Driver::STATUS_AVAILABLE;
+            $driver->save();
+        }
 
         return response()->json([
             'success' => true,
             'message' => 'Shipment marked completed.',
+            'shipment' => [
+                'id' => $order->id,
+                'status' => strtolower((string) $order->status),
+                'status_driver' => strtolower((string) $order->status_driver),
+                'received_amount' => (float) $order->received_amount,
+                'delivery_payment_method' => (string) ($order->delivery_payment_method ?? ''),
+                'delivery_proof_url' => asset('storage/' . ltrim((string) $order->delivery_proof_image, '/')),
+                'delivery_proof_image' => (string) ($order->delivery_proof_image ?? ''),
+                'proof_image_url' => asset('storage/' . ltrim((string) $order->delivery_proof_image, '/')),
+                'proof_image' => (string) ($order->delivery_proof_image ?? ''),
+                'delivery_time_compact' => $this->formatTimeCompact($order->delivery_time),
+                'delivered_time' => Carbon::parse($order->delivered_at)->format('h:i A'),
+                'delivered_time_compact' => strtoupper(Carbon::parse($order->delivered_at)->format('h:ia')),
+                'delivered_date' => $order->delivery_date ? Carbon::parse($order->delivery_date)->format('d F Y') : null,
+            ],
         ]);
     }
 
@@ -257,7 +389,7 @@ class ApiDriverShipmentController extends Controller
     {
         return match ($tab) {
             'accepted' => ['assigned'],
-            'completed' => ['assigned'],
+            'completed' => ['completed'],
             default => ['assigned'],
         };
     }
@@ -294,5 +426,19 @@ class ApiDriverShipmentController extends Controller
             'completed' => '#00AE2A',
             default => '#007CFF',
         };
+    }
+
+    private function formatTimeCompact(?string $time): ?string
+    {
+        $value = trim((string) ($time ?? ''));
+        if ($value === '') {
+            return null;
+        }
+
+        try {
+            return strtoupper(Carbon::parse($value)->format('h:ia'));
+        } catch (\Throwable) {
+            return $value;
+        }
     }
 }

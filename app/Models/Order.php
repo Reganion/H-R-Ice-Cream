@@ -9,7 +9,9 @@ class Order extends Model
     protected $casts = [
         'delivery_date' => 'date',
         'amount' => 'decimal:2',
+        'received_amount' => 'decimal:2',
         'qty' => 'integer',
+        'delivered_at' => 'datetime',
     ];
 
     protected $fillable = [
@@ -25,12 +27,16 @@ class Order extends Model
         'delivery_time',
         'delivery_address',
         'amount',
+        'received_amount',
+        'delivery_payment_method',
+        'delivery_proof_image',
         'qty',
         'payment_method',
         'status',
         'reason',
         'driver_id',
         'status_driver',
+        'delivered_at',
     ];
 
     public function driver()
