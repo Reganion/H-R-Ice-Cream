@@ -43,6 +43,9 @@ class Driver extends Model
         'status',
         'driver_code',
         'password',
+        'current_lat',
+        'current_lng',
+        'last_updated',
     ];
 
     protected $hidden = [

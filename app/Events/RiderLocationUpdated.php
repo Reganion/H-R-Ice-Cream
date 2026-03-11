@@ -9,23 +9,20 @@ use Illuminate\Broadcasting\PrivateChannel;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcast;
 use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Queue\SerializesModels;
+use App\Models\Driver;
 
 class RiderLocationUpdated
 {
     use Dispatchable, InteractsWithSockets, SerializesModels;
 
-    public $riderId;
-    public $lat;
-    public $lng;
+    public $driver;
 
     /**
      * Create a new event instance.
      */
-    public function __construct($riderId, $lat, $lng)
+    public function __construct(Driver $driver)
     {
-        $this->riderId = $riderId;
-        $this->lat = $lat;
-        $this->lng = $lng;
+        $this->driver = $driver;
     }
 
     /**
@@ -34,8 +31,19 @@ class RiderLocationUpdated
      * @return array<int, \Illuminate\Broadcasting\Channel>
      */
 
-    public function broadcastOn()
+    public function broadcastOn(): Channel
     {
-        return new PrivateChannel('rider.' . $this->riderId);
+        return new Channel('rider-location');
     }
+
+    public function broadcastWith(): array
+    {
+        return [
+            'driver_id' => $this->driver->id,
+            'lat' => $this->driver->current_lat,
+            'lng' => $this->driver->current_lng,
+            'last_updated' => $this->driver->last_updated,
+        ];
+    }
+
 }

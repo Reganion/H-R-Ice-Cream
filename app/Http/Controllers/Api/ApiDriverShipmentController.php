@@ -8,9 +8,21 @@ use App\Models\Order;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use App\Services\DeliveryService;
+
 
 class ApiDriverShipmentController extends Controller
 {
+    // please make it a habit to do dependency injection for services 
+    protected $deliveryService;
+
+    public function __construct(DeliveryService $deliveryService)
+    {
+        $this->deliveryService = $deliveryService;
+    }
+    // please make it a habit to do dependency injection for services 
+
+
     /**
      * Driver shipments list by tab.
      * GET /api/v1/driver/shipments?tab=incoming|accepted|completed&search=...
@@ -288,12 +300,19 @@ class ApiDriverShipmentController extends Controller
             ], 422);
         }
 
+
         $driver->status = Driver::STATUS_ON_ROUTE;
         $driver->save();
+
+        $order->status_driver = "on_route";
+        $order->save();
+
+        $coords = $this->deliveryService->geocodeAddress($order->delivery_address);
 
         return response()->json([
             'success' => true,
             'message' => 'Driver is now on route.',
+            'destrination' => $coords
         ]);
     }
 
