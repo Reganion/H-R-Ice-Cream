@@ -98,6 +98,12 @@ Route::prefix('v1')->group(function () {
     Route::middleware('api.driver')->prefix('driver')->group(function () {
         Route::get('/me', [ApiDriverAuthController::class, 'me']);
         Route::post('/logout', [ApiDriverAuthController::class, 'logout']);
+        Route::post('/change-email/send-otp', [ApiDriverAuthController::class, 'changeEmailSendOtp']);
+        Route::post('/change-email/verify-otp', [ApiDriverAuthController::class, 'changeEmailVerifyOtp']);
+        Route::post('/change-email/resend-otp', [ApiDriverAuthController::class, 'changeEmailResendOtp']);
+        Route::post('/change-password/send-otp', [ApiDriverAuthController::class, 'changePasswordSendOtp']);
+        Route::post('/change-password/verify-otp', [ApiDriverAuthController::class, 'changePasswordVerifyOtp']);
+        Route::post('/change-password/resend-otp', [ApiDriverAuthController::class, 'changePasswordResendOtp']);
         Route::get('/shipments', [ApiDriverShipmentController::class, 'index']);
         Route::get('/shipments/{id}', [ApiDriverShipmentController::class, 'show']);
         Route::post('/shipments/{id}/accept', [ApiDriverShipmentController::class, 'accept']);
