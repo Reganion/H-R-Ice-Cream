@@ -19,6 +19,7 @@ class ApiDriverAuthController extends Controller
     private const OTP_TTL_MINUTES = 10;
     private const CHANGE_EMAIL_KEY_PREFIX = 'driver_change_email:';
     private const CHANGE_PASSWORD_KEY_PREFIX = 'driver_change_password:';
+    private const FORGOT_PASSWORD_KEY_PREFIX = 'driver_forgot_password:';
 
     /**
      * Driver login (for Flutter rider app).
@@ -55,6 +56,204 @@ class ApiDriverAuthController extends Controller
             'message' => 'Logged in successfully.',
             'driver' => $this->driverProfileArray($driver),
             'token' => $token,
+        ]);
+    }
+
+    /**
+     * Driver forgot password step 1: send OTP to driver's email.
+     * POST /api/v1/driver/forgot-password
+     */
+    public function forgotPassword(Request $request): JsonResponse
+    {
+        $request->validate([
+            'email' => 'required|email|max:100',
+        ], [
+            'email.required' => 'Please enter your email address.',
+            'email.email' => 'Please enter a valid email address.',
+        ]);
+
+        $email = strtolower(trim((string) $request->email));
+        $driver = Driver::whereRaw('LOWER(email) = ?', [$email])->first();
+
+        if (!$driver) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No driver account found with this email.',
+            ], 404);
+        }
+
+        if ($driver->status === Driver::STATUS_DEACTIVATE) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Your account is deactivated. Please contact admin.',
+            ], 403);
+        }
+
+        $otp = str_pad((string) random_int(0, 9999), 4, '0', STR_PAD_LEFT);
+        Cache::put($this->forgotPasswordCacheKey($email), [
+            'otp' => $otp,
+            'verified' => false,
+        ], now()->addMinutes(self::OTP_TTL_MINUTES));
+
+        try {
+            Mail::to($email)->send(new OtpVerificationMail($otp, $email));
+        } catch (\Throwable $e) {
+            report($e);
+            return response()->json([
+                'success' => false,
+                'message' => 'Could not send OTP email. Please try again later.',
+            ], 500);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'OTP has been sent to your email.',
+            'expires_in_minutes' => self::OTP_TTL_MINUTES,
+        ]);
+    }
+
+    /**
+     * Driver forgot password step 2: verify OTP.
+     * POST /api/v1/driver/forgot-password/verify-otp
+     */
+    public function forgotPasswordVerifyOtp(Request $request): JsonResponse
+    {
+        $request->validate([
+            'email' => 'required|email|max:100',
+            'otp' => 'required|string|size:4|regex:/^\d{4}$/',
+        ], [
+            'email.required' => 'Please enter your email address.',
+            'email.email' => 'Please enter a valid email address.',
+            'otp.required' => 'Please enter the 4-digit OTP.',
+            'otp.size' => 'The OTP must be 4 digits.',
+            'otp.regex' => 'The OTP must be 4 digits only.',
+        ]);
+
+        $email = strtolower(trim((string) $request->email));
+        $cacheKey = $this->forgotPasswordCacheKey($email);
+        $payload = Cache::get($cacheKey);
+
+        if (!$payload || !is_array($payload)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'OTP expired. Please request a new OTP.',
+            ], 422);
+        }
+
+        if ((string) ($payload['otp'] ?? '') !== (string) $request->otp) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Invalid OTP. Please try again.',
+            ], 422);
+        }
+
+        Cache::put($cacheKey, [
+            'otp' => (string) ($payload['otp'] ?? ''),
+            'verified' => true,
+        ], now()->addMinutes(self::OTP_TTL_MINUTES));
+
+        return response()->json([
+            'success' => true,
+            'message' => 'OTP verified successfully.',
+        ]);
+    }
+
+    /**
+     * Driver forgot password: resend OTP.
+     * POST /api/v1/driver/forgot-password/resend-otp
+     */
+    public function forgotPasswordResendOtp(Request $request): JsonResponse
+    {
+        $request->validate([
+            'email' => 'required|email|max:100',
+        ], [
+            'email.required' => 'Please enter your email address.',
+            'email.email' => 'Please enter a valid email address.',
+        ]);
+
+        $email = strtolower(trim((string) $request->email));
+        $driver = Driver::whereRaw('LOWER(email) = ?', [$email])->first();
+        if (!$driver) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No driver account found with this email.',
+            ], 404);
+        }
+
+        $otp = str_pad((string) random_int(0, 9999), 4, '0', STR_PAD_LEFT);
+        Cache::put($this->forgotPasswordCacheKey($email), [
+            'otp' => $otp,
+            'verified' => false,
+        ], now()->addMinutes(self::OTP_TTL_MINUTES));
+
+        try {
+            Mail::to($email)->send(new OtpVerificationMail($otp, $email));
+        } catch (\Throwable $e) {
+            report($e);
+            return response()->json([
+                'success' => false,
+                'message' => 'Could not resend OTP. Please try again later.',
+            ], 500);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'A new OTP has been sent to your email.',
+            'expires_in_minutes' => self::OTP_TTL_MINUTES,
+        ]);
+    }
+
+    /**
+     * Driver forgot password step 3: reset password after OTP verification.
+     * POST /api/v1/driver/forgot-password/reset-password
+     */
+    public function forgotPasswordResetPassword(Request $request): JsonResponse
+    {
+        $request->validate([
+            'email' => 'required|email|max:100',
+            'new_password' => 'required|string|min:6|confirmed',
+        ], [
+            'email.required' => 'Please enter your email address.',
+            'email.email' => 'Please enter a valid email address.',
+            'new_password.required' => 'Please enter your new password.',
+            'new_password.min' => 'New password must be at least 6 characters.',
+            'new_password.confirmed' => 'New password and retype password do not match.',
+        ]);
+
+        $email = strtolower(trim((string) $request->email));
+        $driver = Driver::whereRaw('LOWER(email) = ?', [$email])->first();
+        if (!$driver) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No driver account found with this email.',
+            ], 404);
+        }
+
+        $cacheKey = $this->forgotPasswordCacheKey($email);
+        $payload = Cache::get($cacheKey);
+        if (!$payload || !is_array($payload) || !($payload['verified'] ?? false)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'OTP is not verified or has expired. Please verify OTP again.',
+            ], 422);
+        }
+
+        if ($driver->password && Hash::check($request->new_password, $driver->password)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'New password must be different from current password.',
+            ], 422);
+        }
+
+        $driver->update([
+            'password' => Hash::make($request->new_password),
+        ]);
+
+        Cache::forget($cacheKey);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Password updated successfully.',
         ]);
     }
 
@@ -495,5 +694,10 @@ class ApiDriverAuthController extends Controller
             return trim($m[1]);
         }
         return $request->header('X-Session-Token') ?: null;
+    }
+
+    private function forgotPasswordCacheKey(string $email): string
+    {
+        return self::FORGOT_PASSWORD_KEY_PREFIX . sha1(strtolower(trim($email)));
     }
 }

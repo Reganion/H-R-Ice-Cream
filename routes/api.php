@@ -25,6 +25,10 @@ Route::prefix('v1')->group(function () {
     // Public
     Route::post('/login', [ApiAuthController::class, 'login']);
     Route::post('/driver/login', [ApiDriverAuthController::class, 'login']);
+    Route::post('/driver/forgot-password', [ApiDriverAuthController::class, 'forgotPassword']);
+    Route::post('/driver/forgot-password/resend-otp', [ApiDriverAuthController::class, 'forgotPasswordResendOtp']);
+    Route::post('/driver/forgot-password/verify-otp', [ApiDriverAuthController::class, 'forgotPasswordVerifyOtp']);
+    Route::post('/driver/forgot-password/reset-password', [ApiDriverAuthController::class, 'forgotPasswordResetPassword']);
     Route::post('/register', [ApiAuthController::class, 'register']);
     Route::post('/verify-otp', [ApiAuthController::class, 'verifyOtp']);
     Route::post('/resend-otp', [ApiAuthController::class, 'resendOtp']);
