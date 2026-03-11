@@ -71,9 +71,19 @@ class Customer extends Authenticatable
         return $this->hasMany(CustomerAddress::class, 'customer_id');
     }
 
+    public function orders(): HasMany
+    {
+        return $this->hasMany(Order::class, 'customer_id');
+    }
+
     public function chatMessages(): HasMany
     {
         return $this->hasMany(ChatMessage::class);
+    }
+
+    public function orderMessages(): HasMany
+    {
+        return $this->hasMany(OrderMessage::class, 'customer_id');
     }
 
     public function getFullNameAttribute(): string

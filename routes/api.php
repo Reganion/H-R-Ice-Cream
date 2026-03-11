@@ -10,6 +10,7 @@ use App\Http\Controllers\Api\ApiFlavorController;
 use App\Http\Controllers\Api\ApiNotificationController;
 use App\Http\Controllers\Api\ApiOrderController;
 use App\Http\Controllers\Api\ApiChatController;
+use App\Http\Controllers\Api\ApiOrderMessageController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\ApiOrderPaymentController;
 
@@ -75,6 +76,11 @@ Route::prefix('v1')->group(function () {
         Route::get('/orders/{id}', [ApiOrderController::class, 'show']);
         Route::patch('/orders/{id}/cancel', [ApiOrderController::class, 'cancel']);
         Route::post('/orders/{id}/feedback', [ApiOrderController::class, 'feedback']);
+        Route::get('/orders/{id}/messages', [ApiOrderMessageController::class, 'customerMessages']);
+        Route::post('/orders/{id}/messages', [ApiOrderMessageController::class, 'customerSend']);
+        Route::post('/orders/{id}/messages/read', [ApiOrderMessageController::class, 'customerMarkRead']);
+        Route::post('/orders/{id}/messages/archive', [ApiOrderMessageController::class, 'customerArchive']);
+        Route::post('/orders/{id}/messages/unarchive', [ApiOrderMessageController::class, 'customerUnarchive']);
         // Favorites (heart icon): list, add/remove toggle, check, delete
         Route::get('/favorites', [ApiFavoriteController::class, 'index']);
         Route::post('/favorites', [ApiFavoriteController::class, 'store']);
@@ -115,5 +121,10 @@ Route::prefix('v1')->group(function () {
         Route::post('/shipments/{id}/reject', [ApiDriverShipmentController::class, 'reject']);
         Route::post('/shipments/{id}/deliver', [ApiDriverShipmentController::class, 'deliver']);
         Route::post('/shipments/{id}/complete', [ApiDriverShipmentController::class, 'complete']);
+        Route::get('/shipments/{id}/messages', [ApiOrderMessageController::class, 'driverMessages']);
+        Route::post('/shipments/{id}/messages', [ApiOrderMessageController::class, 'driverSend']);
+        Route::post('/shipments/{id}/messages/read', [ApiOrderMessageController::class, 'driverMarkRead']);
+        Route::post('/shipments/{id}/messages/archive', [ApiOrderMessageController::class, 'driverArchive']);
+        Route::post('/shipments/{id}/messages/unarchive', [ApiOrderMessageController::class, 'driverUnarchive']);
     });
 });

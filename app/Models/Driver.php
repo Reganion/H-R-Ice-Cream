@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Driver extends Model
 {
@@ -51,4 +52,9 @@ class Driver extends Model
     protected $hidden = [
         'password',
     ];
+
+    public function orderMessages(): HasMany
+    {
+        return $this->hasMany(OrderMessage::class, 'driver_id');
+    }
 }

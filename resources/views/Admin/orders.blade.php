@@ -94,11 +94,13 @@
                                     data-transaction-id="{{ e($order->transaction_id ?? '') }}"
                                     data-customer-name="{{ e($order->customer_name ?? '') }}"
                                     data-customer-phone="{{ e($order->customer_phone ?? '') }}"
+                                    data-customer-email="{{ e($order->customer?->email ?? '') }}"
                                     data-customer-image="{{ asset($order->customer_image ?? 'img/default-user.png') }}"
                                     data-delivery-date="{{ $order->delivery_date ? \Carbon\Carbon::parse($order->delivery_date)->format('Y-m-d') : '' }}"
                                     data-delivery-time="{{ $order->delivery_time ? \Carbon\Carbon::parse($order->delivery_time)->format('H:i') : '' }}"
                                     data-delivery-address="{{ e($order->delivery_address ?? '') }}"
                                     data-amount="{{ $order->amount ?? '' }}"
+                                    data-quantity="{{ (int) ($order->qty ?? 1) }}"
                                     data-payment-method="{{ e($order->payment_method ?? '') }}"
                                     data-status="{{ e($order->status ?? '') }}" data-status-key="{{ $statusKey }}"
                                     data-driver-id="{{ $order->driver_id ?? '' }}"
@@ -1127,11 +1129,13 @@
                     ' data-transaction-id="' + escAttr(order.transaction_id) + '"' +
                     ' data-customer-name="' + escAttr(order.customer_name) + '"' +
                     ' data-customer-phone="' + escAttr(order.customer_phone) + '"' +
+                    ' data-customer-email="' + escAttr(order.customer_email || '') + '"' +
                     ' data-customer-image="' + escAttr(order.customer_image_url || '') + '"' +
                     ' data-delivery-date="' + escAttr(order.delivery_date) + '"' +
                     ' data-delivery-time="' + escAttr(order.delivery_time) + '"' +
                     ' data-delivery-address="' + escAttr(order.delivery_address) + '"' +
                     ' data-amount="' + escAttr(String(order.amount)) + '"' +
+                    ' data-quantity="' + escAttr(String(order.quantity ?? order.qty ?? 1)) + '"' +
                     ' data-payment-method="' + escAttr(order.payment_method) + '"' +
                     ' data-status="' + escAttr(order.status) + '"' +
                     ' data-status-key="' + escAttr(statusKey) + '"' +
@@ -1413,6 +1417,7 @@
             document.getElementById("detailsProductName").textContent = 'Loading...';
             document.getElementById("detailsProductType").textContent = '—';
             document.getElementById("detailsProductPrice").textContent = '—';
+            document.getElementById("detailsQuantity").textContent = 'Quantity —';
             document.getElementById("detailsGallon").textContent = '—';
             document.getElementById("detailsSubtotal").textContent = '—';
             document.getElementById("detailsShippingFee").textContent = formatCurrency(0);
@@ -1426,6 +1431,7 @@
                 status: row.dataset.status || '',
                 customer_name: row.dataset.customerName || '',
                 customer_phone: row.dataset.customerPhone || '',
+                customer_email: row.dataset.customerEmail || '',
                 customer_image_url: row.dataset.customerImage || '',
                 delivery_address: row.dataset.deliveryAddress || '',
                 product_name: row.dataset.productName || '',
@@ -1433,12 +1439,14 @@
                 gallon_size: row.dataset.gallonSize || '',
                 product_image_url: row.dataset.productImage || '',
                 amount: parseFloat(row.dataset.amount || '0') || 0,
+                quantity: parseInt(row.dataset.quantity || '1', 10) || 1,
                 payment_method: row.dataset.paymentMethod || ''
             };
         }
 
         function fillOrderDetailsModal(orderData) {
             const amount = parseFloat(orderData.amount || 0) || 0;
+            const quantity = parseInt(orderData.quantity || orderData.qty || 1, 10) || 1;
             const status = normalizeStatusForDisplay(orderData.status);
             const statusClass = getStatusClass(orderData.status);
             const productType = orderData.product_type || '—';
@@ -1457,6 +1465,7 @@
             document.getElementById("detailsProductImage").src = orderData.product_image_url || "{{ asset('img/default-product.png') }}";
             document.getElementById("detailsProductName").textContent = orderData.product_name || '—';
             document.getElementById("detailsProductType").textContent = productType + ' (' + gallonSize + ')';
+            document.getElementById("detailsQuantity").textContent = 'Quantity ' + quantity;
             document.getElementById("detailsProductPrice").textContent = formatCurrency(amount);
 
             document.getElementById("detailsSubtotal").textContent = formatCurrency(amount);

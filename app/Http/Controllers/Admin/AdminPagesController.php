@@ -226,15 +226,36 @@ class AdminPagesController extends Controller
         $startOfMonth = $date->copy()->startOfMonth()->toDateString();
         $endOfMonth = $date->copy()->endOfMonth()->toDateString();
 
-        $topSellers = Order::query()
-            ->select('product_name')
-            ->selectRaw('SUM(COALESCE(qty, 1)) as total_qty')
-            ->whereRaw("LOWER(status) IN ('completed', 'delivered')")
-            ->whereRaw('DATE(COALESCE(delivery_date, created_at)) BETWEEN ? AND ?', [$startOfMonth, $endOfMonth])
-            ->groupBy('product_name')
-            ->orderByDesc('total_qty')
-            ->limit(3)
-            ->get();
+        $buildTopSellersQuery = function (bool $onlyFulfilled = true) use ($startOfMonth, $endOfMonth) {
+            $query = Order::query()
+                ->select('product_name')
+                ->selectRaw('SUM(COALESCE(qty, 1)) as total_qty')
+                ->whereRaw('DATE(COALESCE(delivery_date, created_at)) BETWEEN ? AND ?', [$startOfMonth, $endOfMonth]);
+
+            if ($onlyFulfilled) {
+                $query->whereRaw("LOWER(TRIM(COALESCE(status, ''))) IN ('completed', 'delivered')");
+            } else {
+                // Fallback to real monthly data when no fulfilled orders exist yet.
+                $query->whereRaw("LOWER(TRIM(COALESCE(status, ''))) <> 'cancelled'");
+            }
+
+            return $query
+                ->groupBy('product_name')
+                ->orderByDesc('total_qty')
+                ->limit(3)
+                ->get();
+        };
+
+        $topSellers = $buildTopSellersQuery(true);
+        if ($topSellers->isEmpty()) {
+            $topSellers = $buildTopSellersQuery(false);
+        }
+
+        $topSellers = $topSellers
+            ->filter(function ($row) {
+                return trim((string) ($row->product_name ?? '')) !== '';
+            })
+            ->values();
 
         if ($topSellers->isEmpty()) {
             return [

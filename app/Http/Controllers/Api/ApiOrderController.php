@@ -9,6 +9,7 @@ use App\Models\CustomerNotification;
 use App\Models\Feedback;
 use App\Models\Flavor;
 use App\Models\Order;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -17,9 +18,9 @@ class ApiOrderController extends Controller
 {
     /** Status filter values for order history tabs: all, completed, processing, cancelled */
     private const STATUS_FILTER_ALL = 'all';
-    private const STATUS_COMPLETED = ['delivered', 'walk_in'];
+    private const STATUS_COMPLETED = ['completed', 'delivered', 'walk-in', 'walk_in', 'walk in', 'walkin'];
     private const STATUS_PROCESSING = ['pending', 'preparing', 'assigned'];
-    private const STATUS_CANCELLED = ['cancelled'];
+    private const STATUS_CANCELLED = ['cancelled', 'canceled'];
 
     /**
      * List orders for the authenticated customer (order history for Flutter).
@@ -33,19 +34,18 @@ class ApiOrderController extends Controller
             return response()->json(['success' => false, 'message' => 'Invalid user.'], 401);
         }
 
-        $query = Order::where(function ($q) use ($user) {
-            $q->where('customer_name', $user->firstname . ' ' . $user->lastname)
-                ->orWhere('customer_phone', $user->contact_no);
-        });
+        $query = Order::query()
+            ->with(['driver:id,name,phone,driver_code']);
+        $this->applyCustomerOwnershipFilter($query, $user);
 
         $statusFilter = $request->query('status', self::STATUS_FILTER_ALL);
         $statusFilter = strtolower((string) $statusFilter);
         if ($statusFilter === 'completed') {
-            $query->whereIn('status', self::STATUS_COMPLETED);
+            $this->applyStatusInFilter($query, self::STATUS_COMPLETED);
         } elseif ($statusFilter === 'processing') {
-            $query->whereIn('status', self::STATUS_PROCESSING);
+            $this->applyStatusInFilter($query, self::STATUS_PROCESSING);
         } elseif ($statusFilter === 'cancelled') {
-            $query->whereIn('status', self::STATUS_CANCELLED);
+            $this->applyStatusInFilter($query, self::STATUS_CANCELLED);
         }
         // 'all' or any other value: no status filter
 
@@ -65,9 +65,25 @@ class ApiOrderController extends Controller
         $imageUrl = str_starts_with($imagePath, 'http') ? $imagePath : url($imagePath);
         $amount = (float) $order->amount;
         $amountFormatted = '₱' . number_format($amount, 0);
+        $driver = $order->driver;
+        $driverName = $this->firstNonEmptyString([$driver?->name, 'Driver']);
+        $driverPhone = $this->firstNonEmptyString([$driver?->phone, '']);
+        $driverCode = $this->firstNonEmptyString([$driver?->driver_code, '']);
 
         return [
             'id'                 => $order->id,
+            'customer_id'        => $order->customer_id,
+            'driver_id'          => $order->driver_id ? (int) $order->driver_id : null,
+            'driver_name'        => $driverName,
+            'assigned_driver_name' => $driverName,
+            'driver_phone'       => $driverPhone,
+            'driver_code'        => $driverCode,
+            'driver'             => $driver ? [
+                'id' => (int) $driver->id,
+                'name' => $driverName,
+                'phone' => $driverPhone,
+                'driver_code' => $driverCode,
+            ] : null,
             'transaction_id'     => $order->transaction_id,
             'product_name'       => $order->product_name,
             'product_type'       => $order->product_type,
@@ -104,30 +120,64 @@ class ApiOrderController extends Controller
             'amount' => 'required|numeric|min:0',
             'payment_method' => 'required|string|max:50',
             'quantity' => 'nullable|integer|min:1',
+            'qty' => 'nullable|integer|min:1',
+            'customer_name' => 'nullable|string|max:255',
+            'customer_phone' => 'nullable|string|max:50',
+            'address_first_name' => 'nullable|string|max:100',
+            'address_last_name' => 'nullable|string|max:100',
+            'address_contact' => 'nullable|string|max:50',
         ]);
 
         $user = $request->user();
-        $customerName = $request->customer_name ?? ($user ? $user->firstname . ' ' . $user->lastname : 'Guest');
-        $customerPhone = $request->customer_phone ?? ($user?->contact_no ?? '');
+        $addressFirstName = trim((string) $request->input('address_first_name', $request->input('first_name', '')));
+        $addressLastName = trim((string) $request->input('address_last_name', $request->input('last_name', '')));
+        $addressContact = trim((string) $request->input('address_contact', $request->input('contact_no', $request->input('phone', ''))));
+        $addressName = trim($addressFirstName . ' ' . $addressLastName);
+        $customerName = $this->firstNonEmptyString([
+            $request->input('customer_name'),
+            $addressName,
+            $user instanceof Customer ? trim($user->firstname . ' ' . $user->lastname) : null,
+            'Guest',
+        ]);
+        $customerPhone = $this->firstNonEmptyString([
+            $request->input('customer_phone'),
+            $addressContact,
+            $user?->contact_no,
+            '',
+        ]);
         $customerImage = $request->customer_image ?? 'img/default-user.png';
-        $addQty = (int) $request->input('quantity', 1);
+        $customerId = $user instanceof Customer ? $user->id : null;
+        $addQty = max(
+            1,
+            (int) $request->input('quantity', $request->input('qty', 1))
+        );
         $addAmount = (float) $request->amount;
 
         $flavor = Flavor::where('name', $request->product_name)->first();
         $productImage = $flavor?->image ?? 'img/default-product.png';
 
         // Find existing pending/assigned order with same customer, flavor, size, and delivery slot
-        $existing = Order::whereIn('status', self::STATUS_PROCESSING)
+        $existingQuery = Order::query()
             ->where('product_name', $request->product_name)
             ->where('gallon_size', $request->gallon_size)
             ->where('delivery_date', $request->delivery_date)
             ->where('delivery_time', $request->delivery_time)
             ->where('delivery_address', $request->delivery_address)
-            ->where(function ($q) use ($customerName, $customerPhone) {
+            ->where(function ($q) use ($customerId, $customerName, $customerPhone) {
+                if ($customerId !== null) {
+                    $q->where('customer_id', $customerId)
+                        ->orWhere(function ($legacy) use ($customerName, $customerPhone) {
+                            $legacy->where('customer_name', $customerName)
+                                ->orWhere('customer_phone', $customerPhone);
+                        });
+                    return;
+                }
+
                 $q->where('customer_name', $customerName)
                     ->orWhere('customer_phone', $customerPhone);
-            })
-            ->first();
+            });
+        $this->applyStatusInFilter($existingQuery, self::STATUS_PROCESSING);
+        $existing = $existingQuery->first();
 
         if ($existing) {
             $existing->increment('qty', $addQty);
@@ -138,6 +188,7 @@ class ApiOrderController extends Controller
         }
 
         $order = Order::create([
+            'customer_id' => $customerId,
             'transaction_id' => strtoupper(Str::random(10)),
             'product_name' => $request->product_name,
             'product_type' => $request->product_type,
@@ -192,12 +243,9 @@ class ApiOrderController extends Controller
         if (!$user instanceof Customer) {
             return response()->json(['success' => false, 'message' => 'Invalid user.'], 401);
         }
-        $order = Order::where('id', $id)
-            ->where(function ($q) use ($user) {
-                $q->where('customer_name', $user->firstname . ' ' . $user->lastname)
-                    ->orWhere('customer_phone', $user->contact_no);
-            })
-            ->first();
+        $orderQuery = Order::where('id', $id);
+        $this->applyCustomerOwnershipFilter($orderQuery, $user);
+        $order = $orderQuery->first();
         if (!$order) {
             return response()->json(['success' => false, 'message' => 'Order not found.'], 404);
         }
@@ -221,18 +269,15 @@ class ApiOrderController extends Controller
             'reason_detail' => 'nullable|string|max:1000',
         ]);
 
-        $order = Order::where('id', $id)
-            ->where(function ($q) use ($user) {
-                $q->where('customer_name', $user->firstname . ' ' . $user->lastname)
-                    ->orWhere('customer_phone', $user->contact_no);
-            })
-            ->first();
+        $orderQuery = Order::where('id', $id);
+        $this->applyCustomerOwnershipFilter($orderQuery, $user);
+        $order = $orderQuery->first();
 
         if (!$order) {
             return response()->json(['success' => false, 'message' => 'Order not found.'], 404);
         }
 
-        if (!in_array($order->status, self::STATUS_PROCESSING, true)) {
+        if (!in_array($this->normalizeStatus((string) $order->status), self::STATUS_PROCESSING, true)) {
             return response()->json([
                 'success' => false,
                 'message' => 'Only pending or assigned orders can be cancelled.',
@@ -276,18 +321,15 @@ class ApiOrderController extends Controller
             'message' => 'nullable|string|max:2000',
         ]);
 
-        $order = Order::where('id', $id)
-            ->where(function ($q) use ($user) {
-                $q->where('customer_name', $user->firstname . ' ' . $user->lastname)
-                    ->orWhere('customer_phone', $user->contact_no);
-            })
-            ->first();
+        $orderQuery = Order::where('id', $id);
+        $this->applyCustomerOwnershipFilter($orderQuery, $user);
+        $order = $orderQuery->first();
 
         if (!$order) {
             return response()->json(['success' => false, 'message' => 'Order not found.'], 404);
         }
 
-        if (!in_array($order->status, self::STATUS_COMPLETED, true)) {
+        if (!in_array($this->normalizeStatus((string) $order->status), self::STATUS_COMPLETED, true)) {
             return response()->json([
                 'success' => false,
                 'message' => 'You can only rate delivered or completed orders.',
@@ -333,5 +375,55 @@ class ApiOrderController extends Controller
                 'feedback_date' => $feedback->feedback_date?->toIso8601String(),
             ],
         ], $feedback->wasRecentlyCreated ? 201 : 200);
+    }
+
+    private function applyCustomerOwnershipFilter(Builder $query, Customer $customer): void
+    {
+        $fullName = trim($customer->firstname . ' ' . $customer->lastname);
+
+        $query->where(function (Builder $q) use ($customer, $fullName) {
+            $q->where('customer_id', $customer->id)
+                ->orWhere(function (Builder $legacy) use ($customer, $fullName) {
+                    $legacy->where('customer_name', $fullName)
+                        ->orWhere('customer_phone', $customer->contact_no);
+                });
+        });
+    }
+
+    private function applyStatusInFilter(Builder $query, array $statuses): void
+    {
+        if (count($statuses) === 0) {
+            return;
+        }
+
+        $normalized = array_values(array_unique(array_map(
+            fn (string $status) => $this->normalizeStatus($status),
+            $statuses
+        )));
+
+        $placeholders = implode(',', array_fill(0, count($normalized), '?'));
+        $query->whereRaw('LOWER(TRIM(COALESCE(status, ""))) IN (' . $placeholders . ')', $normalized);
+    }
+
+    private function normalizeStatus(string $status): string
+    {
+        return strtolower(trim($status));
+    }
+
+    /**
+     * Return the first non-empty trimmed string from a list.
+     *
+     * @param array<int, mixed> $values
+     */
+    private function firstNonEmptyString(array $values): string
+    {
+        foreach ($values as $value) {
+            $text = trim((string) $value);
+            if ($text !== '') {
+                return $text;
+            }
+        }
+
+        return '';
     }
 }

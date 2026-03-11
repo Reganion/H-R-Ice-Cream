@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Order extends Model
 {
@@ -15,6 +16,7 @@ class Order extends Model
     ];
 
     protected $fillable = [
+        'customer_id',
         'transaction_id',
         'product_name',
         'product_type',
@@ -44,9 +46,19 @@ class Order extends Model
         return $this->belongsTo(Driver::class);
     }
 
+    public function customer()
+    {
+        return $this->belongsTo(Customer::class);
+    }
+
     public function invoices()
     {
         return $this->hasMany(Invoice::class);
+    }
+
+    public function messages(): HasMany
+    {
+        return $this->hasMany(OrderMessage::class);
     }
 }
 

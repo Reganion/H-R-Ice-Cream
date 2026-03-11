@@ -34,6 +34,7 @@ class AdminOrderController extends Controller
     public function listJson(Request $request)
     {
         $orders = Order::query()
+            ->with(['driver', 'customer'])
             ->orderByRaw("
                 CASE
                     WHEN LOWER(status) IN ('pending', 'new_order') THEN 1
@@ -64,8 +65,10 @@ class AdminOrderController extends Controller
                 'customer_name' => $order->customer_name ?? '',
                 'customer_phone' => $order->customer_phone ?? '',
                 'customer_image_url' => asset($order->customer_image ?? 'img/default-user.png'),
+                'customer_email' => $order->customer?->email,
                 'delivery_address' => $order->delivery_address ?? '',
                 'amount' => (float) $order->amount,
+                'quantity' => (int) ($order->qty ?? 1),
                 'payment_method' => $order->payment_method ?? '',
                 'status' => $status,
                 'driver_id' => $order->driver_id,
@@ -88,7 +91,7 @@ class AdminOrderController extends Controller
      */
     public function showJson(string $id)
     {
-        $order = Order::find($id);
+        $order = Order::with(['driver', 'customer'])->find($id);
         if (!$order) {
             return response()->json(['error' => 'Order not found'], 404);
         }
@@ -109,8 +112,10 @@ class AdminOrderController extends Controller
             'customer_name' => $order->customer_name ?? '',
             'customer_phone' => $order->customer_phone ?? '',
             'customer_image_url' => asset($order->customer_image ?? 'img/default-user.png'),
+            'customer_email' => $order->customer?->email,
             'delivery_address' => $order->delivery_address ?? '',
             'amount' => (float) $order->amount,
+            'quantity' => (int) ($order->qty ?? 1),
             'payment_method' => $order->payment_method ?? '',
             'status' => $status,
             'driver_id' => $order->driver_id,
