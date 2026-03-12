@@ -198,6 +198,10 @@ ORDERS PAGE
     color: #2563eb;
 }
 
+.status-badge.preparing {
+    color: #0ea5e9;
+}
+
 .status-badge.delivered {
     color: #22c55e;
 }
@@ -240,6 +244,11 @@ ORDERS PAGE
 
 .action-btn.assign {
     background: #6366f1;
+    color: #fff;
+}
+
+.action-btn.edit-order {
+    background: #f59e0b;
     color: #fff;
 }
 
@@ -1194,6 +1203,10 @@ ORDER DETAILS MODAL (Orders page slide-over)
 
 .status-badge-details.assigned {
     background: #2563eb;
+}
+
+.status-badge-details.preparing {
+    background: #0ea5e9;
 }
 
 .status-badge-details.cancelled {

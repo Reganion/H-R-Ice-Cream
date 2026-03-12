@@ -1065,8 +1065,7 @@
     }
 
     .table-header.gallon {
-        grid-template-columns:
-            55px 18% 18% 20% 20% 20%;
+        grid-template-columns: 6% 24% 15% 17% 18% 20%;
     }
 
     .flavor-table td {

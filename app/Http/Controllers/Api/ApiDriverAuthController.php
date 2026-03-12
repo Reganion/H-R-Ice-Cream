@@ -15,6 +15,7 @@ use Illuminate\Support\Str;
 class ApiDriverAuthController extends Controller
 {
     private const CACHE_PREFIX = 'api_driver_session:';
+    private const ONLINE_KEY_PREFIX = 'api_driver_online:';
     private const TTL_MINUTES = 60 * 24 * 7; // 7 days
     private const OTP_TTL_MINUTES = 10;
     private const CHANGE_EMAIL_KEY_PREFIX = 'driver_change_email:';
@@ -50,11 +51,12 @@ class ApiDriverAuthController extends Controller
 
         $token = Str::random(64);
         Cache::put(self::CACHE_PREFIX . $token, $driver->id, now()->addMinutes(self::TTL_MINUTES));
+        $this->markDriverOnline($driver);
 
         return response()->json([
             'success' => true,
             'message' => 'Logged in successfully.',
-            'driver' => $this->driverProfileArray($driver),
+            'driver' => $this->driverProfileArray($driver->fresh()),
             'token' => $token,
         ]);
     }
@@ -280,9 +282,13 @@ class ApiDriverAuthController extends Controller
      */
     public function logout(Request $request): JsonResponse
     {
+        $driver = $request->user();
         $token = $this->getTokenFromRequest($request);
         if ($token) {
             Cache::forget(self::CACHE_PREFIX . $token);
+        }
+        if ($driver instanceof Driver) {
+            $this->markDriverOffline($driver);
         }
 
         return response()->json([
@@ -699,5 +705,29 @@ class ApiDriverAuthController extends Controller
     private function forgotPasswordCacheKey(string $email): string
     {
         return self::FORGOT_PASSWORD_KEY_PREFIX . sha1(strtolower(trim($email)));
+    }
+
+    private function markDriverOnline(Driver $driver): void
+    {
+        if ($driver->status !== Driver::STATUS_DEACTIVATE && $driver->status !== Driver::STATUS_ON_ROUTE) {
+            $driver->status = Driver::STATUS_AVAILABLE;
+            $driver->save();
+        }
+
+        Cache::put(
+            self::ONLINE_KEY_PREFIX . $driver->id,
+            true,
+            now()->addMinutes(self::TTL_MINUTES)
+        );
+    }
+
+    private function markDriverOffline(Driver $driver): void
+    {
+        Cache::forget(self::ONLINE_KEY_PREFIX . $driver->id);
+
+        if ($driver->status !== Driver::STATUS_DEACTIVATE && $driver->status !== Driver::STATUS_ON_ROUTE) {
+            $driver->status = Driver::STATUS_OFF_DUTY;
+            $driver->save();
+        }
     }
 }

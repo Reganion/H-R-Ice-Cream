@@ -61,6 +61,15 @@ Route::get('/admin/login', [AdminPagesController::class, 'login'])->name('admin.
 Route::post('/admin/login', [AdminAuthController::class, 'login'])->name('admin.login.submit');
 Route::post('/admin/register', [AdminAuthController::class, 'register'])->name('admin.register.submit');
 Route::get('/admin/logout', [AdminAuthController::class, 'logout'])->name('admin.logout');
+Route::post('/admin/account/update', [AdminAuthController::class, 'updateAccount'])->name('admin.account.update');
+Route::post('/admin/account/verify-email-otp', [AdminAuthController::class, 'verifyAccountEmailOtp'])->name('admin.account.verify-email-otp');
+Route::post('/admin/account/resend-email-otp', [AdminAuthController::class, 'resendAccountEmailOtp'])->name('admin.account.resend-email-otp');
+Route::post('/admin/account/cancel-email-otp', [AdminAuthController::class, 'cancelAccountEmailOtp'])->name('admin.account.cancel-email-otp');
+Route::post('/admin/account/password/send-otp', [AdminAuthController::class, 'sendAccountPasswordOtp'])->name('admin.account.password.send-otp');
+Route::post('/admin/account/password/verify-otp', [AdminAuthController::class, 'verifyAccountPasswordOtp'])->name('admin.account.password.verify-otp');
+Route::post('/admin/account/password/resend-otp', [AdminAuthController::class, 'resendAccountPasswordOtp'])->name('admin.account.password.resend-otp');
+Route::post('/admin/account/password/start', [AdminAuthController::class, 'startAccountPasswordChange'])->name('admin.account.password.start');
+Route::post('/admin/account/password/cancel', [AdminAuthController::class, 'cancelAccountPasswordChange'])->name('admin.account.password.cancel');
 
 Route::get('/admin/forgot-password', [AdminAuthController::class, 'showForgotPasswordForm'])->name('admin.forgot-password');
 Route::post('/admin/forgot-password', [AdminAuthController::class, 'sendForgotPasswordOtp'])->name('admin.forgot-password.submit');

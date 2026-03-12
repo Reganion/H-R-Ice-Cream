@@ -98,7 +98,7 @@
                         </button>
                     </div>
                     <div class="col">
-                        <span class="material-symbols-outlined">icecream</span> Flavors
+                         Flavors
                     </div>
                     @php
                         $sortBy = $sortBy ?? 'created_at';
@@ -108,7 +108,7 @@
                     @endphp
                     <div class="col col-sortable">
                         <a href="{{ route('admin.flavors', ['sort_by' => 'price', 'order' => $sortBy === 'price' ? $priceOrder : 'desc']) }}" class="sort-link" data-sort-by="price" data-order="{{ $sortBy === 'price' ? $priceOrder : 'desc' }}" aria-label="Sort by price">
-                            <span class="material-symbols-outlined">payments</span>
+                            
                             <span>Price</span>
                             <span class="sort-arrow" aria-hidden="true">
                                 <svg class="sort-icon" viewBox="0 0 12 14" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
@@ -120,7 +120,7 @@
                     </div>
                     <div class="col col-sortable">
                         <a href="{{ route('admin.flavors', ['sort_by' => 'status', 'order' => $sortBy === 'status' ? $statusOrder : 'asc']) }}" class="sort-link" data-sort-by="status" data-order="{{ $sortBy === 'status' ? $statusOrder : 'asc' }}" aria-label="Sort by status">
-                            <span class="material-symbols-outlined">signal_cellular_alt</span>
+                           
                             <span>Status</span>
                             <span class="sort-arrow" aria-hidden="true">
                                 <svg class="sort-icon" viewBox="0 0 12 14" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
@@ -131,7 +131,7 @@
                         </a>
                     </div>
                     <div class="col">
-                        <span class="material-symbols-outlined">arrow_selector_tool</span> Action
+                         Action
                     </div>
                 </div>
 
@@ -181,15 +181,15 @@
                                             <button class="btn-edit" data-id="{{ $flavor->id }}"
                                                 data-flavor-type="{{ $flavor->flavor_type }}"
                                                 data-image="{{ asset($flavor->image ?? 'flavors/default.png') }}"
-                                                data-mobile-image="{{ asset($flavor->mobile_image ?? $flavor->image ?? 'flavors/default.png') }}">
+                                                data-mobile-image="{{ asset($flavor->mobile_image ?? $flavor->image ?? 'flavors/default.png') }}"
+                                                title="Edit" aria-label="Edit">
                                                 <span class="material-symbols-outlined">edit_square</span>
-                                                Edit
                                             </button>
 
 
-                                            <button class="btn-delete" data-id="{{ $flavor->id }}">
+                                            <button class="btn-delete" data-id="{{ $flavor->id }}" title="Delete"
+                                                aria-label="Delete">
                                                 <span class="material-symbols-outlined">delete</span>
-                                                Delete
                                             </button>
                                         </td>
                                     </tr>

@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\AdminNotification;
 use App\Models\Driver;
 use App\Models\Flavor;
+use App\Models\Gallon;
 use App\Models\Order;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -13,16 +14,49 @@ use Illuminate\Support\Str;
 
 class AdminOrderController extends Controller
 {
+    private function toDatabaseOrderStatus(?string $status): string
+    {
+        $normalized = strtolower(trim((string) ($status ?? '')));
+        $normalized = str_replace('_', '-', preg_replace('/\s+/', '-', $normalized));
+
+        return match ($normalized) {
+            '', 'new', 'new-order', 'new_order', 'pending' => 'pending',
+            'walk-in', 'walkin' => 'Walk-in',
+            'preparing' => 'Preparing',
+            'assigned' => 'Assigned',
+            'completed', 'delivered' => 'Completed',
+            'cancelled', 'canceled' => 'Cancelled',
+            default => 'pending',
+        };
+    }
+
     private function normalizeOrderStatus(?string $status): string
     {
-        $normalized = strtolower((string) ($status ?? ''));
+        $normalized = strtolower(trim((string) ($status ?? '')));
+        $normalized = str_replace('_', '-', preg_replace('/\s+/', '-', $normalized));
 
-        if ($normalized === '' || $normalized === 'new_order') {
+        if ($normalized === '' || $normalized === 'new-order' || $normalized === 'new') {
             return 'pending';
         }
 
-        if ($normalized === 'delivered') {
+        if ($normalized === 'walk-in' || $normalized === 'walkin') {
+            return 'walk_in';
+        }
+
+        if ($normalized === 'preparing') {
+            return 'preparing';
+        }
+
+        if ($normalized === 'delivered' || $normalized === 'completed') {
             return 'completed';
+        }
+
+        if ($normalized === 'assigned') {
+            return 'assigned';
+        }
+
+        if ($normalized === 'cancelled' || $normalized === 'canceled') {
+            return 'cancelled';
         }
 
         return $normalized;
@@ -38,11 +72,12 @@ class AdminOrderController extends Controller
             ->orderByRaw("
                 CASE
                     WHEN LOWER(status) IN ('pending', 'new_order') THEN 1
-                    WHEN LOWER(status) = 'walk_in' THEN 2
-                    WHEN LOWER(status) = 'assigned' THEN 3
-                    WHEN LOWER(status) IN ('completed', 'delivered') THEN 4
-                    WHEN LOWER(status) = 'cancelled' THEN 5
-                    ELSE 6
+                    WHEN LOWER(status) = 'preparing' THEN 2
+                    WHEN LOWER(status) IN ('walk_in', 'walk-in', 'walk in', 'walkin') THEN 3
+                    WHEN LOWER(status) = 'assigned' THEN 4
+                    WHEN LOWER(status) IN ('completed', 'delivered') THEN 5
+                    WHEN LOWER(status) = 'cancelled' THEN 6
+                    ELSE 7
                 END
             ")
             ->orderBy('created_at', 'desc')
@@ -145,6 +180,7 @@ class AdminOrderController extends Controller
             'delivery_address' => 'required|string|max:255',
             'amount'           => 'required|numeric|min:0',
             'payment_method'   => 'required|string|max:50',
+            'qty'              => 'nullable|integer|min:1',
         ]);
 
         $flavor = Flavor::where('name', $request->product_name)->first();
@@ -165,7 +201,7 @@ class AdminOrderController extends Controller
             'amount'           => $request->amount,
             'qty'              => (int) $request->input('quantity', 1),
             'payment_method'   => $request->payment_method,
-            'status'           => 'walk_in',
+            'status'           => $this->toDatabaseOrderStatus('walk_in'),
         ]);
 
         // Notify all admins: "CustomerName Order #TransactionNo ProductName"
@@ -185,6 +221,58 @@ class AdminOrderController extends Controller
     public function updateWalkIn(Request $request, string $id)
     {
         $order = Order::findOrFail($id);
+        $currentStatus = $this->normalizeOrderStatus($order->status);
+
+        // For pending/assigned orders, only allow flavor, quantity, and status edits.
+        if (in_array($currentStatus, ['pending', 'assigned'], true)) {
+            $request->validate([
+                'product_name' => 'required|string|max:255',
+                'gallon_size' => 'required|string|max:50',
+                'qty' => 'required|integer|min:1',
+                'status' => 'required|string',
+            ]);
+
+            $requestedStatus = $this->normalizeOrderStatus($request->input('status'));
+            if (!in_array($requestedStatus, ['preparing', $currentStatus], true)) {
+                return back()->withErrors([
+                    'status' => 'For this order, status can only be the previous status or Preparing.',
+                ])->withInput();
+            }
+
+            $flavor = Flavor::where('name', $request->product_name)->first();
+            $gallon = Gallon::where('size', $request->gallon_size)->first();
+            $newType = $request->input('product_type');
+            if ($newType === null || trim((string) $newType) === '') {
+                $newType = $flavor?->category ?? $order->product_type;
+            }
+            $qty = (int) $request->input('qty', 1);
+            $unitPrice = (float) (($flavor?->price ?? 0) + ($gallon?->addon_price ?? 0));
+            $totalAmount = round($unitPrice * max($qty, 1), 2);
+
+            $order->update([
+                'product_name' => $request->product_name,
+                'product_type' => $newType,
+                'gallon_size' => $request->gallon_size,
+                'product_image' => $flavor?->image ?? $order->product_image ?? 'img/default-product.png',
+                'qty' => $qty,
+                'amount' => $totalAmount,
+                'status' => $this->toDatabaseOrderStatus($requestedStatus),
+            ]);
+
+            if ($order->wasChanged('status') && $this->normalizeOrderStatus($order->status) === 'completed') {
+                AdminNotification::createForAllAdmins(
+                    AdminNotification::TYPE_DELIVERY_SUCCESS,
+                    $order->product_name,
+                    null,
+                    null,
+                    'Order',
+                    $order->id,
+                    ['subtitle' => 'delivered', 'highlight' => 'Successfully']
+                );
+            }
+
+            return back()->with('success', 'Order updated successfully.');
+        }
 
         $request->validate([
             'product_name'     => 'required|string|max:255',
@@ -202,7 +290,6 @@ class AdminOrderController extends Controller
         $flavor = Flavor::where('name', $request->product_name)->first();
         $productImage = $flavor?->image ?? $order->product_image ?? 'img/default-product.png';
 
-        $oldStatus = $order->status;
         $updates = [
             'product_name'     => $request->product_name,
             'product_type'     => $request->product_type,
@@ -214,15 +301,16 @@ class AdminOrderController extends Controller
             'delivery_time'    => $request->delivery_time,
             'delivery_address' => $request->delivery_address,
             'amount'           => $request->amount,
+            'qty'              => (int) $request->input('qty', $order->qty ?? 1),
             'payment_method'   => $request->payment_method,
         ];
         if ($request->has('status')) {
-            $updates['status'] = $request->input('status');
+            $updates['status'] = $this->toDatabaseOrderStatus($request->input('status'));
         }
         $order->update($updates);
 
-        // Notify all admins when order is marked as delivered
-        if ($order->wasChanged('status') && $order->status === 'delivered') {
+        // Notify all admins when order is marked as completed/delivered.
+        if ($order->wasChanged('status') && $this->normalizeOrderStatus($order->status) === 'completed') {
             AdminNotification::createForAllAdmins(
                 AdminNotification::TYPE_DELIVERY_SUCCESS,
                 $order->product_name,
@@ -234,15 +322,15 @@ class AdminOrderController extends Controller
             );
         }
 
-        return back()->with('success', 'Walk-in order updated successfully.');
+        return back()->with('success', 'Order updated successfully.');
     }
 
     /**
-     * Return available (non-deactivated) drivers as JSON for assign modal.
+     * Return only available drivers as JSON for assign modal.
      */
     public function availableDriversJson()
     {
-        $drivers = Driver::where('status', '!=', Driver::STATUS_DEACTIVATE)
+        $drivers = Driver::where('status', Driver::STATUS_AVAILABLE)
             ->orderBy('name')
             ->get()
             ->map(function (Driver $d) {
@@ -267,8 +355,9 @@ class AdminOrderController extends Controller
         ]);
 
         $order = Order::findOrFail($id);
+        $status = $this->normalizeOrderStatus($order->status);
 
-        if (in_array($order->status, ['delivered', 'walk_in'], true)) {
+        if ($status === 'completed') {
             if ($request->wantsJson()) {
                 return response()->json(['success' => false, 'message' => 'This order cannot be assigned a driver.'], 422);
             }
@@ -277,7 +366,7 @@ class AdminOrderController extends Controller
 
         $order->update([
             'driver_id' => $request->driver_id,
-            'status' => 'assigned',
+            'status' => $this->toDatabaseOrderStatus('assigned'),
             'status_driver' => null,
         ]);
 

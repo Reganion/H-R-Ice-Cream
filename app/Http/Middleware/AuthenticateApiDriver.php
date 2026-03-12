@@ -11,6 +11,8 @@ use Symfony\Component\HttpFoundation\Response;
 class AuthenticateApiDriver
 {
     public const CACHE_PREFIX = 'api_driver_session:';
+    public const ONLINE_KEY_PREFIX = 'api_driver_online:';
+    public const TTL_MINUTES = 60 * 24 * 7; // 7 days
 
     /**
      * Handle an incoming request. Expects Bearer token or X-Session-Token header.
@@ -50,6 +52,15 @@ class AuthenticateApiDriver
                 'success' => false,
                 'message' => 'Your account is deactivated. Please contact admin.',
             ], 403);
+        }
+
+        // Keep session and online marker alive while the driver is actively authenticated.
+        Cache::put(self::CACHE_PREFIX . $token, $driver->id, now()->addMinutes(self::TTL_MINUTES));
+        Cache::put(self::ONLINE_KEY_PREFIX . $driver->id, true, now()->addMinutes(self::TTL_MINUTES));
+
+        if ($driver->status !== Driver::STATUS_ON_ROUTE && $driver->status !== Driver::STATUS_AVAILABLE) {
+            $driver->update(['status' => Driver::STATUS_AVAILABLE]);
+            $driver = $driver->fresh();
         }
 
         $request->setUserResolver(fn () => $driver);

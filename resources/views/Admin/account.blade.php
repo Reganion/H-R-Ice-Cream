@@ -249,6 +249,242 @@
         .single-cols {
             max-width: 57%;
         }
+
+        .form-alert {
+            margin-bottom: 16px;
+            padding: 12px 14px;
+            border-radius: 10px;
+            font-size: 14px;
+            position: relative;
+            padding-right: 40px;
+            transition: opacity 0.2s ease;
+        }
+
+        .form-alert-success {
+            background: #eaf9ef;
+            border: 1px solid #b9e8c6;
+            color: #17733b;
+        }
+
+        .form-alert-error {
+            background: #fff0f0;
+            border: 1px solid #f1c0c0;
+            color: #a12e2e;
+        }
+
+        .form-alert.is-hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .alert-close-btn {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            width: 24px;
+            height: 24px;
+            border: none;
+            border-radius: 6px;
+            background: transparent;
+            color: inherit;
+            font-size: 18px;
+            line-height: 1;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0;
+        }
+
+        .alert-close-btn:hover {
+            background: rgba(0, 0, 0, 0.06);
+        }
+
+        .field-error {
+            display: block;
+            margin-top: 6px;
+            color: #a12e2e;
+            font-size: 12px;
+        }
+
+        .otp-error {
+            margin-bottom: 10px;
+        }
+
+        .otp-state-wrap {
+            width: 100%;
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 8px 0;
+        }
+
+        .otp-top-bar {
+            width: 100%;
+            display: flex;
+            justify-content: flex-start;
+            margin-bottom: 6px;
+        }
+
+        .otp-state-card {
+            width: 100%;
+            max-width: 520px;
+            text-align: center;
+        }
+
+        .password-change-center-card {
+            width: 100%;
+            max-width: 560px;
+            text-align: left;
+        }
+
+        .password-change-center-card h4 {
+            text-align: center;
+            font-size: 22px;
+            margin-bottom: 10px;
+        }
+
+        .password-change-sub {
+            text-align: center;
+            color: #666;
+            margin-bottom: 22px;
+            font-size: 14px;
+        }
+
+        .password-change-actions {
+            margin-top: 16px;
+            display: flex;
+            justify-content: center;
+        }
+
+        .otp-back-form {
+            margin: 0;
+        }
+
+        .otp-back-btn {
+            width: 36px;
+            height: 36px;
+            border: 1px solid #ddd;
+            background: #fff;
+            color: #444;
+            font-size: 18px;
+            line-height: 1;
+            cursor: pointer;
+            padding: 0;
+            border-radius: 10px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .otp-back-btn:hover {
+            background: #f8f8f8;
+        }
+
+        .otp-state-card h4 {
+            font-size: 22px;
+            margin-bottom: 10px;
+        }
+
+        .otp-state-sub {
+            color: #666;
+            margin-bottom: 22px;
+            font-size: 14px;
+        }
+
+        .otp-boxes {
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+            margin-bottom: 14px;
+        }
+
+        .otp-box {
+            width: 56px;
+            height: 60px;
+            border-radius: 12px;
+            border: 1px solid #ddd;
+            text-align: center;
+            font-size: 24px;
+            font-weight: 600;
+            outline: none;
+        }
+
+        .otp-box:focus {
+            border-color: #ff9e66;
+            box-shadow: 0 0 0 3px rgba(255, 158, 102, 0.15);
+        }
+
+        .otp-actions {
+            margin-top: 10px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .otp-resend-btn {
+            border: none;
+            background: none;
+            color: #d66a2e;
+            font-weight: 600;
+            cursor: pointer;
+            text-decoration: underline;
+            padding: 0;
+        }
+
+        .otp-resend-btn[disabled] {
+            color: #9a9a9a;
+            cursor: not-allowed;
+            text-decoration: none;
+        }
+
+        .otp-resend-copy {
+            color: #666;
+            font-size: 14px;
+        }
+
+        .otp-countdown {
+            margin-top: 4px;
+            color: #555;
+            font-size: 13px;
+            font-weight: 500;
+        }
+
+        .otp-resend-loading {
+            display: none;
+            align-items: center;
+            gap: 8px;
+            color: #666;
+            font-size: 13px;
+        }
+
+        .otp-resend-loading.is-active {
+            display: inline-flex;
+        }
+
+        .otp-spinner {
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            border: 2px solid #ddd;
+            border-top-color: #d66a2e;
+            animation: otp-spin 0.8s linear infinite;
+        }
+
+        @keyframes otp-spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        @media (max-width: 600px) {
+            .otp-box {
+                width: 48px;
+                height: 54px;
+            }
+        }
     </style>
 </head>
 
@@ -268,66 +504,323 @@
                 <!-- SCROLLABLE -->
                 <div class="account-scroll">
                     <div class="account-card">
-
-                        <!-- PROFILE -->
-                        <div class="profile-row">
-                            <div class="profile-left">
-                                <img src="{{ $adminUser && $adminUser->image ? asset($adminUser->image) : asset('img/kyle.jpg') }}" alt="Profile">
-                                <div class="profile-info">
-                                    <h4>Profile Picture</h4>
-                                    <small>Profile picture</small>
-                                </div>
+                        @if (session('success'))
+                            <div class="form-alert form-alert-success" data-auto-dismiss="10000">
+                                {{ session('success') }}
+                                <button type="button" class="alert-close-btn" aria-label="Close alert">&times;</button>
                             </div>
+                        @endif
 
-                            <div class="profile-actions">
-                                <button class="btn-outline">Update Account</button>
-                                <button class="btn-light">Delete</button>
+                        @if (session('error'))
+                            <div class="form-alert form-alert-error" data-auto-dismiss="10000">
+                                {{ session('error') }}
+                                <button type="button" class="alert-close-btn" aria-label="Close alert">&times;</button>
                             </div>
-                        </div>
+                        @endif
 
-                        <div class="form-row form-content">
-                            <div class="form-group">
-                                <label>First Name</label>
-                                <input type="text" value="{{ $adminUser?->first_name ?? '' }}" disabled>
-                            </div>
-                            <div class="form-group">
-                                <label>Last Name</label>
-                                <input type="text" value="{{ $adminUser?->last_name ?? '' }}" disabled>
-                            </div>
-                        </div>
+                        @php
+                            $pendingAccountUpdate = session('admin_account_update_pending');
+                            $pendingPasswordChange = session('admin_password_change_pending');
+                            $hasPendingOtpVerification = $pendingAccountUpdate || $pendingPasswordChange;
+                            $showPasswordChangeForm = session('admin_password_change_form') && !$hasPendingOtpVerification;
+                            $oldOtp = old('otp', '');
+                            $otpRemainingSeconds = 0;
+                            if ($adminUser && $adminUser->otp_expires_at) {
+                                $otpRemainingSeconds = max(0, $adminUser->otp_expires_at->getTimestamp() - now()->getTimestamp());
+                            }
+                        @endphp
 
+                        @if (!$hasPendingOtpVerification && !$showPasswordChangeForm)
+                            <form method="POST" action="{{ route('admin.account.update') }}">
+                                @csrf
 
-                        <div class="divider"></div>
+                                <!-- PROFILE -->
+                                <div class="profile-row">
+                                    <div class="profile-left">
+                                        <img src="{{ $adminUser && $adminUser->image ? asset($adminUser->image) : asset('img/kyle.jpg') }}" alt="Profile">
+                                        <div class="profile-info">
+                                            <h4>{{ $adminUser ? trim(($adminUser->first_name ?? '') . ' ' . ($adminUser->last_name ?? '')) ?: 'Admin' : 'Admin' }}</h4>
+                                            <small>Profile picture</small>
+                                        </div>
+                                    </div>
 
-                        <div class="form-section">
-                            <h4>Contact Email</h4>
-
-                            <div class="form-group single-col">
-                                <label>Email Address</label>
-                                <input type="email" value="{{ $adminUser?->email ?? '' }}" disabled>
-                            </div>
-                        </div>
-
-
-                        <div class="divider"></div>
-                        <div class="form-section">
-                            <h4>Password</h4>
-
-                            <div class="password-row">
-                                <div class="form-group single-cols">
-                                    <label>Current Password</label>
-                                    <input type="password" placeholder="Enter current password">
+                                    <div class="profile-actions">
+                                        <button type="submit" class="btn-outline">Update Account</button>
+                                    </div>
                                 </div>
 
-                                <button class="change-btn">Change password</button>
+                                <div class="form-row form-content">
+                                    <div class="form-group">
+                                        <label>First Name</label>
+                                        <input type="text" name="first_name" value="{{ old('first_name', $adminUser?->first_name ?? '') }}">
+                                        @error('first_name')
+                                            <span class="field-error">{{ $message }}</span>
+                                        @enderror
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Last Name</label>
+                                        <input type="text" name="last_name" value="{{ old('last_name', $adminUser?->last_name ?? '') }}">
+                                        @error('last_name')
+                                            <span class="field-error">{{ $message }}</span>
+                                        @enderror
+                                    </div>
+                                </div>
+
+
+                                <div class="divider"></div>
+
+                                <div class="form-section">
+                                    <h4>Contact Email</h4>
+
+                                    <div class="form-group single-col">
+                                        <label>Email Address</label>
+                                        <input type="email" name="email" value="{{ old('email', $adminUser?->email ?? '') }}">
+                                        @error('email')
+                                            <span class="field-error">{{ $message }}</span>
+                                        @enderror
+                                    </div>
+                                </div>
+
+
+                            </form>
+
+                            <div class="divider"></div>
+                            <div class="form-section">
+                                <h4>Password</h4>
+                                <div class="password-row">
+                                    <div class="form-group single-cols">
+                                        <label>Current Password</label>
+                                        <input type="password" value="{{ $adminUser?->password ?? '' }}" disabled>
+                                    </div>
+                                    <form method="POST" action="{{ route('admin.account.password.start') }}">
+                                        @csrf
+                                        <button type="submit" class="change-btn">Change password</button>
+                                    </form>
+                                </div>
                             </div>
-                        </div>
+                        @elseif ($showPasswordChangeForm)
+                            <div class="otp-top-bar">
+                                <form method="POST" action="{{ route('admin.account.password.cancel') }}" class="otp-back-form">
+                                    @csrf
+                                    <button type="submit" class="otp-back-btn" aria-label="Go back" title="Back">&larr;</button>
+                                </form>
+                            </div>
+                            <div class="otp-state-wrap">
+                                <div class="password-change-center-card">
+                                    <h4>Change Password</h4>
+                                    <p class="password-change-sub">Enter your current and new password to continue.</p>
+                                    <form method="POST" action="{{ route('admin.account.password.send-otp') }}">
+                                        @csrf
+                                        <div class="form-row">
+                                            <div class="form-group">
+                                                <label>Current Password</label>
+                                                <input type="password" name="current_password" placeholder="Enter current password">
+                                            </div>
+                                            <div class="form-group">
+                                                <label>New Password</label>
+                                                <input type="password" name="new_password" placeholder="Enter new password">
+                                            </div>
+                                        </div>
+                                        <div class="form-group">
+                                            <label>Retype Password</label>
+                                            <input type="password" name="new_password_confirmation" placeholder="Retype new password">
+                                            @if ($errors->has('current_password') || $errors->has('new_password') || $errors->has('new_password_confirmation'))
+                                                <span class="field-error">
+                                                    {{ $errors->first('current_password') ?: ($errors->first('new_password') ?: $errors->first('new_password_confirmation')) }}
+                                                </span>
+                                            @endif
+                                        </div>
+                                        <div class="password-change-actions">
+                                            <button type="submit" class="change-btn">Continue</button>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+                        @else
+                            <div class="otp-top-bar">
+                                <form method="POST" action="{{ route('admin.account.cancel-email-otp') }}" class="otp-back-form">
+                                    @csrf
+                                    <button type="submit" class="otp-back-btn" aria-label="Go back" title="Back">&larr;</button>
+                                </form>
+                            </div>
+                            <div class="otp-state-wrap">
+                                <div class="otp-state-card">
+                                    <h4>{{ $pendingAccountUpdate ? 'Email Change OTP Verification' : 'Password Change OTP Verification' }}</h4>
+                                    <p class="otp-state-sub">
+                                        {{ $pendingAccountUpdate
+                                            ? 'Enter the 4-digit code sent to your current email to continue updating your account.'
+                                            : 'Enter the 4-digit code sent to your current email to continue changing your password.' }}
+                                    </p>
+
+                                    <form method="POST" action="{{ $pendingAccountUpdate ? route('admin.account.verify-email-otp') : route('admin.account.password.verify-otp') }}" id="otpVerifyForm">
+                                        @csrf
+                                        <input type="hidden" name="otp" id="otpHiddenInput" value="{{ $oldOtp }}">
+                                        @error('otp')
+                                            <span class="field-error otp-error">{{ $message }}</span>
+                                        @enderror
+                                        <div class="otp-boxes">
+                                            <input class="otp-box" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]*" value="{{ substr($oldOtp, 0, 1) }}">
+                                            <input class="otp-box" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]*" value="{{ substr($oldOtp, 1, 1) }}">
+                                            <input class="otp-box" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]*" value="{{ substr($oldOtp, 2, 1) }}">
+                                            <input class="otp-box" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]*" value="{{ substr($oldOtp, 3, 1) }}">
+                                        </div>
+                                        <button type="submit" class="change-btn">Verify OTP</button>
+                                    </form>
+
+                                    <div class="otp-actions">
+                                        <form method="POST" action="{{ $pendingAccountUpdate ? route('admin.account.resend-email-otp') : route('admin.account.password.resend-otp') }}" id="resendOtpForm">
+                                            @csrf
+                                            <span class="otp-resend-copy">Didn&apos;t receive OTP?
+                                                <button type="submit" class="otp-resend-btn" id="resendOtpBtn">Resend OTP</button>
+                                            </span>
+                                        </form>
+                                        <div class="otp-countdown" id="otpCountdown" data-remaining-seconds="{{ $otpRemainingSeconds }}">
+                                            OTP expires in 00:00
+                                        </div>
+                                        <div class="otp-resend-loading" id="resendOtpLoading" aria-live="polite">
+                                            <span class="otp-spinner"></span>
+                                            <span>Resending OTP...</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        @endif
 
                     </div>
                 </div>
 
             </div>
         </div>
+
+        <script>
+            (function() {
+                const alerts = Array.from(document.querySelectorAll('.form-alert'));
+                alerts.forEach(function(alertEl) {
+                    const closeBtn = alertEl.querySelector('.alert-close-btn');
+                    const hideAlert = function() {
+                        if (!alertEl || !alertEl.parentNode) {
+                            return;
+                        }
+                        alertEl.classList.add('is-hidden');
+                        window.setTimeout(function() {
+                            if (alertEl.parentNode) {
+                                alertEl.parentNode.removeChild(alertEl);
+                            }
+                        }, 200);
+                    };
+
+                    if (closeBtn) {
+                        closeBtn.addEventListener('click', hideAlert);
+                    }
+
+                    const delay = parseInt(alertEl.getAttribute('data-auto-dismiss') || '0', 10);
+                    if (Number.isFinite(delay) && delay > 0) {
+                        window.setTimeout(hideAlert, delay);
+                    }
+                });
+
+                const otpForm = document.getElementById('otpVerifyForm');
+                const otpHiddenInput = document.getElementById('otpHiddenInput');
+                const otpBoxes = Array.from(document.querySelectorAll('.otp-box'));
+
+                if (otpForm && otpHiddenInput && otpBoxes.length === 4) {
+                    const syncOtpValue = function() {
+                        otpHiddenInput.value = otpBoxes.map((box) => box.value).join('');
+                    };
+
+                    otpBoxes.forEach((box, index) => {
+                        box.addEventListener('input', function(e) {
+                            const digit = e.target.value.replace(/\D/g, '').slice(0, 1);
+                            e.target.value = digit;
+                            if (digit && index < otpBoxes.length - 1) {
+                                otpBoxes[index + 1].focus();
+                            }
+                            syncOtpValue();
+                        });
+
+                        box.addEventListener('keydown', function(e) {
+                            if (e.key === 'Backspace' && !e.target.value && index > 0) {
+                                otpBoxes[index - 1].focus();
+                            }
+                            if (e.key === 'ArrowLeft' && index > 0) {
+                                otpBoxes[index - 1].focus();
+                            }
+                            if (e.key === 'ArrowRight' && index < otpBoxes.length - 1) {
+                                otpBoxes[index + 1].focus();
+                            }
+                        });
+
+                        box.addEventListener('paste', function(e) {
+                            const pasted = (e.clipboardData || window.clipboardData).getData('text');
+                            const digits = pasted.replace(/\D/g, '').slice(0, 4).split('');
+                            if (!digits.length) {
+                                return;
+                            }
+                            e.preventDefault();
+                            otpBoxes.forEach((input, i) => {
+                                input.value = digits[i] || '';
+                            });
+                            syncOtpValue();
+                            const nextIndex = Math.min(digits.length, 4) - 1;
+                            if (nextIndex >= 0) {
+                                otpBoxes[nextIndex].focus();
+                            }
+                        });
+                    });
+
+                    otpForm.addEventListener('submit', function() {
+                        syncOtpValue();
+                    });
+                }
+
+                const resendOtpForm = document.getElementById('resendOtpForm');
+                const resendOtpBtn = document.getElementById('resendOtpBtn');
+                const resendOtpLoading = document.getElementById('resendOtpLoading');
+                const otpCountdown = document.getElementById('otpCountdown');
+
+                if (otpCountdown && resendOtpBtn) {
+                    let remaining = parseInt(otpCountdown.dataset.remainingSeconds || '0', 10);
+                    if (!Number.isFinite(remaining) || remaining < 0) {
+                        remaining = 0;
+                    }
+
+                    const renderCountdown = function() {
+                        const minutes = Math.floor(remaining / 60);
+                        const seconds = remaining % 60;
+                        otpCountdown.textContent = 'OTP expires in ' + String(minutes).padStart(2, '0') + ':' + String(seconds).padStart(2, '0');
+
+                        if (remaining > 0) {
+                            resendOtpBtn.disabled = true;
+                        } else if (!resendOtpLoading || !resendOtpLoading.classList.contains('is-active')) {
+                            resendOtpBtn.disabled = false;
+                        }
+                    };
+
+                    renderCountdown();
+
+                    if (remaining > 0) {
+                        const countdownInterval = setInterval(function() {
+                            remaining -= 1;
+                            if (remaining <= 0) {
+                                remaining = 0;
+                                renderCountdown();
+                                clearInterval(countdownInterval);
+                                return;
+                            }
+                            renderCountdown();
+                        }, 1000);
+                    }
+                }
+
+                if (resendOtpForm && resendOtpBtn && resendOtpLoading) {
+                    resendOtpForm.addEventListener('submit', function() {
+                        resendOtpBtn.disabled = true;
+                        resendOtpBtn.textContent = 'Resending...';
+                        resendOtpLoading.classList.add('is-active');
+                    });
+                }
+            })();
+        </script>
 
     @endsection
 </body>

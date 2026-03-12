@@ -34,6 +34,7 @@
 
                         <div class="filter-dropdown" id="filterDropdown">
                             <label><input type="checkbox" value="pending"> Pending</label>
+                            <label><input type="checkbox" value="preparing"> Preparing</label>
                             <label><input type="checkbox" value="assigned"> Assigned</label>
                             <label><input type="checkbox" value="completed"> Completed</label>
                             <label><input type="checkbox" value="cancelled"> Cancelled</label>
@@ -80,6 +81,7 @@
                                     $statusLower = strtolower($statusRaw);
                                     $statusKey = match ($statusLower) {
                                         'walk-in', 'walk_in', 'walk in' => 'walk_in',
+                                        'preparing' => 'preparing',
                                         'assigned' => 'assigned',
                                         'completed', 'delivered' => 'completed',
                                         'cancelled' => 'cancelled',
@@ -138,22 +140,31 @@
                                         <div style="display: flex; gap: 6px; align-items: center;">
 
 
-                                            {{-- WALK-IN → EDIT --}}
+                                            {{-- WALK-IN → ASSIGN + EDIT --}}
                                             @if ($statusKey === 'walk_in')
+                                                <button type="button" class="action-btn assign" title="Assign driver">
+                                                    <span class="material-symbols-outlined">person_check</span>
+                                                </button>
                                                 <button type="button" class="action-btn edit-order" title="Edit order">
                                                     <span class="material-symbols-outlined">edit</span>
                                                 </button>
 
                                                 {{-- ASSIGNED → REASSIGN --}}
                                             @elseif ($statusKey === 'assigned')
-                                                <button class="action-btn reassign">
+                                                <button type="button" class="action-btn reassign" title="Re-assign driver">
                                                     <span class="material-symbols-outlined">person_edit</span>
                                                 </button>
+                                                <button type="button" class="action-btn edit-order" title="Edit order">
+                                                    <span class="material-symbols-outlined">edit</span>
+                                                </button>
 
-                                                {{-- PENDING ONLY → ASSIGN --}}
+                                                {{-- PENDING ONLY → ASSIGN + EDIT --}}
                                             @elseif ($statusKey === 'pending')
-                                                <button class="action-btn assign">
+                                                <button type="button" class="action-btn assign" title="Assign driver">
                                                     <span class="material-symbols-outlined">person_check</span>
+                                                </button>
+                                                <button type="button" class="action-btn edit-order" title="Edit order">
+                                                    <span class="material-symbols-outlined">edit</span>
                                                 </button>
                                             @endif
 
@@ -423,7 +434,7 @@
     <div class="add-modal" id="editModal">
         <div class="add-card">
             <div class="assign-header">
-                <h3>Edit Walk-In Order</h3>
+                <h3>Edit Order</h3>
                 <button type="button" class="close-assign" id="closeEdit">&times;</button>
             </div>
             <div class="assign-section">
@@ -441,13 +452,14 @@
                                 <div class="select-options">
                                     @foreach ($flavors as $flavor)
                                         <div class="option" data-value="{{ $flavor->name }}"
-                                            data-category="{{ $flavor->category ?? '' }}">{{ $flavor->name }}</div>
+                                            data-category="{{ $flavor->category ?? '' }}"
+                                            data-price="{{ $flavor->price ?? 0 }}">{{ $flavor->name }}</div>
                                     @endforeach
                                 </div>
                                 <input type="hidden" name="product_name" id="editProductName" required>
                             </div>
                         </div>
-                        <div class="form-group">
+                        <div class="form-group" data-full-edit-field>
                             <label>Flavor Type</label>
                             <input type="text" class="form-input" id="editFlavorTypeDisplay"
                                 placeholder="Auto-filled" readonly>
@@ -462,26 +474,68 @@
                                 </div>
                                 <div class="select-options">
                                     @foreach ($gallons as $gallon)
-                                        <div class="option" data-value="{{ $gallon->size }}">{{ $gallon->size }}
+                                        <div class="option" data-value="{{ $gallon->size }}"
+                                            data-price="{{ $gallon->addon_price ?? 0 }}">{{ $gallon->size }}
                                         </div>
                                     @endforeach
                                 </div>
                                 <input type="hidden" name="gallon_size" id="editGallonSize" required>
                             </div>
                         </div>
-                        <input type="text" name="customer_name" id="editCustomerName" placeholder="Customer Name"
-                            required class="form-input">
-                        <input type="text" name="customer_phone" id="editCustomerPhone"
-                            placeholder="Customer Number" required class="form-input">
-                        <input type="date" name="delivery_date" id="editDeliveryDate" required
-                            class="form-input">
-                        <input type="time" name="delivery_time" id="editDeliveryTime" required
-                            class="form-input">
-                        <textarea name="delivery_address" id="editDeliveryAddress" placeholder="Delivery Address" required
-                            class="form-input"></textarea>
-                        <input type="number" name="amount" id="editAmount" placeholder="Amount" required
-                            class="form-input" step="0.01">
                         <div class="form-group">
+                            <label>Quantity</label>
+                            <input type="number" name="qty" id="editQty" min="1" required class="form-input">
+                        </div>
+                        <div class="form-group">
+                            <label>Price</label>
+                            <input type="text" id="editPriceDisplay" class="form-input" readonly value="₱0.00">
+                        </div>
+                        <div class="form-group">
+                            <label>Total Price</label>
+                            <input type="text" id="editTotalPriceDisplay" class="form-input" readonly value="₱0.00">
+                        </div>
+                        <div class="form-group">
+                            <label>Status</label>
+                            <select name="status" id="editStatus" class="form-input" required>
+                                <option value="pending">Pending</option>
+                                <option value="preparing">Preparing</option>
+                                <option value="assigned">Assigned</option>
+                                <option value="completed">Completed</option>
+                                <option value="cancelled">Cancelled</option>
+                                <option value="walk_in">Walk-In</option>
+                            </select>
+                        </div>
+                        <div class="form-group" data-full-edit-field>
+                            <label>Customer Name</label>
+                            <input type="text" name="customer_name" id="editCustomerName" placeholder="Customer Name"
+                                required class="form-input">
+                        </div>
+                        <div class="form-group" data-full-edit-field>
+                            <label>Customer Number</label>
+                            <input type="text" name="customer_phone" id="editCustomerPhone"
+                                placeholder="Customer Number" required class="form-input">
+                        </div>
+                        <div class="form-group" data-full-edit-field>
+                            <label>Delivery Date</label>
+                            <input type="date" name="delivery_date" id="editDeliveryDate" required
+                                class="form-input">
+                        </div>
+                        <div class="form-group" data-full-edit-field>
+                            <label>Delivery Time</label>
+                            <input type="time" name="delivery_time" id="editDeliveryTime" required
+                                class="form-input">
+                        </div>
+                        <div class="form-group" data-full-edit-field>
+                            <label>Delivery Address</label>
+                            <textarea name="delivery_address" id="editDeliveryAddress" placeholder="Delivery Address" required
+                                class="form-input"></textarea>
+                        </div>
+                        <div class="form-group" data-full-edit-field>
+                            <label>Amount</label>
+                            <input type="number" name="amount" id="editAmount" placeholder="Amount" required
+                                class="form-input" step="0.01">
+                        </div>
+                        <div class="form-group" data-full-edit-field>
                             <label>Payment Method</label>
                             <div class="custom-select" id="editPaymentSelect">
                                 <div class="select-trigger">
@@ -848,6 +902,119 @@
             ====================== */
         const editModal = document.getElementById("editModal");
         const editForm = document.getElementById("editOrderForm");
+        const editFullFields = Array.from(editForm.querySelectorAll("[data-full-edit-field]"));
+        const editProductTypeInput = document.getElementById("editProductType");
+        const editGallonSizeInput = document.getElementById("editGallonSize");
+        const editPaymentMethodInput = document.getElementById("editPaymentMethod");
+        const editQtyInput = document.getElementById("editQty");
+        const editStatusSelect = document.getElementById("editStatus");
+        const editAmountInput = document.getElementById("editAmount");
+        const editPriceDisplay = document.getElementById("editPriceDisplay");
+        const editTotalPriceDisplay = document.getElementById("editTotalPriceDisplay");
+        const editFlavorOptions = Array.from(document.querySelectorAll('#editFlavorSelect .option'));
+        const editGallonOptions = Array.from(document.querySelectorAll('#editGallonSelect .option'));
+
+        function formatPeso(amount) {
+            const num = Number.isFinite(amount) ? amount : 0;
+            return '₱' + num.toLocaleString('en-US', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            });
+        }
+
+        function getFlavorUnitPrice(name) {
+            const key = String(name || '').trim().toLowerCase();
+            const match = editFlavorOptions.find((opt) => String(opt.dataset.value || '').trim().toLowerCase() === key);
+            return match ? (parseFloat(match.dataset.price || '0') || 0) : 0;
+        }
+
+        function getGallonUnitPrice(size) {
+            const key = String(size || '').trim().toLowerCase();
+            const match = editGallonOptions.find((opt) => String(opt.dataset.value || '').trim().toLowerCase() === key);
+            return match ? (parseFloat(match.dataset.price || '0') || 0) : 0;
+        }
+
+        function calculateEditPricing() {
+            const qty = Math.max(1, parseInt(editQtyInput.value || '1', 10) || 1);
+            const flavorPrice = getFlavorUnitPrice(document.getElementById("editProductName").value);
+            const gallonPrice = getGallonUnitPrice(document.getElementById("editGallonSize").value);
+            let unitPrice = flavorPrice + gallonPrice;
+
+            if (unitPrice <= 0) {
+                const fallbackAmount = parseFloat(editAmountInput.value || '0') || 0;
+                unitPrice = fallbackAmount > 0 ? (fallbackAmount / qty) : 0;
+            }
+
+            const total = unitPrice * qty;
+            editPriceDisplay.value = formatPeso(unitPrice);
+            editTotalPriceDisplay.value = formatPeso(total);
+            editAmountInput.value = total.toFixed(2);
+        }
+
+        function setEditStatusOptions(limitedEdit, statusKey) {
+            const normalized = normalizeEditStatusKey(statusKey);
+            Array.from(editStatusSelect.options).forEach((option) => {
+                const show = !limitedEdit || option.value === 'preparing' || option.value === normalized;
+                option.hidden = !show;
+                option.disabled = !show;
+            });
+
+            if (limitedEdit) {
+                editStatusSelect.value = normalized;
+            } else {
+                editStatusSelect.value = normalized;
+            }
+        }
+
+        function normalizeEditStatusKey(status) {
+            const s = String(status || '').trim().toLowerCase();
+            if (s === 'walk-in' || s === 'walk_in' || s === 'walk in') return 'walk_in';
+            if (s === 'preparing') return 'preparing';
+            if (s === 'assigned') return 'assigned';
+            if (s === 'completed' || s === 'delivered') return 'completed';
+            if (s === 'cancelled') return 'cancelled';
+            return 'pending';
+        }
+
+        function setEditFullFieldState(wrapper, enabled) {
+            wrapper.style.display = enabled ? '' : 'none';
+            wrapper.querySelectorAll('input, textarea, select').forEach((el) => {
+                const isHidden = el.type === 'hidden';
+                const isReadonlyDisplay = el.id === 'editFlavorTypeDisplay';
+                if (!enabled) {
+                    el.dataset.prevRequired = el.required ? '1' : '0';
+                    el.required = false;
+                    if (!isReadonlyDisplay) {
+                        el.disabled = true;
+                    }
+                } else {
+                    el.disabled = false;
+                    if (el.dataset.prevRequired === '1') {
+                        el.required = true;
+                    }
+                }
+                if (isHidden && !enabled) {
+                    el.disabled = true;
+                }
+            });
+
+            const customSelect = wrapper.querySelector('.custom-select');
+            if (customSelect) {
+                customSelect.classList.toggle('disabled', !enabled);
+            }
+        }
+
+        function configureEditFormFields(statusKey) {
+            const limitedEdit = statusKey === 'pending' || statusKey === 'assigned';
+
+            editFullFields.forEach((wrapper) => setEditFullFieldState(wrapper, !limitedEdit));
+            setEditStatusOptions(limitedEdit, statusKey);
+
+            // Keep these hidden values posted for limited edit updates.
+            editProductTypeInput.disabled = false;
+            editGallonSizeInput.disabled = false;
+            editPaymentMethodInput.disabled = false;
+        }
 
         document.addEventListener("click", function(e) {
             const editBtn = e.target.closest(".edit-order");
@@ -864,6 +1031,7 @@
             document.getElementById("editProductNameText").textContent = row.dataset.productName || 'Select Flavor';
             document.getElementById("editProductType").value = row.dataset.productType || '';
             document.getElementById("editFlavorTypeDisplay").value = row.dataset.productType || '';
+            document.getElementById("editQty").value = row.dataset.quantity || '1';
 
             document.getElementById("editGallonSize").value = row.dataset.gallonSize || '';
             document.getElementById("editGallonSizeText").textContent = row.dataset.gallonSize || 'Size of Gallon';
@@ -878,6 +1046,11 @@
             document.getElementById("editPaymentMethod").value = row.dataset.paymentMethod || '';
             document.getElementById("editPaymentMethodText").textContent = row.dataset.paymentMethod ||
                 'Payment Method';
+            const rowStatus = row.dataset.statusKey || normalizeEditStatusKey(row.dataset.status || '');
+            document.getElementById("editStatus").value = normalizeEditStatusKey(row.dataset.status || row.dataset.statusKey || '');
+
+            calculateEditPricing();
+            configureEditFormFields(rowStatus);
 
             editModal.classList.add("show");
         });
@@ -899,6 +1072,7 @@
             if (!option) return;
             const select = option.closest(".custom-select");
             if (!select) return;
+            if (select.classList.contains('disabled')) return;
             const hiddenInput = select.querySelector("input[type='hidden']");
             const textEl = select.querySelector(".selected-text");
             if (hiddenInput && textEl) {
@@ -909,8 +1083,13 @@
                     document.getElementById("editFlavorTypeDisplay").value = option.dataset.category;
                     document.getElementById("editProductType").value = option.dataset.category;
                 }
+                if (select.id === 'editFlavorSelect' || select.id === 'editGallonSelect') {
+                    calculateEditPricing();
+                }
             }
         });
+
+        editQtyInput.addEventListener('input', calculateEditPricing);
     </script>
 
     <script>
@@ -937,6 +1116,7 @@
             function normalizeStatusKey(status) {
                 const s = String(status || '').trim().toLowerCase();
                 if (s === 'walk-in' || s === 'walk_in' || s === 'walk in') return 'walk_in';
+                if (s === 'preparing') return 'preparing';
                 if (s === 'assigned') return 'assigned';
                 if (s === 'completed' || s === 'delivered') return 'completed';
                 if (s === 'cancelled') return 'cancelled';
@@ -1091,9 +1271,12 @@
                     order.amount) || 0).toFixed(2);
                 let actionHtml = '<div style="display:flex;gap:6px;align-items:center;">';
 
-                // WALK-IN → EDIT
+                // WALK-IN → ASSIGN + EDIT
                 if (statusKey === 'walk_in') {
                     actionHtml += `
+                <button type="button" class="action-btn assign">
+                    <span class="material-symbols-outlined">person_check</span>
+                </button>
                 <button type="button" class="action-btn edit-order">
                     <span class="material-symbols-outlined">edit</span>
                 </button>`;
@@ -1104,14 +1287,20 @@
                     actionHtml += `
                 <button class="action-btn reassign">
                     <span class="material-symbols-outlined">person_edit</span>
+                </button>
+                <button type="button" class="action-btn edit-order">
+                    <span class="material-symbols-outlined">edit</span>
                 </button>`;
                 }
 
-                // PENDING → ASSIGN
+                // PENDING → ASSIGN + EDIT
                 else if (statusKey === 'pending') {
                     actionHtml += `
                 <button class="action-btn assign">
                     <span class="material-symbols-outlined">person_check</span>
+                </button>
+                <button type="button" class="action-btn edit-order">
+                    <span class="material-symbols-outlined">edit</span>
                 </button>`;
                 }
 
@@ -1382,6 +1571,7 @@
         function normalizeStatusForDisplay(status) {
             const s = String(status || '').trim().toLowerCase();
             if (s === 'walk-in' || s === 'walk_in' || s === 'walk in') return 'Walk-In';
+            if (s === 'preparing') return 'Preparing';
             if (s === 'assigned') return 'Assigned';
             if (s === 'completed' || s === 'delivered') return 'Delivered';
             if (s === 'cancelled') return 'Cancelled';
@@ -1391,6 +1581,7 @@
         function getStatusClass(status) {
             const s = String(status || '').trim().toLowerCase();
             if (s === 'walk-in' || s === 'walk_in' || s === 'walk in') return 'walk_in';
+            if (s === 'preparing') return 'preparing';
             if (s === 'assigned') return 'assigned';
             if (s === 'completed' || s === 'delivered') return 'completed';
             if (s === 'cancelled') return 'cancelled';

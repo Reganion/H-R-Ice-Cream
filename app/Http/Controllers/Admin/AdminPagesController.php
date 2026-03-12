@@ -11,6 +11,7 @@ use App\Models\Ingredient;
 use App\Models\Order;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 
 class AdminPagesController extends Controller
 {
@@ -372,11 +373,12 @@ class AdminPagesController extends Controller
             ->orderByRaw("
                 CASE
                     WHEN LOWER(status) = 'pending' THEN 1
-                    WHEN LOWER(status) = 'walk_in' THEN 2
-                    WHEN LOWER(status) = 'assigned' THEN 3
-                    WHEN LOWER(status) IN ('completed', 'delivered') THEN 4
-                    WHEN LOWER(status) = 'cancelled' THEN 5
-                    ELSE 6
+                    WHEN LOWER(status) = 'preparing' THEN 2
+                    WHEN LOWER(status) IN ('walk_in', 'walk-in', 'walk in', 'walkin') THEN 3
+                    WHEN LOWER(status) = 'assigned' THEN 4
+                    WHEN LOWER(status) IN ('completed', 'delivered') THEN 5
+                    WHEN LOWER(status) = 'cancelled' THEN 6
+                    ELSE 7
                 END
             ")
             ->orderBy('created_at', 'desc')
@@ -391,6 +393,24 @@ class AdminPagesController extends Controller
         $drivers = Driver::where('status', '!=', Driver::STATUS_DEACTIVATE)
             ->orderBy('created_at', 'desc')
             ->get();
+
+        $onlineKeyPrefix = 'api_driver_online:';
+        $drivers->each(function (Driver $driver) use ($onlineKeyPrefix): void {
+            if ($driver->status === Driver::STATUS_DEACTIVATE || $driver->status === Driver::STATUS_ON_ROUTE) {
+                return;
+            }
+
+            $isOnline = Cache::has($onlineKeyPrefix . $driver->id);
+            $expectedStatus = $isOnline ? Driver::STATUS_AVAILABLE : Driver::STATUS_OFF_DUTY;
+
+            if ($driver->status !== $expectedStatus) {
+                $driver->status = $expectedStatus;
+                $driver->save();
+            }
+        });
+
+        $drivers = $drivers->fresh();
+
         return view('admin.drivers', compact('drivers'));
     }
 

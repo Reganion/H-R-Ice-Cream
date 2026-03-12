@@ -94,11 +94,11 @@
                         </button>
                     </div>
                     <div class="col">
-                        <span class="material-symbols-outlined">grocery</span> Product
+                        Product
                     </div>
                     <div class="col col-sortable">
                         <a href="#" class="sort-link" data-sort-by="type" data-order="asc" aria-label="Sort by type">
-                            <span class="material-symbols-outlined">sort</span>
+                            
                             <span>Type</span>
                             <span class="sort-arrow" aria-hidden="true">
                                 <svg class="sort-icon" viewBox="0 0 12 14" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
@@ -110,7 +110,7 @@
                     </div>
                     <div class="col col-sortable">
                         <a href="#" class="sort-link" data-sort-by="quantity" data-order="desc" aria-label="Sort by quantity">
-                            <span class="material-symbols-outlined">format_list_numbered</span>
+                            
                             <span>Quantity</span>
                             <span class="sort-arrow" aria-hidden="true">
                                 <svg class="sort-icon" viewBox="0 0 12 14" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
@@ -121,11 +121,11 @@
                         </a>
                     </div>
                     <div class="col">
-                        <span class="material-symbols-outlined">mitre</span> Unit
+                        Unit
                     </div>
                     <div class="col col-sortable">
                         <a href="#" class="sort-link" data-sort-by="status" data-order="asc" aria-label="Sort by status">
-                            <span class="material-symbols-outlined">android_cell_5_bar</span>
+                           
                             <span>Status</span>
                             <span class="sort-arrow" aria-hidden="true">
                                 <svg class="sort-icon" viewBox="0 0 12 14" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
@@ -136,7 +136,7 @@
                         </a>
                     </div>
                     <div class="col">
-                        <span class="material-symbols-outlined">arrow_selector_tool</span> Action
+                         Action
                     </div>
                 </div>
 
@@ -190,9 +190,8 @@
                                             <button class="btn-edit" data-id="{{ $item->id }}"
                                                 data-name="{{ $item->name }}" data-type="{{ $item->type }}"
                                                 data-quantity="{{ $item->quantity }}" data-unit="{{ $item->unit }}"
-                                                data-image="{{ $item->image }}">
+                                                data-image="{{ $item->image }}" title="Edit" aria-label="Edit">
                                                 <span class="material-symbols-outlined">edit_square</span>
-                                                Edit
                                             </button>
 
 
@@ -201,9 +200,9 @@
                                                 @csrf
                                                 @method('DELETE')
 
-                                                <button type="button" class="btn-delete" data-name="{{ $item->name }}">
+                                                <button type="button" class="btn-delete" data-name="{{ $item->name }}"
+                                                    title="Delete" aria-label="Delete">
                                                     <span class="material-symbols-outlined">delete</span>
-                                                    Delete
                                                 </button>
                                             </form>
 

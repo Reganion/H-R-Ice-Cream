@@ -86,11 +86,11 @@
                         </button>
                     </div>
                     <div class="col">
-                        <span class="material-symbols-outlined">specific_gravity</span> Gallon Size
+                        Gallon Size
                     </div>
                     <div class="col col-sortable">
                         <a href="#" class="sort-link" data-sort-by="quantity" data-order="desc" aria-label="Sort by quantity">
-                            <span class="material-symbols-outlined">sort</span>
+                        
                             <span>Quantity</span>
                             <span class="sort-arrow" aria-hidden="true">
                                 <svg class="sort-icon" viewBox="0 0 12 14" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
@@ -102,7 +102,7 @@
                     </div>
                     <div class="col col-sortable">
                         <a href="#" class="sort-link" data-sort-by="price" data-order="desc" aria-label="Sort by add-on price">
-                            <span class="material-symbols-outlined">sell</span>
+                           
                             <span>Add-on Price</span>
                             <span class="sort-arrow" aria-hidden="true">
                                 <svg class="sort-icon" viewBox="0 0 12 14" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
@@ -114,7 +114,7 @@
                     </div>
                     <div class="col col-sortable">
                         <a href="#" class="sort-link" data-sort-by="status" data-order="asc" aria-label="Sort by status">
-                            <span class="material-symbols-outlined">android_cell_5_bar</span>
+                           
                             <span>Status</span>
                             <span class="sort-arrow" aria-hidden="true">
                                 <svg class="sort-icon" viewBox="0 0 12 14" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
@@ -125,7 +125,7 @@
                         </a>
                     </div>
                     <div class="col">
-                        <span class="material-symbols-outlined">arrow_selector_tool</span> Action
+                         Action
                     </div>
                 </div>
 
@@ -135,11 +135,11 @@
                     <div class="table-body-scroll">
                         <table class="flavor-table">
                             <colgroup>
-                                <col style="width:55px">
+                                <col style="width:6%">
+                                <col style="width:24%">
+                                <col style="width:15%">
+                                <col style="width:17%">
                                 <col style="width:18%">
-                                <col style="width:18%">
-                                <col style="width:20%">
-                                <col style="width:20%">
                                 <col style="width:20%">
                             </colgroup>
 
@@ -177,13 +177,15 @@
                                             <button class="btn-edit" data-id="{{ $gallon->id }}"
                                                 data-size="{{ $gallon->size }}" data-qty="{{ $gallon->quantity }}"
                                                 data-price="{{ $gallon->addon_price }}"
-                                                data-image="{{ $gallon->image ? asset($gallon->image) : '' }}">
-                                                <span class="material-symbols-outlined">edit_square</span> Edit
+                                                data-image="{{ $gallon->image ? asset($gallon->image) : '' }}"
+                                                title="Edit" aria-label="Edit">
+                                                <span class="material-symbols-outlined">edit_square</span>
                                             </button>
 
 
-                                            <button class="btn-delete" data-id="{{ $gallon->id }}">
-                                                <span class="material-symbols-outlined">delete</span> Delete
+                                            <button class="btn-delete" data-id="{{ $gallon->id }}" title="Delete"
+                                                aria-label="Delete">
+                                                <span class="material-symbols-outlined">delete</span>
                                             </button>
 
                                         </td>
