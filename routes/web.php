@@ -119,6 +119,12 @@ Route::prefix('admin')->group(function () {
 
     Route::post('/drivers/{id}/inactive', [DriverController::class, 'setInactive'])
         ->name('admin.drivers.inactive');
+
+    Route::post('/drivers/{id}/activate', [DriverController::class, 'setActive'])
+        ->name('admin.drivers.activate');
+
+    Route::post('/drivers/{id}/archive', [DriverController::class, 'setArchived'])
+        ->name('admin.drivers.archive');
 });
 
 Route::prefix('admin')->group(function () {

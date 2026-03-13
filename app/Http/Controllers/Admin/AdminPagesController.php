@@ -390,13 +390,22 @@ class AdminPagesController extends Controller
 
     public function drivers()
     {
-        $drivers = Driver::where('status', '!=', Driver::STATUS_DEACTIVATE)
+        $drivers = Driver::whereIn('status', [
+                Driver::STATUS_AVAILABLE,
+                Driver::STATUS_ON_ROUTE,
+                Driver::STATUS_OFF_DUTY,
+                Driver::STATUS_DEACTIVATE,
+            ])
             ->orderBy('created_at', 'desc')
             ->get();
 
         $onlineKeyPrefix = 'api_driver_online:';
         $drivers->each(function (Driver $driver) use ($onlineKeyPrefix): void {
-            if ($driver->status === Driver::STATUS_DEACTIVATE || $driver->status === Driver::STATUS_ON_ROUTE) {
+            if (
+                $driver->status === Driver::STATUS_DEACTIVATE ||
+                $driver->status === Driver::STATUS_ARCHIVE ||
+                $driver->status === Driver::STATUS_ON_ROUTE
+            ) {
                 return;
             }
 
@@ -435,7 +444,11 @@ class AdminPagesController extends Controller
 
     public function archive()
     {
-        return view('admin.archive');
+        $drivers = Driver::where('status', Driver::STATUS_ARCHIVE)
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        return view('admin.archive', compact('drivers'));
     }
 
     public function addAdmin()

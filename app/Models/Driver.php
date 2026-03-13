@@ -12,6 +12,7 @@ class Driver extends Model
     public const STATUS_ON_ROUTE = 'on_route';
     public const STATUS_OFF_DUTY = 'off_duty';
     public const STATUS_DEACTIVATE = 'deactivate';
+    public const STATUS_ARCHIVE = 'archive';
 
     /**
      * DB status value => [ label for display, filter value for tabs/data-status ]
@@ -22,12 +23,13 @@ class Driver extends Model
             self::STATUS_AVAILABLE => ['label' => 'Available', 'filter' => 'available'],
             self::STATUS_ON_ROUTE  => ['label' => 'On Route', 'filter' => 'on'],
             self::STATUS_OFF_DUTY  => ['label' => 'Off Duty', 'filter' => 'off'],
-            self::STATUS_DEACTIVATE => ['label' => 'Deactivate', 'filter' => 'deactivate'],
+            self::STATUS_DEACTIVATE => ['label' => 'Inactive', 'filter' => 'deactivate'],
+            self::STATUS_ARCHIVE => ['label' => 'Archived', 'filter' => 'archive'],
         ];
     }
 
     /**
-     * Statuses that appear in the driver list (excludes deactivate)
+     * Statuses that appear in the active driver list.
      */
     public static function statusesForList(): array
     {

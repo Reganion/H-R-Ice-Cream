@@ -583,9 +583,9 @@
                     <div class="details-row">
                         <div class="details-label">
                             <span class="material-symbols-outlined">local_shipping</span>
-                            Shipping Method
+                            Assigned Driver
                         </div>
-                        <div class="details-value">H&R Delivery</div>
+                        <div class="details-value" id="detailsAssignedDriver">—</div>
                     </div>
                     <div class="details-row">
                         <div class="details-label">
@@ -954,16 +954,22 @@
         function setEditStatusOptions(limitedEdit, statusKey) {
             const normalized = normalizeEditStatusKey(statusKey);
             Array.from(editStatusSelect.options).forEach((option) => {
-                const show = !limitedEdit || option.value === 'preparing' || option.value === normalized;
+                let show;
+                if (!limitedEdit) {
+                    // Full edit: show all statuses
+                    show = true;
+                } else if (normalized === 'pending') {
+                    // Pending: cannot change to preparing, keep only pending visible
+                    show = option.value === 'pending';
+                } else {
+                    // Other limited statuses (e.g., assigned): allow current + preparing
+                    show = option.value === 'preparing' || option.value === normalized;
+                }
                 option.hidden = !show;
                 option.disabled = !show;
             });
 
-            if (limitedEdit) {
-                editStatusSelect.value = normalized;
-            } else {
-                editStatusSelect.value = normalized;
-            }
+            editStatusSelect.value = normalized;
         }
 
         function normalizeEditStatusKey(status) {
@@ -1005,10 +1011,21 @@
         }
 
         function configureEditFormFields(statusKey) {
-            const limitedEdit = statusKey === 'pending' || statusKey === 'assigned';
+            const normalized = normalizeEditStatusKey(statusKey);
+            const limitedEdit = normalized === 'pending' || normalized === 'assigned';
 
             editFullFields.forEach((wrapper) => setEditFullFieldState(wrapper, !limitedEdit));
-            setEditStatusOptions(limitedEdit, statusKey);
+            setEditStatusOptions(limitedEdit, normalized);
+
+            // Walk-in: hide and lock the status field completely
+            const statusWrapper = editStatusSelect.closest('.form-group');
+            if (normalized === 'walk_in') {
+                if (statusWrapper) statusWrapper.style.display = 'none';
+                editStatusSelect.disabled = true;
+            } else {
+                if (statusWrapper) statusWrapper.style.display = '';
+                editStatusSelect.disabled = false;
+            }
 
             // Keep these hidden values posted for limited edit updates.
             editProductTypeInput.disabled = false;
@@ -1611,6 +1628,7 @@
             document.getElementById("detailsQuantity").textContent = 'Quantity —';
             document.getElementById("detailsGallon").textContent = '—';
             document.getElementById("detailsSubtotal").textContent = '—';
+            document.getElementById("detailsAssignedDriver").textContent = '—';
             document.getElementById("detailsShippingFee").textContent = formatCurrency(0);
             document.getElementById("detailsDownpayment").textContent = formatCurrency(0);
             document.getElementById("detailsTotal").textContent = '—';
@@ -1631,7 +1649,8 @@
                 product_image_url: row.dataset.productImage || '',
                 amount: parseFloat(row.dataset.amount || '0') || 0,
                 quantity: parseInt(row.dataset.quantity || '1', 10) || 1,
-                payment_method: row.dataset.paymentMethod || ''
+                payment_method: row.dataset.paymentMethod || '',
+                driver_name: row.dataset.driverName || ''
             };
         }
 
@@ -1642,6 +1661,7 @@
             const statusClass = getStatusClass(orderData.status);
             const productType = orderData.product_type || '—';
             const gallonSize = orderData.gallon_size || '—';
+            const driverName = orderData.driver_name || (orderData.driver && orderData.driver.name) || 'No driver assigned';
 
             document.getElementById("detailsStatus").textContent = status;
             document.getElementById("detailsStatus").className = 'status-badge-details ' + statusClass;
@@ -1661,6 +1681,7 @@
 
             document.getElementById("detailsSubtotal").textContent = formatCurrency(amount);
             document.getElementById("detailsGallon").textContent = gallonSize;
+            document.getElementById("detailsAssignedDriver").textContent = driverName;
             document.getElementById("detailsShippingFee").textContent = formatCurrency(0);
             document.getElementById("detailsDownpayment").textContent = formatCurrency(0);
             document.getElementById("detailsTotal").textContent = formatCurrency(amount);

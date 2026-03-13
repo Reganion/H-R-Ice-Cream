@@ -42,10 +42,10 @@ class ApiDriverAuthController extends Controller
             ], 401);
         }
 
-        if ($driver->status === Driver::STATUS_DEACTIVATE) {
+        if ($driver->status === Driver::STATUS_DEACTIVATE || $driver->status === Driver::STATUS_ARCHIVE) {
             return response()->json([
                 'success' => false,
-                'message' => 'Your account is deactivated. Please contact admin.',
+                'message' => 'Your account is inactive or archived. Please contact admin.',
             ], 403);
         }
 
@@ -84,10 +84,10 @@ class ApiDriverAuthController extends Controller
             ], 404);
         }
 
-        if ($driver->status === Driver::STATUS_DEACTIVATE) {
+        if ($driver->status === Driver::STATUS_DEACTIVATE || $driver->status === Driver::STATUS_ARCHIVE) {
             return response()->json([
                 'success' => false,
-                'message' => 'Your account is deactivated. Please contact admin.',
+                'message' => 'Your account is inactive or archived. Please contact admin.',
             ], 403);
         }
 
@@ -709,7 +709,11 @@ class ApiDriverAuthController extends Controller
 
     private function markDriverOnline(Driver $driver): void
     {
-        if ($driver->status !== Driver::STATUS_DEACTIVATE && $driver->status !== Driver::STATUS_ON_ROUTE) {
+        if (
+            $driver->status !== Driver::STATUS_DEACTIVATE &&
+            $driver->status !== Driver::STATUS_ARCHIVE &&
+            $driver->status !== Driver::STATUS_ON_ROUTE
+        ) {
             $driver->status = Driver::STATUS_AVAILABLE;
             $driver->save();
         }
@@ -725,7 +729,11 @@ class ApiDriverAuthController extends Controller
     {
         Cache::forget(self::ONLINE_KEY_PREFIX . $driver->id);
 
-        if ($driver->status !== Driver::STATUS_DEACTIVATE && $driver->status !== Driver::STATUS_ON_ROUTE) {
+        if (
+            $driver->status !== Driver::STATUS_DEACTIVATE &&
+            $driver->status !== Driver::STATUS_ARCHIVE &&
+            $driver->status !== Driver::STATUS_ON_ROUTE
+        ) {
             $driver->status = Driver::STATUS_OFF_DUTY;
             $driver->save();
         }

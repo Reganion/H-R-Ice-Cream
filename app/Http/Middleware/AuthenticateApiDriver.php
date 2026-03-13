@@ -46,11 +46,11 @@ class AuthenticateApiDriver
             ], 401);
         }
 
-        if ($driver->status === Driver::STATUS_DEACTIVATE) {
+        if ($driver->status === Driver::STATUS_DEACTIVATE || $driver->status === Driver::STATUS_ARCHIVE) {
             Cache::forget(self::CACHE_PREFIX . $token);
             return response()->json([
                 'success' => false,
-                'message' => 'Your account is deactivated. Please contact admin.',
+                'message' => 'Your account is inactive or archived. Please contact admin.',
             ], 403);
         }
 

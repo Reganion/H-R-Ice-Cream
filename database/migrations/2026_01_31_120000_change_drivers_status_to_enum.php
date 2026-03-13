@@ -6,7 +6,7 @@ use Illuminate\Support\Facades\DB;
 return new class extends Migration
 {
     /** Status values for enum (must match Driver model constants) */
-    private const STATUSES = "'available','on_route','off_duty','deactivate'";
+    private const STATUSES = "'available','on_route','off_duty','deactivate','archive'";
 
     /**
      * Run the migrations.
@@ -17,7 +17,7 @@ return new class extends Migration
             return;
         }
         // Normalize any existing invalid status values before altering to enum
-        $valid = ['available', 'on_route', 'off_duty', 'deactivate'];
+        $valid = ['available', 'on_route', 'off_duty', 'deactivate', 'archive'];
         DB::table('drivers')
             ->whereNotIn('status', $valid)
             ->update(['status' => 'available']);

@@ -94,4 +94,24 @@ class DriverController extends Controller
 
         return back()->with('success', 'Driver set to inactive.');
     }
+
+    public function setActive($id)
+    {
+        $driver = Driver::findOrFail($id);
+        $driver->update([
+            'status' => Driver::STATUS_AVAILABLE,
+        ]);
+
+        return back()->with('success', 'Driver activated successfully.');
+    }
+
+    public function setArchived($id)
+    {
+        $driver = Driver::findOrFail($id);
+        $driver->update([
+            'status' => Driver::STATUS_ARCHIVE,
+        ]);
+
+        return back()->with('success', 'Driver archived successfully.');
+    }
 }

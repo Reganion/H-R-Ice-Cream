@@ -159,55 +159,75 @@
         .orders-modal-overlay {
             position: fixed;
             inset: 0;
-            background: rgba(15, 23, 42, 0.45);
-            display: none;
+            background: rgba(0, 0, 0, 0.35);
+            display: flex;
+            justify-content: flex-end;
             align-items: center;
-            justify-content: center;
             padding: 20px;
-            z-index: 3000;
+            z-index: 9999;
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+            transition: opacity 0.35s ease, visibility 0.35s ease;
         }
 
         .orders-modal-overlay.show {
-            display: flex;
+            opacity: 1;
+            visibility: visible;
+            pointer-events: auto;
         }
 
         .orders-modal-card {
-            width: min(920px, 100%);
-            max-height: min(88vh, 760px);
+            width: 500px;
+            max-width: 100%;
+            height: calc(100vh - 40px);
             background: #fff;
-            border-radius: 16px;
+            border-radius: 20px;
             overflow: hidden;
-            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.2);
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
             display: flex;
             flex-direction: column;
+            transform: translateX(100%);
+            opacity: 0;
+            transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.35s ease;
+        }
+
+        .orders-modal-overlay.show .orders-modal-card {
+            transform: translateX(0);
+            opacity: 1;
         }
 
         .orders-modal-header {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            padding: 16px 18px;
+            padding: 20px 24px;
             border-bottom: 1px solid #e5e7eb;
         }
 
         .orders-modal-header h3 {
             margin: 0;
-            font-size: 18px;
+            font-size: 20px;
             font-weight: 600;
             color: #111827;
         }
 
         .orders-modal-close {
-            width: 34px;
-            height: 34px;
+            width: 32px;
+            height: 32px;
             border: none;
-            border-radius: 999px;
-            background: #f3f4f6;
-            color: #374151;
+            border-radius: 8px;
+            background: transparent;
+            color: #6b7280;
             display: inline-flex;
             align-items: center;
             justify-content: center;
             cursor: pointer;
+        }
+
+        .orders-modal-close:hover {
+            background: #f3f4f6;
+            color: #111827;
         }
 
         .orders-modal-close .material-symbols-outlined {
@@ -216,38 +236,146 @@
         }
 
         .orders-modal-body {
-            padding: 14px 18px 18px;
-            overflow: auto;
+            padding: 24px;
+            overflow-y: auto;
+            flex: 1;
         }
 
-        .orders-modal-table {
-            width: 100%;
-            border-collapse: collapse;
+        .orders-summary {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 10px;
+            margin-bottom: 14px;
         }
 
-        .orders-modal-table th,
-        .orders-modal-table td {
-            border-bottom: 1px solid #f1f5f9;
-            padding: 10px 8px;
-            text-align: left;
-            font-size: 13px;
-            vertical-align: top;
-        }
-
-        .orders-modal-table th {
-            color: #64748b;
-            font-weight: 600;
-            position: sticky;
-            top: 0;
+        .orders-summary-item {
             background: #fff;
-            z-index: 1;
+            border: 1px solid #e5e7eb;
+            border-radius: 10px;
+            padding: 10px 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .orders-summary-item span {
+            font-size: 12px;
+            color: #6b7280;
+        }
+
+        .orders-summary-item strong {
+            font-size: 16px;
+            color: #111827;
+            font-weight: 700;
+        }
+
+        .customer-orders-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .customer-order-item {
+            border: 1px solid #d1d5db;
+            background: #fff;
+            border-radius: 14px;
+            padding: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+        }
+
+        .customer-order-main {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            min-width: 0;
+        }
+
+        .customer-order-main img {
+            width: 52px;
+            height: 52px;
+            border-radius: 12px;
+            object-fit: cover;
+            background: #f3f4f6;
+            flex-shrink: 0;
+        }
+
+        .customer-order-info {
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
+            gap: 2px;
+        }
+
+        .customer-order-info strong {
+            font-size: 16px;
+            font-weight: 700;
+            color: #111827;
+            white-space: nowrap;
+            text-overflow: ellipsis;
+            overflow: hidden;
+        }
+
+        .customer-order-info small {
+            font-size: 12px;
+            color: #64748b;
+            white-space: nowrap;
+            text-overflow: ellipsis;
+            overflow: hidden;
+        }
+
+        .customer-order-meta {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 8px;
+            flex-shrink: 0;
+        }
+
+        .customer-order-meta strong {
+            color: #111827;
+            font-size: 16px;
+            line-height: 1;
+            font-weight: 700;
+            letter-spacing: -0.3px;
+        }
+
+        .status-badge-details {
+            display: inline-block;
+            padding: 6px 12px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 600;
+            color: #fff;
+            text-transform: capitalize;
+        }
+
+        .status-badge-details.completed {
+            background: #22c55e;
+        }
+
+        .status-badge-details.pending {
+            background: #f59e0b;
+        }
+
+        .status-badge-details.assigned {
+            background: #3b82f6;
+        }
+
+        .status-badge-details.cancelled {
+            background: #ef4444;
         }
 
         .orders-modal-empty {
             text-align: center;
             color: #6b7280;
-            padding: 22px 12px;
+            padding: 18px 14px;
             font-size: 14px;
+            border: 1px dashed #d1d5db;
+            border-radius: 10px;
+            background: #fff;
         }
 
         .customer-card img {
@@ -428,22 +556,19 @@
                     </button>
                 </div>
                 <div class="orders-modal-body">
-                    <table class="orders-modal-table">
-                        <thead>
-                            <tr>
-                                <th>Transaction</th>
-                                <th>Product</th>
-                                <th>Schedule</th>
-                                <th>Amount</th>
-                                <th>Status</th>
-                            </tr>
-                        </thead>
-                        <tbody id="customerOrdersBody">
-                            <tr>
-                                <td colspan="5" class="orders-modal-empty">Select a customer to view records.</td>
-                            </tr>
-                        </tbody>
-                    </table>
+                    <div class="orders-summary">
+                        <div class="orders-summary-item">
+                            <span>Total Orders</span>
+                            <strong id="customerOrdersTotalCount">0</strong>
+                        </div>
+                        <div class="orders-summary-item">
+                            <span>Total Spent (Completed)</span>
+                            <strong id="customerOrdersTotalSpent">PHP 0.00</strong>
+                        </div>
+                    </div>
+                    <div id="customerOrdersList" class="customer-orders-list">
+                        <p class="orders-modal-empty">Select a customer to view records.</p>
+                    </div>
                 </div>
             </div>
         </div>
@@ -456,8 +581,10 @@
                 const viewOrderButtons = Array.from(document.querySelectorAll(".js-view-orders"));
                 const ordersModal = document.getElementById("customerOrdersModal");
                 const ordersClose = document.getElementById("customerOrdersClose");
-                const ordersBody = document.getElementById("customerOrdersBody");
+                const ordersList = document.getElementById("customerOrdersList");
                 const ordersTitle = document.getElementById("customerOrdersTitle");
+                const ordersTotalCount = document.getElementById("customerOrdersTotalCount");
+                const ordersTotalSpent = document.getElementById("customerOrdersTotalSpent");
                 let allOrders = null;
 
                 function applyFilters() {
@@ -495,6 +622,40 @@
                     return String(value || "").trim().toLowerCase().replace(/\s+/g, " ");
                 }
 
+                function formatCurrency(value) {
+                    return "PHP " + Number(value || 0).toLocaleString(undefined, {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2
+                    });
+                }
+
+                function setOrderSummary(rows) {
+                    const safeRows = Array.isArray(rows) ? rows : [];
+                    const completedSpent = safeRows.reduce((sum, order) => {
+                        const status = normalize(order.status);
+                        if (status !== "completed") {
+                            return sum;
+                        }
+                        return sum + (Number(order.amount) || 0);
+                    }, 0);
+
+                    if (ordersTotalCount) {
+                        ordersTotalCount.textContent = String(safeRows.length);
+                    }
+
+                    if (ordersTotalSpent) {
+                        ordersTotalSpent.textContent = formatCurrency(completedSpent);
+                    }
+                }
+
+                function mapStatusClass(statusValue) {
+                    const value = normalize(statusValue);
+                    if (value === "completed" || value === "pending" || value === "assigned" || value === "cancelled") {
+                        return value;
+                    }
+                    return "pending";
+                }
+
                 function closeOrdersModal() {
                     if (!ordersModal) return;
                     ordersModal.classList.remove("show");
@@ -502,39 +663,53 @@
                 }
 
                 function renderOrderRows(rows) {
-                    if (!ordersBody) return;
+                    if (!ordersList) return;
+                    setOrderSummary(rows);
                     if (!rows.length) {
-                        ordersBody.innerHTML = '<tr><td colspan="5" class="orders-modal-empty">No order records found for this customer.</td></tr>';
+                        ordersList.innerHTML = '<p class="orders-modal-empty">No order records found for this customer.</p>';
                         return;
                     }
 
-                    ordersBody.innerHTML = rows.map((order) => {
+                    ordersList.innerHTML = rows.map((order) => {
                         const transaction = order.transaction_id ? "#" + escapeHtml(order.transaction_id) : "—";
-                        const product = escapeHtml(order.product_name || "—");
+                        const product = escapeHtml(order.product_name || "Unknown product");
+                        const customerName = escapeHtml(order.customer_name || "—");
                         const scheduleDate = escapeHtml(order.delivery_date_formatted || "—");
                         const scheduleTime = escapeHtml(order.delivery_time_formatted || "—");
                         const schedule = scheduleDate !== "—" && scheduleTime !== "—" ? (scheduleDate + ", " + scheduleTime) : (scheduleDate !== "—" ? scheduleDate : scheduleTime);
-                        const amount = "PHP " + Number(order.amount || 0).toLocaleString(undefined, {
-                            minimumFractionDigits: 2,
-                            maximumFractionDigits: 2
-                        });
-                        const status = escapeHtml(order.status || "pending");
+                        const amount = formatCurrency(order.amount);
+                        const statusText = escapeHtml(order.status || "pending");
+                        const statusClass = mapStatusClass(order.status);
+                        const image = escapeHtml(order.product_image_url || "{{ asset('img/default-product.png') }}");
 
-                        return '<tr>' +
-                            '<td>' + transaction + '</td>' +
-                            '<td>' + product + '</td>' +
-                            '<td>' + schedule + '</td>' +
-                            '<td>' + amount + '</td>' +
-                            '<td>' + status + '</td>' +
-                            '</tr>';
+                        return '<article class="customer-order-item">' +
+                            '<div class="customer-order-main">' +
+                            '<img src="' + image + '" alt="Product">' +
+                            '<div class="customer-order-info">' +
+                            '<strong>' + product + '</strong>' +
+                            '<small>' + transaction + '</small>' +
+                            '<small>' + customerName + ' · ' + schedule + '</small>' +
+                            '</div>' +
+                            '</div>' +
+                            '<div class="customer-order-meta">' +
+                            '<span class="status-badge-details ' + statusClass + '">' + statusText + '</span>' +
+                            '<strong>' + amount + '</strong>' +
+                            '</div>' +
+                            '</article>';
                     }).join("");
                 }
 
                 async function loadOrdersForCustomer(customerName) {
-                    if (!ordersBody || !ordersTitle || !ordersModal) return;
+                    if (!ordersList || !ordersTitle || !ordersModal) return;
 
                     ordersTitle.textContent = "Order Records - " + customerName;
-                    ordersBody.innerHTML = '<tr><td colspan="5" class="orders-modal-empty">Loading order records...</td></tr>';
+                    if (ordersTotalCount) {
+                        ordersTotalCount.textContent = "...";
+                    }
+                    if (ordersTotalSpent) {
+                        ordersTotalSpent.textContent = "...";
+                    }
+                    ordersList.innerHTML = '<p class="orders-modal-empty">Loading order records...</p>';
                     ordersModal.classList.add("show");
                     ordersModal.setAttribute("aria-hidden", "false");
 
@@ -559,7 +734,8 @@
                         });
                         renderOrderRows(rows);
                     } catch (error) {
-                        ordersBody.innerHTML = '<tr><td colspan="5" class="orders-modal-empty">Failed to load customer orders.</td></tr>';
+                        setOrderSummary([]);
+                        ordersList.innerHTML = '<p class="orders-modal-empty">Failed to load customer orders.</p>';
                     }
                 }
 

@@ -21,8 +21,6 @@ use App\Http\Controllers\Api\ApiOrderPaymentController;
 */
 
 Route::prefix('v1')->group(function () {
-
-    Route::post('/orders/downpayment', [ApiOrderPaymentController::class, 'createDownpayment']);
     // Public
     Route::post('/login', [ApiAuthController::class, 'login']);
     Route::post('/driver/login', [ApiDriverAuthController::class, 'login']);
@@ -49,6 +47,10 @@ Route::prefix('v1')->group(function () {
 
     // Protected (require session token: Authorization: Bearer {token} or X-Session-Token)
     Route::middleware('api.customer')->group(function () {
+        // Orders + downpayment via QRPH
+        Route::post('/orders/downpayment', [ApiOrderPaymentController::class, 'createDownpayment']);
+        Route::get('/orders/downpayment/status/{invoice}', [ApiOrderPaymentController::class, 'checkDownpaymentStatus']);
+        Route::post('/orders/downpayment/cancel/{invoice}', [ApiOrderPaymentController::class, 'cancelDownpayment']);
         Route::post('/logout', [ApiAuthController::class, 'logout']);
         Route::get('/me', [ApiAuthController::class, 'me']);
         Route::get('/profile', [ApiAuthController::class, 'profile']);

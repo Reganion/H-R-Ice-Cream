@@ -27,17 +27,19 @@
                     <h2>Driver list</h2>
 
                     @php
-                        $statusFilterMap = ['available' => 'available', 'on_route' => 'on', 'off_duty' => 'off'];
+                        $statusFilterMap = ['available' => 'available', 'on_route' => 'on', 'off_duty' => 'off', 'deactivate' => 'deactivate'];
                         $driverCountAll = $drivers->count();
                         $driverCountAvailable = $drivers->where('status', 'available')->count();
                         $driverCountOnRoute = $drivers->where('status', 'on_route')->count();
                         $driverCountOffDuty = $drivers->where('status', 'off_duty')->count();
+                        $driverCountInactive = $drivers->where('status', 'deactivate')->count();
                     @endphp
                     <div class="driver-tabs">
                         <button class="active" data-filter="all">All ({{ $driverCountAll }})</button>
                         <button data-filter="available">Available ({{ $driverCountAvailable }})</button>
                         <button data-filter="on">On Route ({{ $driverCountOnRoute }})</button>
                         <button data-filter="off">Off Duty ({{ $driverCountOffDuty }})</button>
+                        <button data-filter="deactivate">Inactive ({{ $driverCountInactive }})</button>
                     </div>
 
                 </div>
@@ -53,10 +55,10 @@
                         <span class="material-symbols-outlined">add</span> Add New Driver
                     </button>
 
-                    <button type="button" class="btn-archive" title="Archive">
+                    <a href="{{ route('admin.archive') }}" class="btn-archive" title="Archive">
                         <span class="material-symbols-outlined">archive</span>
                         Archive
-                    </button>
+                    </a>
                 </div>
 
             </div>
@@ -81,8 +83,8 @@
                             @endphp
                             <div class="driver-card" data-status="{{ $filterValue }}">
                                 <div class="card-actions">
-                                    <button type="button" class="card-archive-btn" title="Archive" aria-label="Archive driver"><span class="material-symbols-outlined">archive</span></button>
-                                    <button type="button" class="card-inactive-btn" title="Set inactive" aria-label="Set driver inactive" data-driver-id="{{ $driver->id }}" data-driver-name="{{ $driver->name }}"><span class="material-symbols-outlined">do_not_disturb</span></button>
+                                    <button type="button" class="card-archive-btn" title="Archive" aria-label="Archive driver" data-driver-id="{{ $driver->id }}" data-driver-name="{{ $driver->name }}"><span class="material-symbols-outlined">archive</span></button>
+                                    <button type="button" class="card-inactive-btn {{ $driverStatus === 'deactivate' ? 'is-inactive' : '' }}" title="{{ $driverStatus === 'deactivate' ? 'Activate' : 'Set inactive' }}" aria-label="{{ $driverStatus === 'deactivate' ? 'Activate driver' : 'Set driver inactive' }}" data-driver-id="{{ $driver->id }}" data-driver-name="{{ $driver->name }}" data-driver-status="{{ $driverStatus }}"><span class="material-symbols-outlined">do_not_disturb</span></button>
                                 </div>
                                 <img src="{{ (isset($driver->image) && $driver->image) ? asset($driver->image) : asset('img/default-user.png') }}" alt="{{ $driver->name ?? '' }}">
                                 <div class="driver-name-row">
@@ -204,27 +206,24 @@
             </form>
         </div>
 
-        <div class="delete-overlay" id="deleteDriverConfirmModal">
-            <form class="delete-modal" method="POST" id="deleteDriverForm">
+        <div class="delete-overlay" id="statusDriverConfirmModal">
+            <form class="delete-modal" method="POST" id="statusDriverForm">
                 @csrf
-                @method('DELETE')
 
                 <h3 class="delete-title">
-                    Are you sure you want to remove
-                    <span id="deleteDriverName">this driver</span>?
+                    Are you sure you want to update
+                    <span id="statusDriverName">this driver</span>?
                 </h3>
 
-                <p class="delete-text">
-                    If you remove this driver, the status will be set to deactivate and it will no longer show in this list.
-                </p>
+                <p class="delete-text" id="statusDriverText">This action will update the driver status.</p>
 
                 <div class="delete-actions">
-                    <button type="button" class="btn-delete-cancel" id="cancelDriverDelete">
+                    <button type="button" class="btn-delete-cancel" id="cancelStatusDriverAction">
                         No, Cancel
                     </button>
 
-                    <button type="submit" class="btn-delete-confirm">
-                        Yes, I'm sure
+                    <button type="submit" class="btn-delete-confirm" id="confirmStatusDriverAction">
+                        Yes, Continue
                     </button>
                 </div>
             </form>
@@ -430,13 +429,47 @@
                 if (!licenseSelect.contains(e.target)) licenseSelect.classList.remove("open");
             });
 
-            const deleteDriverModal = document.getElementById("deleteDriverConfirmModal");
-            const deleteDriverName = document.getElementById("deleteDriverName");
-            const deleteDriverForm = document.getElementById("deleteDriverForm");
-            const cancelDriverDelete = document.getElementById("cancelDriverDelete");
+            const statusDriverModal = document.getElementById("statusDriverConfirmModal");
+            const statusDriverName = document.getElementById("statusDriverName");
+            const statusDriverText = document.getElementById("statusDriverText");
+            const statusDriverForm = document.getElementById("statusDriverForm");
+            const cancelStatusDriverAction = document.getElementById("cancelStatusDriverAction");
+            const confirmStatusDriverAction = document.getElementById("confirmStatusDriverAction");
 
-            deleteDriverForm?.addEventListener("submit", () => {
-                sessionStorage.setItem("driverPendingAlertMessage", "Driver removed successfully");
+            function openStatusDriverModal(driverId, driverName, actionType) {
+                statusDriverName.textContent = driverName || "this driver";
+                if (actionType === "archive") {
+                    statusDriverForm.action = `/admin/drivers/${driverId}/archive`;
+                } else if (actionType === "activate") {
+                    statusDriverForm.action = `/admin/drivers/${driverId}/activate`;
+                } else {
+                    statusDriverForm.action = `/admin/drivers/${driverId}/inactive`;
+                }
+
+                if (actionType === "archive") {
+                    statusDriverText.textContent = "If you archive this driver, it will be moved to the Archive page.";
+                    confirmStatusDriverAction.textContent = "Yes, Archive";
+                } else if (actionType === "activate") {
+                    statusDriverText.textContent = "This inactive driver will be activated and can receive assignments again.";
+                    confirmStatusDriverAction.textContent = "Yes, Activate";
+                } else {
+                    statusDriverText.textContent = "If you set this driver to inactive, it will appear under the Inactive filter.";
+                    confirmStatusDriverAction.textContent = "Yes, Set Inactive";
+                }
+
+                statusDriverForm.dataset.actionType = actionType;
+                statusDriverModal.classList.add("show");
+            }
+
+            statusDriverForm?.addEventListener("submit", () => {
+                const actionType = statusDriverForm.dataset.actionType;
+                if (actionType === "archive") {
+                    sessionStorage.setItem("driverPendingAlertMessage", "Driver archived successfully");
+                } else if (actionType === "activate") {
+                    sessionStorage.setItem("driverPendingAlertMessage", "Driver activated successfully");
+                } else {
+                    sessionStorage.setItem("driverPendingAlertMessage", "Driver set to inactive");
+                }
                 sessionStorage.setItem("driverPendingAlertType", "success");
             });
 
@@ -444,26 +477,27 @@
                 btn.addEventListener("click", () => {
                     const driverId = btn.dataset.driverId;
                     const driverName = btn.dataset.driverName || "this driver";
-                    if (confirm(`Set ${driverName} as inactive?`)) {
-                        const form = document.createElement("form");
-                        form.method = "POST";
-                        form.action = `/admin/drivers/${driverId}/inactive`;
-                        const csrf = document.createElement("input");
-                        csrf.type = "hidden"; csrf.name = "_token"; csrf.value = document.querySelector('input[name="_token"]')?.value || '';
-                        form.appendChild(csrf);
-                        document.body.appendChild(form);
-                        form.submit();
-                    }
+                    const driverStatus = btn.dataset.driverStatus || "";
+                    const actionType = driverStatus === "deactivate" ? "activate" : "inactive";
+                    openStatusDriverModal(driverId, driverName, actionType);
                 });
             });
 
-            cancelDriverDelete.addEventListener("click", () => {
-                deleteDriverModal.classList.remove("show");
+            document.querySelectorAll(".card-archive-btn").forEach((btn) => {
+                btn.addEventListener("click", () => {
+                    const driverId = btn.dataset.driverId;
+                    const driverName = btn.dataset.driverName || "this driver";
+                    openStatusDriverModal(driverId, driverName, "archive");
+                });
             });
 
-            deleteDriverModal.addEventListener("click", (e) => {
-                if (e.target === deleteDriverModal) {
-                    deleteDriverModal.classList.remove("show");
+            cancelStatusDriverAction.addEventListener("click", () => {
+                statusDriverModal.classList.remove("show");
+            });
+
+            statusDriverModal.addEventListener("click", (e) => {
+                if (e.target === statusDriverModal) {
+                    statusDriverModal.classList.remove("show");
                 }
             });
         });
