@@ -16,19 +16,23 @@ class DriverController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'name'         => 'required|string|max:255',
-            'phone'        => 'required|string|max:50',
-            'email'        => 'required|email|max:255',
+            'name'         => 'required|string|max:255|unique:drivers,name',
+            'phone'        => 'required|string|max:11|regex:/^[0-9]+$/|unique:drivers,phone',
+            'email'        => 'required|email|max:255|unique:drivers,email',
             'license_no'   => 'required|string|max:100',
             'license_type' => 'required|string|max:100',
             'image'        => 'nullable|image|max:2048',
         ], [
-            'name.required'       => 'Driver name is required.',
-            'phone.required'      => 'Phone number is required.',
-            'email.required'      => 'Email address is required.',
-            'email.email'         => 'Please enter a valid email address.',
-            'license_no.required' => 'License number is required.',
-            'license_type.required'=> 'License type is required.',
+            'name.required'         => 'Driver name is required.',
+            'name.unique'           => 'A driver with this full name already exists.',
+            'phone.required'        => 'Phone number is required.',
+            'phone.regex'           => 'Phone number must contain numbers only and be at most 11 digits.',
+            'phone.unique'          => 'A driver with this phone number already exists.',
+            'email.required'        => 'Email address is required.',
+            'email.email'           => 'Please enter a valid email address.',
+            'email.unique'          => 'A driver with this email address already exists.',
+            'license_no.required'   => 'License number is required.',
+            'license_type.required' => 'License type is required.',
         ]);
 
         $imagePath = null;

@@ -88,6 +88,9 @@ class AdminOrderController extends Controller
             $deliveryTime = $order->delivery_time ? Carbon::parse($order->delivery_time) : null;
             $createdAt = $order->created_at ? Carbon::parse($order->created_at) : null;
             $status = $this->normalizeOrderStatus($order->status);
+            $downpayment = (float) ($order->downpayment ?? 0.0);
+            $amount = (float) $order->amount;
+            $balance = (float) ($order->balance ?? max(0, $amount - $downpayment));
 
             $driver = $order->driver;
             return [
@@ -102,7 +105,9 @@ class AdminOrderController extends Controller
                 'customer_image_url' => asset($order->customer_image ?? 'img/default-user.png'),
                 'customer_email' => $order->customer?->email,
                 'delivery_address' => $order->delivery_address ?? '',
-                'amount' => (float) $order->amount,
+                'amount' => $amount,
+                'downpayment' => $downpayment,
+                'balance' => $balance,
                 'quantity' => (int) ($order->qty ?? 1),
                 'payment_method' => $order->payment_method ?? '',
                 'status' => $status,
@@ -136,6 +141,9 @@ class AdminOrderController extends Controller
         $createdAt = $order->created_at ? Carbon::parse($order->created_at) : null;
         $driver = $order->driver;
         $status = $this->normalizeOrderStatus($order->status);
+        $downpayment = (float) ($order->downpayment ?? 0.0);
+        $amount = (float) $order->amount;
+        $balance = (float) ($order->balance ?? max(0, $amount - $downpayment));
 
         $data = [
             'id' => $order->id,
@@ -149,7 +157,9 @@ class AdminOrderController extends Controller
             'customer_image_url' => asset($order->customer_image ?? 'img/default-user.png'),
             'customer_email' => $order->customer?->email,
             'delivery_address' => $order->delivery_address ?? '',
-            'amount' => (float) $order->amount,
+            'amount' => $amount,
+            'downpayment' => $downpayment,
+            'balance' => $balance,
             'quantity' => (int) ($order->qty ?? 1),
             'payment_method' => $order->payment_method ?? '',
             'status' => $status,

@@ -61,9 +61,11 @@ class ApiOrderController extends Controller
      */
     private function formatOrderForApi(Order $order): array
     {
+        $downpayment = (float) ($order->downpayment ?? 0.0);
         $imagePath = $order->product_image ?? 'img/default-product.png';
         $imageUrl = str_starts_with($imagePath, 'http') ? $imagePath : url($imagePath);
         $amount = (float) $order->amount;
+        $balance = (float) ($order->balance ?? max(0, $amount - $downpayment));
         $amountFormatted = '₱' . number_format($amount, 0);
         $driver = $order->driver;
         $driverName = $this->firstNonEmptyString([$driver?->name, 'Driver']);
@@ -95,6 +97,8 @@ class ApiOrderController extends Controller
             'delivery_address'   => $order->delivery_address,
             'amount'              => $amount,
             'amount_formatted'    => $amountFormatted,
+            'downpayment'        => $downpayment,
+            'balance'            => $balance,
             'quantity'           => (int) ($order->qty ?? 1),
             'payment_method'     => $order->payment_method,
             'status'             => $order->status,
@@ -152,6 +156,8 @@ class ApiOrderController extends Controller
             (int) $request->input('quantity', $request->input('qty', 1))
         );
         $addAmount = (float) $request->amount;
+        $downpayment = 0.0;
+        $balance = $addAmount;
 
         $flavor = Flavor::where('name', $request->product_name)->first();
         $productImage = $flavor?->image ?? 'img/default-product.png';
@@ -181,7 +187,12 @@ class ApiOrderController extends Controller
 
         if ($existing) {
             $existing->increment('qty', $addQty);
-            $existing->update(['amount' => $existing->amount + $addAmount]);
+            $newAmount = $existing->amount + $addAmount;
+            $existingDownpayment = (float) ($existing->downpayment ?? 0.0);
+            $existing->update([
+                'amount' => $newAmount,
+                'balance' => max(0, $newAmount - $existingDownpayment),
+            ]);
             $order = $existing->fresh();
 
             return response()->json(['success' => true, 'data' => $this->formatOrderForApi($order), 'merged' => true], 200);
@@ -201,6 +212,8 @@ class ApiOrderController extends Controller
             'delivery_time' => $request->delivery_time,
             'delivery_address' => $request->delivery_address,
             'amount' => $request->amount,
+            'downpayment' => $downpayment,
+            'balance' => $balance,
             'qty' => $addQty,
             'payment_method' => $request->payment_method,
             'status' => 'pending',

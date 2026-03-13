@@ -102,6 +102,7 @@
                                     data-delivery-time="{{ $order->delivery_time ? \Carbon\Carbon::parse($order->delivery_time)->format('H:i') : '' }}"
                                     data-delivery-address="{{ e($order->delivery_address ?? '') }}"
                                     data-amount="{{ $order->amount ?? '' }}"
+                                    data-downpayment="{{ $order->downpayment ?? '' }}"
                                     data-quantity="{{ (int) ($order->qty ?? 1) }}"
                                     data-payment-method="{{ e($order->payment_method ?? '') }}"
                                     data-status="{{ e($order->status ?? '') }}" data-status-key="{{ $statusKey }}"
@@ -646,16 +647,12 @@
                         <div class="details-value" id="detailsGallon">—</div>
                     </div>
                     <div class="details-row">
-                        <div class="details-label">Discount</div>
-                        <div class="details-value">0</div>
-                    </div>
-                    <div class="details-row">
-                        <div class="details-label">Shipping Fee</div>
-                        <div class="details-value" id="detailsShippingFee">0</div>
-                    </div>
-                    <div class="details-row">
                         <div class="details-label">Downpayment</div>
                         <div class="details-value" id="detailsDownpayment">—</div>
+                    </div>
+                    <div class="details-row">
+                        <div class="details-label">Balance</div>
+                        <div class="details-value" id="detailsBalance">—</div>
                     </div>
                     <div class="details-row total-row">
                         <div class="details-label">Total</div>
@@ -1286,6 +1283,9 @@
                 const statusDisplay = String(order.status || '').trim() || 'Pending';
                 const amountFormatted = typeof order.amount === 'number' ? order.amount.toFixed(2) : (parseFloat(
                     order.amount) || 0).toFixed(2);
+                const downpaymentValue = (typeof order.downpayment !== 'undefined' && order.downpayment !== null)
+                    ? order.downpayment
+                    : 0;
                 let actionHtml = '<div style="display:flex;gap:6px;align-items:center;">';
 
                 // WALK-IN → ASSIGN + EDIT
@@ -1341,6 +1341,7 @@
                     ' data-delivery-time="' + escAttr(order.delivery_time) + '"' +
                     ' data-delivery-address="' + escAttr(order.delivery_address) + '"' +
                     ' data-amount="' + escAttr(String(order.amount)) + '"' +
+                    ' data-downpayment="' + escAttr(String(downpaymentValue)) + '"' +
                     ' data-quantity="' + escAttr(String(order.quantity ?? order.qty ?? 1)) + '"' +
                     ' data-payment-method="' + escAttr(order.payment_method) + '"' +
                     ' data-status="' + escAttr(order.status) + '"' +
@@ -1629,12 +1630,15 @@
             document.getElementById("detailsGallon").textContent = '—';
             document.getElementById("detailsSubtotal").textContent = '—';
             document.getElementById("detailsAssignedDriver").textContent = '—';
-            document.getElementById("detailsShippingFee").textContent = formatCurrency(0);
             document.getElementById("detailsDownpayment").textContent = formatCurrency(0);
+            document.getElementById("detailsBalance").textContent = formatCurrency(0);
             document.getElementById("detailsTotal").textContent = '—';
         }
 
         function buildOrderDetailsFromRow(row) {
+            const amount = parseFloat(row.dataset.amount || '0') || 0;
+            const downpayment = parseFloat(row.dataset.downpayment || '0') || 0;
+            const balance = Math.max(0, amount - downpayment);
             return {
                 transaction_id: row.dataset.transactionId || '',
                 status: row.dataset.status || '',
@@ -1647,7 +1651,9 @@
                 product_type: row.dataset.productType || '',
                 gallon_size: row.dataset.gallonSize || '',
                 product_image_url: row.dataset.productImage || '',
-                amount: parseFloat(row.dataset.amount || '0') || 0,
+                amount: amount,
+                downpayment: downpayment,
+                balance: balance,
                 quantity: parseInt(row.dataset.quantity || '1', 10) || 1,
                 payment_method: row.dataset.paymentMethod || '',
                 driver_name: row.dataset.driverName || ''
@@ -1656,6 +1662,10 @@
 
         function fillOrderDetailsModal(orderData) {
             const amount = parseFloat(orderData.amount || 0) || 0;
+            const downpayment = parseFloat(orderData.downpayment || 0) || 0;
+            const balance = ('balance' in orderData && orderData.balance !== null && orderData.balance !== undefined)
+                ? parseFloat(orderData.balance || 0) || 0
+                : Math.max(0, amount - downpayment);
             const quantity = parseInt(orderData.quantity || orderData.qty || 1, 10) || 1;
             const status = normalizeStatusForDisplay(orderData.status);
             const statusClass = getStatusClass(orderData.status);
@@ -1682,8 +1692,8 @@
             document.getElementById("detailsSubtotal").textContent = formatCurrency(amount);
             document.getElementById("detailsGallon").textContent = gallonSize;
             document.getElementById("detailsAssignedDriver").textContent = driverName;
-            document.getElementById("detailsShippingFee").textContent = formatCurrency(0);
-            document.getElementById("detailsDownpayment").textContent = formatCurrency(0);
+            document.getElementById("detailsDownpayment").textContent = formatCurrency(downpayment);
+            document.getElementById("detailsBalance").textContent = formatCurrency(balance);
             document.getElementById("detailsTotal").textContent = formatCurrency(amount);
         }
 

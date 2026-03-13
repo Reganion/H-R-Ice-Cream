@@ -159,7 +159,15 @@
                     <div class="form-row">
                         <div class="form-group">
                             <label>Phone Number <span class="text-danger">*</span></label>
-                            <input type="text" name="phone" placeholder="Enter Phone Number" value="{{ old('phone') }}" maxlength="50" class="{{ $errors->has('phone') ? 'invalid' : '' }}">
+                            <input
+                                type="text"
+                                name="phone"
+                                id="driverPhoneInput"
+                                placeholder="Enter Phone Number"
+                                value="{{ old('phone') }}"
+                                maxlength="11"
+                                class="{{ $errors->has('phone') ? 'invalid' : '' }}"
+                            >
                             @error('phone')
                                 <span class="field-error">{{ $message }}</span>
                             @enderror
@@ -373,6 +381,14 @@
                 sessionStorage.setItem("driverPendingAlertMessage", "Driver added successfully");
                 sessionStorage.setItem("driverPendingAlertType", "success");
             });
+
+            const driverPhoneInput = document.getElementById("driverPhoneInput");
+            if (driverPhoneInput) {
+                driverPhoneInput.addEventListener("input", () => {
+                    // Keep only digits and cap at 11 characters
+                    driverPhoneInput.value = driverPhoneInput.value.replace(/[^0-9]/g, "").slice(0, 11);
+                });
+            }
 
             function closeDriverModalSmooth() {
                 const card = addDriverModal.querySelector(".modal-card");

@@ -45,7 +45,7 @@ class ApiDriverAuthController extends Controller
         if ($driver->status === Driver::STATUS_DEACTIVATE || $driver->status === Driver::STATUS_ARCHIVE) {
             return response()->json([
                 'success' => false,
-                'message' => 'Your account is inactive or archived. Please contact admin.',
+                'message' => 'Your account is inactive. Please contact admin.',
             ], 403);
         }
 
@@ -87,7 +87,7 @@ class ApiDriverAuthController extends Controller
         if ($driver->status === Driver::STATUS_DEACTIVATE || $driver->status === Driver::STATUS_ARCHIVE) {
             return response()->json([
                 'success' => false,
-                'message' => 'Your account is inactive or archived. Please contact admin.',
+                'message' => 'Your account is inactive. Please contact admin.',
             ], 403);
         }
 

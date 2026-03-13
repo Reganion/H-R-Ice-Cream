@@ -47,6 +47,7 @@ Route::get('/driver', function () {
     return view('driver.landing');
 })->name('driver.landing');
 
+
 Route::get('/customer/logout', [CustomerAuthController::class, 'logout'])->name('customer.logout');
 
 Route::get('/customer/change-password', [CustomerAuthController::class, 'showChangePasswordForm'])->name('customer.change-password');

@@ -11,6 +11,8 @@ class Order extends Model
         'delivery_date' => 'date',
         'amount' => 'decimal:2',
         'received_amount' => 'decimal:2',
+        'downpayment' => 'decimal:2',
+        'balance' => 'decimal:2',
         'qty' => 'integer',
         'delivered_at' => 'datetime',
     ];
@@ -30,6 +32,8 @@ class Order extends Model
         'delivery_address',
         'amount',
         'received_amount',
+        'downpayment',
+        'balance',
         'delivery_payment_method',
         'delivery_proof_image',
         'qty',

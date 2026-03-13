@@ -93,6 +93,7 @@ class ApiOrderPaymentController extends Controller
         $fullAmount = (float) $request->amount;
         $downpaymentAmount = round($fullAmount * $percent, 2);
         $downpaymentCentavos = (int) round($downpaymentAmount * 100);
+        $balanceAmount = max(0, $fullAmount - $downpaymentAmount);
 
         if ($downpaymentCentavos <= 0) {
             return response()->json([
@@ -132,6 +133,8 @@ class ApiOrderPaymentController extends Controller
             'delivery_time' => $request->delivery_time,
             'delivery_address' => $request->delivery_address,
             'amount' => $fullAmount,
+            'downpayment' => $downpaymentAmount,
+            'balance' => $balanceAmount,
             'qty' => $quantity,
             'payment_method' => $request->payment_method,
             'status' => 'pending',
@@ -226,6 +229,7 @@ class ApiOrderPaymentController extends Controller
                 'payment_intent_id' => $paymentIntent['id'],
                 'qr_image_url' => $qrImageUrl,
                 'downpayment_amount' => $downpaymentAmount,
+                'balance' => $balanceAmount,
             ],
         ]);
     }
@@ -265,6 +269,13 @@ class ApiOrderPaymentController extends Controller
             $invoice->status = 'paid';
             $invoice->save();
 
+            // Track received amount and recompute remaining balance on the order.
+            $currentReceived = (float) ($order->received_amount ?? 0.0);
+            $newReceived = $currentReceived + (float) $invoice->amount;
+            $order->received_amount = $newReceived;
+            $order->balance = max(0, (float) $order->amount - $newReceived);
+            $order->save();
+
             // If order is still in an initial state (e.g. pending), keep it as pending.
             // We don't change non-initial states here.
         } elseif (in_array($status, ['failed', 'cancelled'], true) && $invoice->status !== 'failed') {
@@ -284,6 +295,8 @@ class ApiOrderPaymentController extends Controller
                 'invoice_status' => $invoice->status,
                 'order_status' => $order->status,
                 'payment_status' => $status,
+                'order_balance' => $order->balance,
+                'order_received_amount' => $order->received_amount,
             ],
         ]);
     }

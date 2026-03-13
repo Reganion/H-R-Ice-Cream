@@ -81,14 +81,19 @@ class ApiDriverShipmentController extends Controller
             $deliveredTime = $order->delivered_at ? Carbon::parse($order->delivered_at)->format('h:i A') : null;
             $deliveredDate = $order->delivery_date ? Carbon::parse($order->delivery_date)->format('d F Y') : null;
             $deliveredTimeCompact = $order->delivered_at ? strtoupper(Carbon::parse($order->delivered_at)->format('h:ia')) : null;
+            $downpayment = (float) ($order->downpayment ?? 0.0);
+            $amount = (float) ($order->amount ?? 0.0);
+            $balance = (float) ($order->balance ?? max(0, $amount - $downpayment));
 
             return [
                 'id' => $order->id,
                 'transaction_id' => (string) ($order->transaction_id ?? ''),
                 'transaction_label' => '#' . (string) ($order->transaction_id ?? ''),
                 'product_name' => (string) ($order->product_name ?? '—'),
-                'amount' => (float) ($order->amount ?? 0),
-                'amount_text' => 'PHP ' . number_format((float) ($order->amount ?? 0), 2),
+                'amount' => $amount,
+                'amount_text' => 'PHP ' . number_format($amount, 2),
+                'downpayment' => $downpayment,
+                'balance' => $balance,
                 'expected_on' => $schedule,
                 'location' => (string) ($order->delivery_address ?? '—'),
                 'status' => strtolower((string) ($order->status ?? '')),
@@ -153,6 +158,9 @@ class ApiDriverShipmentController extends Controller
         $deliveredTime = $order->delivered_at ? Carbon::parse($order->delivered_at)->format('h:i A') : null;
         $deliveredDate = $order->delivery_date ? Carbon::parse($order->delivery_date)->format('d F Y') : null;
         $deliveredTimeCompact = $order->delivered_at ? strtoupper(Carbon::parse($order->delivered_at)->format('h:ia')) : null;
+        $downpayment = (float) ($order->downpayment ?? 0.0);
+        $amount = (float) ($order->amount ?? 0.0);
+        $balance = (float) ($order->balance ?? max(0, $amount - $downpayment));
 
         return response()->json([
             'success' => true,
@@ -168,8 +176,10 @@ class ApiDriverShipmentController extends Controller
                 'size' => (string) ($order->gallon_size ?? ''),
                 'order_name' => (string) ($order->product_name ?? ''),
                 'order_type' => (string) ($order->product_type ?? ''),
-                'cost' => (float) ($order->amount ?? 0),
-                'cost_text' => 'PHP ' . number_format((float) ($order->amount ?? 0), 2),
+                'cost' => $amount,
+                'cost_text' => 'PHP ' . number_format($amount, 2),
+                'downpayment' => $downpayment,
+                'balance' => $balance,
                 'status' => strtolower((string) ($order->status ?? '')),
                 'status_driver' => strtolower((string) ($order->status_driver ?? '')),
                 'received_amount' => $order->received_amount !== null ? (float) $order->received_amount : null,
@@ -363,14 +373,16 @@ class ApiDriverShipmentController extends Controller
 
         $proofPath = $request->file('proof_photo')->store('delivery-proofs', 'public');
 
-        $order->update([
-            'status' => 'completed',
-            'status_driver' => 'completed',
-            'received_amount' => (float) $validated['received_amount'],
-            'delivery_payment_method' => (string) ($validated['payment_method'] ?? ''),
-            'delivery_proof_image' => $proofPath,
-            'delivered_at' => now(),
-        ]);
+        $newReceived = (float) $validated['received_amount'];
+        $order->received_amount = $newReceived;
+        $order->status = 'completed';
+        $order->status_driver = 'completed';
+        $order->delivery_payment_method = (string) ($validated['payment_method'] ?? '');
+        $order->delivery_proof_image = $proofPath;
+        $order->delivered_at = now();
+        $amount = (float) ($order->amount ?? 0.0);
+        $order->balance = max(0, $amount - $newReceived);
+        $order->save();
 
         $hasActiveRoute = Order::query()
             ->where('driver_id', $driver->id)
@@ -391,6 +403,7 @@ class ApiDriverShipmentController extends Controller
                 'status' => strtolower((string) $order->status),
                 'status_driver' => strtolower((string) $order->status_driver),
                 'received_amount' => (float) $order->received_amount,
+                'balance' => (float) ($order->balance ?? 0.0),
                 'delivery_payment_method' => (string) ($order->delivery_payment_method ?? ''),
                 'delivery_proof_url' => asset('storage/' . ltrim((string) $order->delivery_proof_image, '/')),
                 'delivery_proof_image' => (string) ($order->delivery_proof_image ?? ''),
