@@ -88,6 +88,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
     Route::get('/ingredients', [AdminPagesController::class, 'ingredients'])->name('ingredients');
     Route::get('/gallon', [AdminPagesController::class, 'gallon'])->name('gallon');
     Route::get('/orders', [AdminPagesController::class, 'orders'])->name('orders');
+    Route::get('/records', [AdminPagesController::class, 'records'])->name('records');
     Route::get('/drivers', [AdminPagesController::class, 'drivers'])->name('drivers');
     Route::get('/customer', [AdminPagesController::class, 'customer'])->name('customer');
     Route::get('/reports', [AdminPagesController::class, 'reports'])->name('reports');

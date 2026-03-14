@@ -36,6 +36,8 @@
                             <label><input type="checkbox" value="pending"> Pending</label>
                             <label><input type="checkbox" value="preparing"> Preparing</label>
                             <label><input type="checkbox" value="assigned"> Assigned</label>
+                            <label><input type="checkbox" value="ready"> Ready</label>
+                            <label><input type="checkbox" value="out_for_delivery"> Out for Delivery</label>
                             <label><input type="checkbox" value="completed"> Completed</label>
                             <label><input type="checkbox" value="cancelled"> Cancelled</label>
                             <label><input type="checkbox" value="walk_in"> Walk-In</label>
@@ -83,6 +85,8 @@
                                         'walk-in', 'walk_in', 'walk in' => 'walk_in',
                                         'preparing' => 'preparing',
                                         'assigned' => 'assigned',
+                                        'ready' => 'ready',
+                                        'out for delivery', 'out_for_delivery' => 'out_for_delivery',
                                         'completed', 'delivered' => 'completed',
                                         'cancelled' => 'cancelled',
                                         default => 'pending',
@@ -150,11 +154,17 @@
                                                     <span class="material-symbols-outlined">edit</span>
                                                 </button>
 
-                                                {{-- ASSIGNED → REASSIGN --}}
-                                            @elseif ($statusKey === 'assigned')
+                                                {{-- ASSIGNED / READY / OUT FOR DELIVERY → REASSIGN + EDIT --}}
+                                            @elseif (in_array($statusKey, ['assigned', 'ready', 'out_for_delivery'], true))
                                                 <button type="button" class="action-btn reassign" title="Re-assign driver">
                                                     <span class="material-symbols-outlined">person_edit</span>
                                                 </button>
+                                                <button type="button" class="action-btn edit-order" title="Edit order">
+                                                    <span class="material-symbols-outlined">edit</span>
+                                                </button>
+
+                                                {{-- PREPARING → EDIT ONLY (change status to Ready) --}}
+                                            @elseif ($statusKey === 'preparing')
                                                 <button type="button" class="action-btn edit-order" title="Edit order">
                                                     <span class="material-symbols-outlined">edit</span>
                                                 </button>
@@ -501,6 +511,8 @@
                                 <option value="pending">Pending</option>
                                 <option value="preparing">Preparing</option>
                                 <option value="assigned">Assigned</option>
+                                <option value="ready">Ready</option>
+                                <option value="out_for_delivery">Out for Delivery</option>
                                 <option value="completed">Completed</option>
                                 <option value="cancelled">Cancelled</option>
                                 <option value="walk_in">Walk-In</option>
@@ -956,10 +968,13 @@
                     // Full edit: show all statuses
                     show = true;
                 } else if (normalized === 'pending') {
-                    // Pending: cannot change to preparing, keep only pending visible
+                    // Pending: only pending visible
                     show = option.value === 'pending';
+                } else if (normalized === 'preparing') {
+                    // Preparing: only Preparing and Ready
+                    show = option.value === 'preparing' || option.value === 'ready';
                 } else {
-                    // Other limited statuses (e.g., assigned): allow current + preparing
+                    // Assigned etc.: allow current + preparing
                     show = option.value === 'preparing' || option.value === normalized;
                 }
                 option.hidden = !show;
@@ -974,6 +989,8 @@
             if (s === 'walk-in' || s === 'walk_in' || s === 'walk in') return 'walk_in';
             if (s === 'preparing') return 'preparing';
             if (s === 'assigned') return 'assigned';
+            if (s === 'ready') return 'ready';
+            if (s === 'out for delivery' || s === 'out_for_delivery') return 'out_for_delivery';
             if (s === 'completed' || s === 'delivered') return 'completed';
             if (s === 'cancelled') return 'cancelled';
             return 'pending';
@@ -1009,7 +1026,7 @@
 
         function configureEditFormFields(statusKey) {
             const normalized = normalizeEditStatusKey(statusKey);
-            const limitedEdit = normalized === 'pending' || normalized === 'assigned';
+            const limitedEdit = normalized === 'pending' || normalized === 'assigned' || normalized === 'preparing';
 
             editFullFields.forEach((wrapper) => setEditFullFieldState(wrapper, !limitedEdit));
             setEditStatusOptions(limitedEdit, normalized);
@@ -1132,6 +1149,8 @@
                 if (s === 'walk-in' || s === 'walk_in' || s === 'walk in') return 'walk_in';
                 if (s === 'preparing') return 'preparing';
                 if (s === 'assigned') return 'assigned';
+                if (s === 'ready') return 'ready';
+                if (s === 'out for delivery' || s === 'out_for_delivery') return 'out_for_delivery';
                 if (s === 'completed' || s === 'delivered') return 'completed';
                 if (s === 'cancelled') return 'cancelled';
                 return 'pending';
@@ -1299,12 +1318,20 @@
                 </button>`;
                 }
 
-                // ASSIGNED → REASSIGN
-                else if (statusKey === 'assigned') {
+                // ASSIGNED / READY / OUT FOR DELIVERY → REASSIGN + EDIT
+                else if (statusKey === 'assigned' || statusKey === 'ready' || statusKey === 'out_for_delivery') {
                     actionHtml += `
                 <button class="action-btn reassign">
                     <span class="material-symbols-outlined">person_edit</span>
                 </button>
+                <button type="button" class="action-btn edit-order">
+                    <span class="material-symbols-outlined">edit</span>
+                </button>`;
+                }
+
+                // PREPARING → EDIT ONLY (change status to Ready)
+                else if (statusKey === 'preparing') {
+                    actionHtml += `
                 <button type="button" class="action-btn edit-order">
                     <span class="material-symbols-outlined">edit</span>
                 </button>`;
@@ -1364,7 +1391,7 @@
 
             async function fetchAndRefreshOrders() {
                 try {
-                    const res = await fetch('{{ route('admin.orders.list') }}', {
+                    const res = await fetch('{{ route('admin.orders.list') }}?scope=this_month', {
                         method: 'GET',
                         headers: {
                             'Accept': 'application/json',
@@ -1591,6 +1618,8 @@
             if (s === 'walk-in' || s === 'walk_in' || s === 'walk in') return 'Walk-In';
             if (s === 'preparing') return 'Preparing';
             if (s === 'assigned') return 'Assigned';
+            if (s === 'ready') return 'Ready';
+            if (s === 'out for delivery' || s === 'out_for_delivery') return 'Out for Delivery';
             if (s === 'completed' || s === 'delivered') return 'Delivered';
             if (s === 'cancelled') return 'Cancelled';
             return 'Pending';
@@ -1601,6 +1630,8 @@
             if (s === 'walk-in' || s === 'walk_in' || s === 'walk in') return 'walk_in';
             if (s === 'preparing') return 'preparing';
             if (s === 'assigned') return 'assigned';
+            if (s === 'ready') return 'ready';
+            if (s === 'out for delivery' || s === 'out_for_delivery') return 'out_for_delivery';
             if (s === 'completed' || s === 'delivered') return 'completed';
             if (s === 'cancelled') return 'cancelled';
             return 'pending';

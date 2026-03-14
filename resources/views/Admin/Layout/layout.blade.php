@@ -140,6 +140,13 @@
                     </a>
                 </li>
 
+                <li class="{{ request()->routeIs('admin.records') ? 'active' : '' }}">
+                    <a href="{{ route('admin.records') }}">
+                        <span class="material-symbols-outlined">history</span>
+                        Records
+                    </a>
+                </li>
+
                 <li class="{{ request()->routeIs('admin.drivers') ? 'active' : '' }}">
                     <a href="{{ route('admin.drivers') }}">
                         <span class="material-symbols-outlined">groups</span>

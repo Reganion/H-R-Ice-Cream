@@ -26,6 +26,8 @@ class AdminOrderController extends Controller
             'assigned' => 'Assigned',
             'completed', 'delivered' => 'Completed',
             'cancelled', 'canceled' => 'Cancelled',
+            'ready' => 'Ready',
+            'out-for-delivery', 'out_for_delivery', 'out for delivery' => 'Out for Delivery',
             default => 'pending',
         };
     }
@@ -59,25 +61,46 @@ class AdminOrderController extends Controller
             return 'cancelled';
         }
 
+        if ($normalized === 'ready') {
+            return 'ready';
+        }
+
+        if ($normalized === 'out-for-delivery' || $normalized === 'out_for_delivery') {
+            return 'out_for_delivery';
+        }
+
         return $normalized;
     }
 
     /**
      * Return orders as JSON for real-time polling on the admin orders page.
+     * When scope=this_month, only returns orders from the start of the current month.
      */
     public function listJson(Request $request)
     {
-        $orders = Order::query()
-            ->with(['driver', 'customer'])
+        $query = Order::query()
+            ->with(['driver', 'customer']);
+
+        if ($request->get('scope') === 'this_month') {
+            $query->where('created_at', '>=', Carbon::now()->startOfMonth());
+        }
+
+        if ($request->get('scope') === 'records') {
+            $query->whereRaw("LOWER(TRIM(status)) IN ('completed', 'delivered', 'cancelled')");
+        }
+
+        $orders = $query
             ->orderByRaw("
                 CASE
-                    WHEN LOWER(status) IN ('pending', 'new_order') THEN 1
-                    WHEN LOWER(status) = 'preparing' THEN 2
-                    WHEN LOWER(status) IN ('walk_in', 'walk-in', 'walk in', 'walkin') THEN 3
-                    WHEN LOWER(status) = 'assigned' THEN 4
-                    WHEN LOWER(status) IN ('completed', 'delivered') THEN 5
-                    WHEN LOWER(status) = 'cancelled' THEN 6
-                    ELSE 7
+                    WHEN LOWER(TRIM(status)) IN ('pending', 'new_order') THEN 1
+                    WHEN LOWER(TRIM(status)) = 'preparing' THEN 2
+                    WHEN LOWER(TRIM(status)) IN ('walk_in', 'walk-in', 'walk in', 'walkin') THEN 3
+                    WHEN LOWER(TRIM(status)) = 'assigned' THEN 4
+                    WHEN LOWER(TRIM(status)) = 'ready' THEN 5
+                    WHEN LOWER(TRIM(status)) IN ('out for delivery', 'out_for_delivery') THEN 6
+                    WHEN LOWER(TRIM(status)) IN ('completed', 'delivered') THEN 7
+                    WHEN LOWER(TRIM(status)) = 'cancelled' THEN 8
+                    ELSE 9
                 END
             ")
             ->orderBy('created_at', 'desc')
@@ -233,8 +256,8 @@ class AdminOrderController extends Controller
         $order = Order::findOrFail($id);
         $currentStatus = $this->normalizeOrderStatus($order->status);
 
-        // For pending/assigned orders, only allow flavor, quantity, and status edits.
-        if (in_array($currentStatus, ['pending', 'assigned'], true)) {
+        // For pending/assigned/preparing orders, only allow flavor, quantity, and status edits.
+        if (in_array($currentStatus, ['pending', 'assigned', 'preparing'], true)) {
             $request->validate([
                 'product_name' => 'required|string|max:255',
                 'gallon_size' => 'required|string|max:50',
@@ -243,9 +266,16 @@ class AdminOrderController extends Controller
             ]);
 
             $requestedStatus = $this->normalizeOrderStatus($request->input('status'));
-            if (!in_array($requestedStatus, ['preparing', $currentStatus], true)) {
+            $allowedNext = match ($currentStatus) {
+                'pending', 'assigned' => ['preparing', $currentStatus],
+                'preparing' => ['preparing', 'ready'],
+                default => [$currentStatus],
+            };
+            if (!in_array($requestedStatus, $allowedNext, true)) {
                 return back()->withErrors([
-                    'status' => 'For this order, status can only be the previous status or Preparing.',
+                    'status' => $currentStatus === 'preparing'
+                        ? 'For this order, status can only be Preparing or Ready.'
+                        : 'For this order, status can only be the previous status or Preparing.',
                 ])->withInput();
             }
 

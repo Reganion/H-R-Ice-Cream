@@ -25,8 +25,11 @@ class AdminPagesController extends Controller
         $now = Carbon::now();
         $startOfThisMonth = $now->copy()->startOfMonth();
         $endOfThisMonth = $now->copy()->endOfMonth();
-        $startOfLastMonth = $now->copy()->subMonth()->startOfMonth();
-        $endOfLastMonth = $now->copy()->subMonth()->endOfMonth();
+        $throughToday = $now->copy()->endOfDay(); // Summary boxes: from start of this month through today only
+        // Last month = calendar month before this one (same date logic as bar chart & completed-orders modal)
+        $firstDayLastMonth = $now->copy()->startOfMonth()->subMonthNoOverflow();
+        $startOfLastMonth = $firstDayLastMonth->copy()->startOfMonth();
+        $endOfLastMonth = $firstDayLastMonth->copy()->endOfMonth();
         $currentYear = (int) $now->year;
         $currentMonth = $now->format('Y-m');
         $availableYears = $this->getDashboardAvailableYears($currentYear);
@@ -37,15 +40,17 @@ class AdminPagesController extends Controller
             $selectedMonth = $currentMonth;
         }
 
-        $totalOrders = $this->countOrdersBetween($startOfThisMonth, $endOfThisMonth);
-        $assignedCount = $this->countOrdersByStatusBetween('assigned', $startOfThisMonth, $endOfThisMonth);
-        $pendingCount = $this->countOrdersByStatusBetween('pending', $startOfThisMonth, $endOfThisMonth);
-        $completedCount = $this->countOrdersByStatusBetween('completed', $startOfThisMonth, $endOfThisMonth);
+        // Summary boxes: orders from start of this month through today
+        $totalOrders = $this->countOrdersBetween($startOfThisMonth, $throughToday);
+        $assignedCount = $this->countOrdersByStatusBetween('assigned', $startOfThisMonth, $throughToday);
+        $pendingCount = $this->countOrdersByStatusBetween('pending', $startOfThisMonth, $throughToday);
+        $completedCount = $this->countOrdersByStatusBetween('completed', $startOfThisMonth, $throughToday);
 
-        $totalLastMonth = $this->countOrdersBetween($startOfLastMonth, $endOfLastMonth);
-        $assignedLastMonth = $this->countOrdersByStatusBetween('assigned', $startOfLastMonth, $endOfLastMonth);
-        $pendingLastMonth = $this->countOrdersByStatusBetween('pending', $startOfLastMonth, $endOfLastMonth);
-        $completedLastMonth = $this->countOrdersByStatusBetween('completed', $startOfLastMonth, $endOfLastMonth);
+        // Use same date as bar chart & modal: COALESCE(delivery_date, created_at) so "last month" matches
+        $totalLastMonth = $this->countOrdersByOrderDateBetween($startOfLastMonth, $endOfLastMonth);
+        $assignedLastMonth = $this->countOrdersByStatusAndOrderDateBetween('assigned', $startOfLastMonth, $endOfLastMonth);
+        $pendingLastMonth = $this->countOrdersByStatusAndOrderDateBetween('pending', $startOfLastMonth, $endOfLastMonth);
+        $completedLastMonth = $this->countOrdersByStatusAndOrderDateBetween('completed', $startOfLastMonth, $endOfLastMonth);
 
         $topSellersForMonth = $this->getTopSellersForMonth($selectedMonth);
         $chartData = $this->getDashboardChartData($selectedYear);
@@ -72,25 +77,70 @@ class AdminPagesController extends Controller
         ));
     }
 
+    /**
+     * Count orders by created_at in the date range (same as Orders page: "from start of this month").
+     * Includes all statuses so Total Orders matches the count on the Orders page.
+     */
     private function countOrdersBetween(Carbon $startDate, Carbon $endDate): int
     {
         return Order::query()
-            ->whereRaw(
-                'DATE(COALESCE(delivery_date, created_at)) BETWEEN ? AND ?',
-                [$startDate->toDateString(), $endDate->toDateString()]
-            )
+            ->whereBetween('created_at', [$startDate, $endDate])
             ->count();
     }
 
+    /**
+     * Count orders by status, using created_at for date range (consistent with Orders page and Total).
+     * 'completed' matches both completed and delivered.
+     */
     private function countOrdersByStatusBetween(string $status, Carbon $startDate, Carbon $endDate): int
     {
+        $status = strtolower(trim($status));
+        $query = Order::query()
+            ->whereBetween('created_at', [$startDate, $endDate]);
+
+        if ($status === 'completed') {
+            $query->whereRaw("LOWER(TRIM(status)) IN ('completed', 'delivered')");
+        } else {
+            $query->whereRaw('LOWER(TRIM(status)) = ?', [$status]);
+        }
+
+        return $query->count();
+    }
+
+    /**
+     * Count orders by order date (delivery_date or created_at) in the range.
+     * Matches bar chart and completed-orders modal so "last month" summary is consistent.
+     */
+    private function countOrdersByOrderDateBetween(Carbon $startDate, Carbon $endDate): int
+    {
         return Order::query()
-            ->whereRaw(
-                'DATE(COALESCE(delivery_date, created_at)) BETWEEN ? AND ?',
-                [$startDate->toDateString(), $endDate->toDateString()]
-            )
-            ->whereRaw('LOWER(status) = ?', [strtolower($status)])
+            ->whereRaw('DATE(COALESCE(delivery_date, created_at)) BETWEEN ? AND ?', [
+                $startDate->toDateString(),
+                $endDate->toDateString(),
+            ])
             ->count();
+    }
+
+    /**
+     * Count orders by status, using order date (delivery_date or created_at) for the range.
+     * 'completed' matches both completed and delivered. Used for "last month" summary to match bar chart.
+     */
+    private function countOrdersByStatusAndOrderDateBetween(string $status, Carbon $startDate, Carbon $endDate): int
+    {
+        $status = strtolower(trim($status));
+        $query = Order::query()
+            ->whereRaw('DATE(COALESCE(delivery_date, created_at)) BETWEEN ? AND ?', [
+                $startDate->toDateString(),
+                $endDate->toDateString(),
+            ]);
+
+        if ($status === 'completed') {
+            $query->whereRaw("LOWER(TRIM(status)) IN ('completed', 'delivered')");
+        } else {
+            $query->whereRaw('LOWER(TRIM(status)) = ?', [$status]);
+        }
+
+        return $query->count();
     }
 
     public function dashboardChartData(Request $request)
@@ -370,15 +420,18 @@ class AdminPagesController extends Controller
     public function orders()
     {
         $orders = Order::query()
+            ->where('created_at', '>=', Carbon::now()->startOfMonth())
             ->orderByRaw("
                 CASE
-                    WHEN LOWER(status) = 'pending' THEN 1
-                    WHEN LOWER(status) = 'preparing' THEN 2
-                    WHEN LOWER(status) IN ('walk_in', 'walk-in', 'walk in', 'walkin') THEN 3
-                    WHEN LOWER(status) = 'assigned' THEN 4
-                    WHEN LOWER(status) IN ('completed', 'delivered') THEN 5
-                    WHEN LOWER(status) = 'cancelled' THEN 6
-                    ELSE 7
+                    WHEN LOWER(TRIM(status)) = 'pending' THEN 1
+                    WHEN LOWER(TRIM(status)) = 'preparing' THEN 2
+                    WHEN LOWER(TRIM(status)) IN ('walk_in', 'walk-in', 'walk in', 'walkin') THEN 3
+                    WHEN LOWER(TRIM(status)) = 'assigned' THEN 4
+                    WHEN LOWER(TRIM(status)) = 'ready' THEN 5
+                    WHEN LOWER(TRIM(status)) IN ('out for delivery', 'out_for_delivery') THEN 6
+                    WHEN LOWER(TRIM(status)) IN ('completed', 'delivered') THEN 7
+                    WHEN LOWER(TRIM(status)) = 'cancelled' THEN 8
+                    ELSE 9
                 END
             ")
             ->orderBy('created_at', 'desc')
@@ -386,6 +439,11 @@ class AdminPagesController extends Controller
         $flavors = Flavor::orderBy('name', 'asc')->get();
         $gallons = Gallon::orderBy('size', 'asc')->get();
         return view('admin.orders', compact('orders', 'flavors', 'gallons'));
+    }
+
+    public function records()
+    {
+        return view('admin.records');
     }
 
     public function drivers()

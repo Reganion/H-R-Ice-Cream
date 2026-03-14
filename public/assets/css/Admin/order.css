@@ -198,6 +198,14 @@ ORDERS PAGE
     color: #2563eb;
 }
 
+.status-badge.ready {
+    color: #059669;
+}
+
+.status-badge.out_for_delivery {
+    color: #7c3aed;
+}
+
 .status-badge.preparing {
     color: #0ea5e9;
 }
@@ -500,6 +508,44 @@ RESPONSIVE FIXES
     width: 16px;
     height: 16px;
     accent-color: #2563eb;
+}
+
+/* DATE FILTER (e.g. Records page) */
+.orders-date-filter {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.orders-date-filter-icon {
+    color: #666;
+    font-size: 20px;
+}
+
+.orders-date-input {
+    padding: 8px 10px;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    font-size: 13px;
+    color: #333;
+    background: #fff;
+    min-width: 0;
+}
+
+.orders-date-input:focus {
+    outline: none;
+    border-color: #2563eb;
+    box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15);
+}
+
+.orders-date-sep {
+    color: #888;
+    font-size: 13px;
+    font-weight: 500;
 }
 
 /* =========================
@@ -1203,6 +1249,14 @@ ORDER DETAILS MODAL (Orders page slide-over)
 
 .status-badge-details.assigned {
     background: #2563eb;
+}
+
+.status-badge-details.ready {
+    background: #059669;
+}
+
+.status-badge-details.out_for_delivery {
+    background: #7c3aed;
 }
 
 .status-badge-details.preparing {
