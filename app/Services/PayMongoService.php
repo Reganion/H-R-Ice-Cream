@@ -9,21 +9,25 @@ use Illuminate\Support\Facades\Log;
 class PayMongoService
 {
 
-    public function createPaymentIntent($amount, $description)
+    public function createPaymentIntent($amount, $description, $idempotencyKey = null)
     {
         $secretKey = env('PAYMONGO_SECRET_KEY');
 
-        $response = Http::withBasicAuth($secretKey, '')
-            ->post('https://api.paymongo.com/v1/payment_intents', [
-                'data' => [
-                    'attributes' => [
-                        'amount' => $amount, // in centavos (₱1 = 100)
-                        'currency' => 'PHP',
-                        'payment_method_allowed' => ['qrph'],
-                        'description' => $description,
-                    ]
+        $request = Http::withBasicAuth($secretKey, '');
+        if ($idempotencyKey !== null && $idempotencyKey !== '') {
+            $request = $request->withHeaders(['Idempotency-Key' => $idempotencyKey]);
+        }
+
+        $response = $request->post('https://api.paymongo.com/v1/payment_intents', [
+            'data' => [
+                'attributes' => [
+                    'amount' => $amount, // in centavos (₱1 = 100)
+                    'currency' => 'PHP',
+                    'payment_method_allowed' => ['qrph'],
+                    'description' => $description,
                 ]
-            ]);
+            ]
+        ]);
 
         $responseJson = $response->json();
 

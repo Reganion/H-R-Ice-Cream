@@ -151,6 +151,7 @@ class ApiOrderMessageController extends Controller
         $perPage = min(max((int) $request->query('per_page', 50), 1), 100);
         $messages = OrderMessage::query()
             ->where('order_id', $order->id)
+            ->where('customer_status', OrderMessage::CUSTOMER_STATUS_ACTIVE)
             ->orderBy('created_at')
             ->paginate($perPage);
 
@@ -213,6 +214,7 @@ class ApiOrderMessageController extends Controller
             'customer_id' => (int) $customer->id,
             'sender_type' => OrderMessage::SENDER_CUSTOMER,
             'message' => trim((string) $request->input('message')),
+            'customer_status' => OrderMessage::CUSTOMER_STATUS_ACTIVE,
         ]);
 
         return response()->json([
@@ -249,6 +251,121 @@ class ApiOrderMessageController extends Controller
         ]);
     }
 
+    /**
+     * Customer: archive all messages in this order thread (soft-delete from customer view).
+     * POST /api/v1/orders/{id}/messages/archive
+     */
+    public function customerArchive(Request $request, int $id): JsonResponse
+    {
+        $customer = $request->user();
+        if (!$customer instanceof Customer) {
+            return response()->json(['success' => false, 'message' => 'Invalid user.'], 401);
+        }
+
+        $order = $this->resolveCustomerOrder($customer, $id);
+        if (!$order) {
+            return response()->json(['success' => false, 'message' => 'Order not found.'], 404);
+        }
+
+        // Update all messages in this thread (order already verified as customer's)
+        $updated = OrderMessage::query()
+            ->where('order_id', $order->id)
+            ->update(['customer_status' => OrderMessage::CUSTOMER_STATUS_ARCHIVE]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Messages archived.',
+            'archived_count' => $updated,
+        ]);
+    }
+
+    /**
+     * Customer: archive selected messages (soft-delete from customer view).
+     * Messages may belong to the given order or any other order owned by the customer (e.g. merged thread).
+     * POST /api/v1/orders/{id}/messages/archive-selected
+     */
+    public function customerArchiveSelected(Request $request, int $id): JsonResponse
+    {
+        $customer = $request->user();
+        if (!$customer instanceof Customer) {
+            return response()->json(['success' => false, 'message' => 'Invalid user.'], 401);
+        }
+
+        // Ensure the order in the URL belongs to the customer (validates access)
+        $order = $this->resolveCustomerOrder($customer, $id);
+        if (!$order) {
+            return response()->json(['success' => false, 'message' => 'Order not found.'], 404);
+        }
+
+        $request->validate([
+            'message_ids' => ['required', 'array'],
+            'message_ids.*' => ['nullable'],
+        ]);
+
+        $rawIds = $request->input('message_ids', []);
+        $messageIds = array_values(array_unique(array_filter(array_map(function ($v) {
+            $id = is_numeric($v) ? (int) $v : null;
+            return $id > 0 ? $id : null;
+        }, $rawIds))));
+
+        if ($messageIds === []) {
+            return response()->json(['success' => false, 'message' => 'No valid message IDs provided.'], 422);
+        }
+
+        // Only update messages that belong to an order owned by this customer (supports merged threads)
+        $customerOrderIds = Order::query()
+            ->where('customer_id', $customer->id)
+            ->pluck('id')
+            ->all();
+
+        if ($customerOrderIds === []) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Selected messages archived.',
+                'archived_count' => 0,
+            ]);
+        }
+
+        $updated = OrderMessage::query()
+            ->whereIn('order_id', $customerOrderIds)
+            ->whereIn('id', $messageIds)
+            ->update(['customer_status' => OrderMessage::CUSTOMER_STATUS_ARCHIVE]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Selected messages archived.',
+            'archived_count' => $updated,
+        ]);
+    }
+
+    /**
+     * Customer: restore archived messages in this order thread.
+     * POST /api/v1/orders/{id}/messages/unarchive
+     */
+    public function customerUnarchive(Request $request, int $id): JsonResponse
+    {
+        $customer = $request->user();
+        if (!$customer instanceof Customer) {
+            return response()->json(['success' => false, 'message' => 'Invalid user.'], 401);
+        }
+
+        $order = $this->resolveCustomerOrder($customer, $id);
+        if (!$order) {
+            return response()->json(['success' => false, 'message' => 'Order not found.'], 404);
+        }
+
+        // Update all messages in this thread (order already verified as customer's)
+        $updated = OrderMessage::query()
+            ->where('order_id', $order->id)
+            ->update(['customer_status' => OrderMessage::CUSTOMER_STATUS_ACTIVE]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Messages restored.',
+            'restored_count' => $updated,
+        ]);
+    }
+
     private function resolveDriverOrder(Driver $driver, int $orderId): ?Order
     {
         return Order::query()
@@ -269,7 +386,7 @@ class ApiOrderMessageController extends Controller
 
     private function formatMessage(OrderMessage $message, string $currentSenderType): array
     {
-        return [
+        $payload = [
             'id' => $message->id,
             'order_id' => (int) $message->order_id,
             'driver_id' => (int) $message->driver_id,
@@ -280,5 +397,9 @@ class ApiOrderMessageController extends Controller
             'created_at' => $message->created_at?->toIso8601String(),
             'read_at' => $message->read_at?->toIso8601String(),
         ];
+        if (\in_array('customer_status', $message->getFillable(), true)) {
+            $payload['customer_status'] = $message->customer_status ?? OrderMessage::CUSTOMER_STATUS_ACTIVE;
+        }
+        return $payload;
     }
 }

@@ -12,6 +12,10 @@ class OrderMessage extends Model
     public const STATUS_ACTIVE = 'active';
     public const STATUS_ARCHIVE = 'archive';
 
+    /** Customer-facing status: Active = visible, Archive = hidden (soft-deleted by customer) */
+    public const CUSTOMER_STATUS_ACTIVE = 'active';
+    public const CUSTOMER_STATUS_ARCHIVE = 'archive';
+
     protected $fillable = [
         'order_id',
         'driver_id',
@@ -19,6 +23,7 @@ class OrderMessage extends Model
         'sender_type',
         'message',
         'status',
+        'customer_status',
         'read_at',
     ];
 

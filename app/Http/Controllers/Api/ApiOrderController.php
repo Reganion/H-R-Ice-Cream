@@ -9,6 +9,7 @@ use App\Models\CustomerNotification;
 use App\Models\Feedback;
 use App\Models\Flavor;
 use App\Models\Order;
+use App\Models\OrderMessage;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -48,6 +49,18 @@ class ApiOrderController extends Controller
             $this->applyStatusInFilter($query, self::STATUS_CANCELLED);
         }
         // 'all' or any other value: no status filter
+
+        // For Messages > Driver Chats: only orders with driver that have at least one active message (or no messages yet).
+        // Archived threads (all messages customer_status = archive) are hidden.
+        if ($request->query('for_driver_chats')) {
+            $query->whereNotNull('driver_id')->where(function (Builder $q) use ($user) {
+                $q->whereDoesntHave('messages')
+                    ->orWhereHas('messages', function (Builder $mq) use ($user) {
+                        $mq->where('customer_id', $user->id)
+                            ->where('customer_status', OrderMessage::CUSTOMER_STATUS_ACTIVE);
+                    });
+            });
+        }
 
         $orders = $query->orderBy('created_at', 'desc')
             ->get()

@@ -82,6 +82,7 @@ Route::prefix('v1')->group(function () {
         Route::post('/orders/{id}/messages', [ApiOrderMessageController::class, 'customerSend']);
         Route::post('/orders/{id}/messages/read', [ApiOrderMessageController::class, 'customerMarkRead']);
         Route::post('/orders/{id}/messages/archive', [ApiOrderMessageController::class, 'customerArchive']);
+        Route::post('/orders/{id}/messages/archive-selected', [ApiOrderMessageController::class, 'customerArchiveSelected']);
         Route::post('/orders/{id}/messages/unarchive', [ApiOrderMessageController::class, 'customerUnarchive']);
         // Favorites (heart icon): list, add/remove toggle, check, delete
         Route::get('/favorites', [ApiFavoriteController::class, 'index']);

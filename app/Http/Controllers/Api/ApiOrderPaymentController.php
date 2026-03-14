@@ -45,25 +45,16 @@ class ApiOrderPaymentController extends Controller
 
     /**
      * Create a PaymentIntent for customer downpayment (QRPH) and a pending invoice.
+     * Order is created only after payment succeeds (no order record until paid).
      * Flutter mobile app calls this after "Place Order" when payment method is Gcash/QRPH.
      *
      * Body (JSON):
      * - product_name, product_type, gallon_size, delivery_date, delivery_time, delivery_address
      * - amount (full order amount), quantity/qty
      * - payment_method ("Gcash" / "QRPH"), downpayment_percent (0.25, 0.5, 0.75, 1.0)
+     * - idempotency_key (optional): unique key per "Place Order" to avoid duplicate on retry
      *
-     * Response (200):
-     * {
-     *   "success": true,
-     *   "message": "...",
-     *   "data": {
-     *     "order_id": 123,
-     *     "invoice_id": 10,
-     *     "payment_intent_id": "pi_xxx",
-     *     "qr_image_url": "https://...",
-     *     "downpayment_amount": 500.00
-     *   }
-     * }
+     * Response (200): order_id is null until payment succeeds; use invoice_id for status polling.
      */
     public function createDownpayment(Request $request): JsonResponse
     {
@@ -79,6 +70,7 @@ class ApiOrderPaymentController extends Controller
             'downpayment_percent' => 'required|numeric|min:0.25|max:1.0',
             'quantity' => 'nullable|integer|min:1',
             'qty' => 'nullable|integer|min:1',
+            'idempotency_key' => 'nullable|string|max:64',
         ]);
 
         $user = $request->user();
@@ -87,6 +79,30 @@ class ApiOrderPaymentController extends Controller
                 'success' => false,
                 'message' => 'Invalid user.',
             ], 401);
+        }
+
+        $idempotencyKey = $request->input('idempotency_key');
+        if ($idempotencyKey !== null && $idempotencyKey !== '') {
+            $existing = Invoice::where('idempotency_key', $idempotencyKey)->first();
+            if ($existing) {
+                $ownerId = $existing->customer_id ?? $existing->order?->customer_id;
+                if ($ownerId !== null && (int) $ownerId === (int) $user->id) {
+                    $order = $existing->order;
+                    $balance = $order ? (float) $order->balance : (float) ($existing->order_payload['balance'] ?? 0);
+                    return response()->json([
+                        'success' => true,
+                        'message' => 'Downpayment already initialized.',
+                        'data' => [
+                            'order_id' => $order?->id,
+                            'invoice_id' => $existing->id,
+                            'payment_intent_id' => $existing->payment_intent_id,
+                            'qr_image_url' => $existing->qr_image_url,
+                            'downpayment_amount' => (float) $existing->amount,
+                            'balance' => $balance,
+                        ],
+                    ]);
+                }
+            }
         }
 
         $percent = (float) $request->downpayment_percent;
@@ -115,11 +131,47 @@ class ApiOrderPaymentController extends Controller
         $flavor = Flavor::where('name', $request->product_name)->first();
         $productImage = $flavor?->image ?? 'img/default-product.png';
 
-        // Note: some existing databases may use an ENUM for `status` that does not
-        // include "awaiting_downpayment". To avoid SQL truncation errors, we use
-        // "pending" (which already exists in the enum) and let the Invoice status
-        // represent whether the downpayment has actually been paid or not.
-        $order = Order::create([
+        $description = sprintf(
+            'Downpayment %.0f%% - %s',
+            $percent * 100,
+            $request->product_name
+        );
+
+        $paymentIntent = $this->paymongo->createPaymentIntent($downpaymentCentavos, $description, $idempotencyKey);
+        if (!$paymentIntent || !isset($paymentIntent['id'])) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Could not initialize payment. Please try again.',
+            ], 502);
+        }
+
+        $paymentMethod = $this->paymongo->createQrphPaymentMethod(
+            $customerName,
+            $user->email,
+            $customerPhone
+        );
+
+        if (!$paymentMethod || !isset($paymentMethod['id'])) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Could not initialize payment method. Please try again.',
+            ], 502);
+        }
+
+        $attachResponse = $this->paymongo->attachPaymentMethodToIntent(
+            $paymentIntent['id'],
+            $paymentMethod['id']
+        );
+
+        $qrImageUrl = $attachResponse['data']['attributes']['next_action']['code']['image_url'] ?? null;
+        if (!$qrImageUrl) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Could not generate QR code. Please try again.',
+            ], 502);
+        }
+
+        $orderPayload = [
             'customer_id' => $user->id,
             'transaction_id' => strtoupper(Str::random(10)),
             'product_name' => $request->product_name,
@@ -138,93 +190,27 @@ class ApiOrderPaymentController extends Controller
             'qty' => $quantity,
             'payment_method' => $request->payment_method,
             'status' => 'pending',
-        ]);
-
-        $description = sprintf(
-            'Downpayment %.0f%% for Order #%s',
-            $percent * 100,
-            $order->transaction_id
-        );
-
-        $paymentIntent = $this->paymongo->createPaymentIntent($downpaymentCentavos, $description);
-        if (!$paymentIntent || !isset($paymentIntent['id'])) {
-            $order->update(['status' => 'cancelled', 'reason' => 'Failed to create payment intent.']);
-
-            return response()->json([
-                'success' => false,
-                'message' => 'Could not initialize payment. Please try again.',
-            ], 502);
-        }
-
-        $paymentMethod = $this->paymongo->createQrphPaymentMethod(
-            $customerName,
-            $user->email,
-            $customerPhone
-        );
-
-        if (!$paymentMethod || !isset($paymentMethod['id'])) {
-            $order->update(['status' => 'cancelled', 'reason' => 'Failed to create QRPH payment method.']);
-
-            return response()->json([
-                'success' => false,
-                'message' => 'Could not initialize payment method. Please try again.',
-            ], 502);
-        }
-
-        $attachResponse = $this->paymongo->attachPaymentMethodToIntent(
-            $paymentIntent['id'],
-            $paymentMethod['id']
-        );
-
-        $qrImageUrl = $attachResponse['data']['attributes']['next_action']['code']['image_url'] ?? null;
-        if (!$qrImageUrl) {
-            $order->update(['status' => 'cancelled', 'reason' => 'Failed to get QR code image.']);
-
-            return response()->json([
-                'success' => false,
-                'message' => 'Could not generate QR code. Please try again.',
-            ], 502);
-        }
+        ];
 
         $invoice = Invoice::create([
-            'order_id' => $order->id,
+            'order_id' => null,
+            'customer_id' => $user->id,
+            'order_payload' => $orderPayload,
+            'idempotency_key' => $idempotencyKey ?: null,
             'payment_intent_id' => $paymentIntent['id'],
             'source_id' => $paymentMethod['id'],
             'amount' => $downpaymentAmount,
             'currency' => 'PHP',
             'status' => 'pending',
             'payment_method' => 'qrph',
+            'qr_image_url' => $qrImageUrl,
         ]);
-
-        CustomerNotification::create([
-            'customer_id'   => $user->id,
-            'type'          => CustomerNotification::TYPE_ORDER_PLACED,
-            'title'         => $order->product_name,
-            'message'       => 'Please complete the downpayment to confirm your order.',
-            'image_url'     => $productImage,
-            'related_type'  => 'Order',
-            'related_id'    => $order->id,
-            'data'          => ['transaction_id' => $order->transaction_id],
-        ]);
-
-        AdminNotification::createForAllAdmins(
-            AdminNotification::TYPE_ORDER_NEW,
-            $customerName,
-            null,
-            $productImage,
-            'Order',
-            $order->id,
-            [
-                'subtitle' => 'Order #' . $order->transaction_id,
-                'highlight' => $order->product_name . ' (awaiting downpayment)',
-            ]
-        );
 
         return response()->json([
             'success' => true,
             'message' => 'Downpayment initialized. Scan the QR code to pay.',
             'data' => [
-                'order_id' => $order->id,
+                'order_id' => null,
                 'invoice_id' => $invoice->id,
                 'payment_intent_id' => $paymentIntent['id'],
                 'qr_image_url' => $qrImageUrl,
@@ -236,6 +222,7 @@ class ApiOrderPaymentController extends Controller
 
     /**
      * Check PayMongo status for a downpayment and update invoice/order.
+     * When payment succeeds, Order is created from stored payload and linked to invoice.
      * GET /api/v1/orders/downpayment/status/{invoice}
      */
     public function checkDownpaymentStatus(Request $request, Invoice $invoice): JsonResponse
@@ -248,8 +235,8 @@ class ApiOrderPaymentController extends Controller
             ], 401);
         }
 
-        $order = $invoice->order;
-        if (!$order || (int) $order->customer_id !== (int) $user->id) {
+        $ownerId = $invoice->customer_id ?? $invoice->order?->customer_id;
+        if ($ownerId === null || (int) $ownerId !== (int) $user->id) {
             return response()->json([
                 'success' => false,
                 'message' => 'Invoice not found.',
@@ -266,43 +253,101 @@ class ApiOrderPaymentController extends Controller
         $status = $this->paymongo->getPaymentStatus($invoice->payment_intent_id);
 
         if ($status === 'succeeded' && $invoice->status !== 'paid') {
+            $order = $invoice->order;
+
+            if ($order === null && is_array($invoice->order_payload) && !empty($invoice->order_payload)) {
+                $payload = $invoice->order_payload;
+                $order = Order::create([
+                    'customer_id' => $payload['customer_id'],
+                    'transaction_id' => $payload['transaction_id'],
+                    'product_name' => $payload['product_name'],
+                    'product_type' => $payload['product_type'],
+                    'gallon_size' => $payload['gallon_size'],
+                    'product_image' => $payload['product_image'] ?? 'img/default-product.png',
+                    'customer_name' => $payload['customer_name'],
+                    'customer_phone' => $payload['customer_phone'],
+                    'customer_image' => $payload['customer_image'] ?? 'img/default-user.png',
+                    'delivery_date' => $payload['delivery_date'],
+                    'delivery_time' => $payload['delivery_time'],
+                    'delivery_address' => $payload['delivery_address'],
+                    'amount' => $payload['amount'],
+                    'downpayment' => $payload['downpayment'],
+                    'balance' => $payload['balance'],
+                    'qty' => $payload['qty'],
+                    'payment_method' => $payload['payment_method'],
+                    'status' => 'pending',
+                ]);
+                $invoice->order_id = $order->id;
+                $invoice->save();
+
+                $productImage = $order->product_image ?? 'img/default-product.png';
+                CustomerNotification::create([
+                    'customer_id'   => $order->customer_id,
+                    'type'          => CustomerNotification::TYPE_ORDER_PLACED,
+                    'title'         => $order->product_name,
+                    'message'       => 'Your downpayment was received. Order confirmed.',
+                    'image_url'     => $productImage,
+                    'related_type'  => 'Order',
+                    'related_id'    => $order->id,
+                    'data'          => ['transaction_id' => $order->transaction_id],
+                ]);
+                AdminNotification::createForAllAdmins(
+                    AdminNotification::TYPE_ORDER_NEW,
+                    $order->customer_name,
+                    null,
+                    $productImage,
+                    'Order',
+                    $order->id,
+                    [
+                        'subtitle' => 'Order #' . $order->transaction_id,
+                        'highlight' => $order->product_name,
+                    ]
+                );
+            }
+
             $invoice->status = 'paid';
             $invoice->save();
 
-            // Track received amount and recompute remaining balance on the order.
-            $currentReceived = (float) ($order->received_amount ?? 0.0);
-            $newReceived = $currentReceived + (float) $invoice->amount;
-            $order->received_amount = $newReceived;
-            $order->balance = max(0, (float) $order->amount - $newReceived);
-            $order->save();
-
-            // If order is still in an initial state (e.g. pending), keep it as pending.
-            // We don't change non-initial states here.
+            if ($order !== null) {
+                $currentReceived = (float) ($order->received_amount ?? 0.0);
+                $newReceived = $currentReceived + (float) $invoice->amount;
+                $order->received_amount = $newReceived;
+                $order->balance = max(0, (float) $order->amount - $newReceived);
+                $order->save();
+            }
         } elseif (in_array($status, ['failed', 'cancelled'], true) && $invoice->status !== 'failed') {
             $invoice->status = 'failed';
             $invoice->save();
 
-            if ($order->status === 'pending') {
+            $order = $invoice->order;
+            if ($order !== null && $order->status === 'pending') {
                 $order->status = 'cancelled';
                 $order->reason = 'Downpayment failed or cancelled.';
                 $order->save();
             }
         }
 
+        $order = $invoice->order;
+        $orderStatus = $order?->status;
+        $orderBalance = $order !== null ? (float) $order->balance : (float) ($invoice->order_payload['balance'] ?? 0);
+        $orderReceivedAmount = $order !== null ? (float) $order->received_amount : 0;
+
         return response()->json([
             'success' => true,
             'data' => [
                 'invoice_status' => $invoice->status,
-                'order_status' => $order->status,
+                'order_id' => $order?->id,
+                'order_status' => $orderStatus,
                 'payment_status' => $status,
-                'order_balance' => $order->balance,
-                'order_received_amount' => $order->received_amount,
+                'order_balance' => $orderBalance,
+                'order_received_amount' => $orderReceivedAmount,
             ],
         ]);
     }
 
     /**
      * Cancel a pending downpayment from the app (X/Close button on QR screen).
+     * No order record exists until paid, so backing out only marks the invoice failed.
      * POST /api/v1/orders/downpayment/cancel/{invoice}
      */
     public function cancelDownpayment(Request $request, Invoice $invoice): JsonResponse
@@ -315,8 +360,8 @@ class ApiOrderPaymentController extends Controller
             ], 401);
         }
 
-        $order = $invoice->order;
-        if (!$order || (int) $order->customer_id !== (int) $user->id) {
+        $ownerId = $invoice->customer_id ?? $invoice->order?->customer_id;
+        if ($ownerId === null || (int) $ownerId !== (int) $user->id) {
             return response()->json([
                 'success' => false,
                 'message' => 'Invoice not found.',
@@ -333,7 +378,8 @@ class ApiOrderPaymentController extends Controller
         $invoice->status = 'failed';
         $invoice->save();
 
-        if ($order->status === 'pending') {
+        $order = $invoice->order;
+        if ($order !== null && $order->status === 'pending') {
             $order->status = 'cancelled';
             $order->reason = 'Customer closed payment screen before completing downpayment.';
             $order->save();
@@ -344,7 +390,7 @@ class ApiOrderPaymentController extends Controller
             'message' => 'Downpayment has been cancelled.',
             'data' => [
                 'invoice_status' => $invoice->status,
-                'order_status' => $order->status,
+                'order_status' => $order?->status,
             ],
         ]);
     }
