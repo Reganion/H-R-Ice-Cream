@@ -40,4 +40,7 @@ return [
         'client_id' => env('GOOGLE_CLIENT_ID'),
     ],
 
+    // Firebase Realtime Database URL (for admin real-time orders/notifications/chat)
+    'firebase_realtime_url' => env('FIREBASE_DATABASE_URL', ''),
+
 ];

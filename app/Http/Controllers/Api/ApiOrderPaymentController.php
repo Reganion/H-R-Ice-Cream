@@ -9,6 +9,7 @@ use App\Models\Order;
 use App\Models\Flavor;
 use App\Models\AdminNotification;
 use App\Models\CustomerNotification;
+use App\Services\FirebaseRealtimeService;
 use App\Services\PayMongoService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -18,8 +19,10 @@ class ApiOrderPaymentController extends Controller
 {
     protected $paymongo;
 
-    public function __construct(PayMongoService $paymongo)
-    {
+    public function __construct(
+        PayMongoService $paymongo,
+        protected FirebaseRealtimeService $firebase
+    ) {
         $this->paymongo = $paymongo;
     }
 
@@ -303,6 +306,7 @@ class ApiOrderPaymentController extends Controller
                         'highlight' => $order->product_name,
                     ]
                 );
+                $this->firebase->touchOrdersUpdated();
             }
 
             $invoice->status = 'paid';
@@ -314,6 +318,7 @@ class ApiOrderPaymentController extends Controller
                 $order->received_amount = $newReceived;
                 $order->balance = max(0, (float) $order->amount - $newReceived);
                 $order->save();
+                $this->firebase->touchOrdersUpdated();
             }
         } elseif (in_array($status, ['failed', 'cancelled'], true) && $invoice->status !== 'failed') {
             $invoice->status = 'failed';
@@ -324,6 +329,7 @@ class ApiOrderPaymentController extends Controller
                 $order->status = 'cancelled';
                 $order->reason = 'Downpayment failed or cancelled.';
                 $order->save();
+                $this->firebase->touchOrdersUpdated();
             }
         }
 
@@ -383,6 +389,7 @@ class ApiOrderPaymentController extends Controller
             $order->status = 'cancelled';
             $order->reason = 'Customer closed payment screen before completing downpayment.';
             $order->save();
+            $this->firebase->touchOrdersUpdated();
         }
 
         return response()->json([

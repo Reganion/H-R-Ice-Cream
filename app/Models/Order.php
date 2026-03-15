@@ -2,11 +2,16 @@
 
 namespace App\Models;
 
+use App\Enums\OrderStatusDriver;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Order extends Model
 {
+    protected $attributes = [
+        'status_driver' => 'Pending',
+    ];
+
     protected $casts = [
         'delivery_date' => 'date',
         'amount' => 'decimal:2',
@@ -15,6 +20,7 @@ class Order extends Model
         'balance' => 'decimal:2',
         'qty' => 'integer',
         'delivered_at' => 'datetime',
+        'status_driver' => OrderStatusDriver::class,
     ];
 
     protected $fillable = [
@@ -44,6 +50,22 @@ class Order extends Model
         'status_driver',
         'delivered_at',
     ];
+
+    /**
+     * Product image path that exists on disk, or default placeholder (avoids 404s for missing flavor images).
+     */
+    public function getResolvedProductImagePath(): string
+    {
+        $path = trim((string) ($this->product_image ?? ''));
+        if ($path === '' || str_starts_with($path, 'http')) {
+            return 'img/default-product.png';
+        }
+        $fullPath = public_path($path);
+        if (! is_file($fullPath)) {
+            return 'img/default-product.png';
+        }
+        return $path;
+    }
 
     public function driver()
     {

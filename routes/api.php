@@ -58,6 +58,7 @@ Route::prefix('v1')->group(function () {
         // Account: fetch logged-in account (account information) and update profile
         Route::get('/account', [ApiAuthController::class, 'account']);
         Route::post('/account/update', [ApiAuthController::class, 'updateProfile']);
+        Route::delete('/account', [ApiAuthController::class, 'deleteAccount']);
         Route::put('/address', [ApiAuthController::class, 'updateAddress']);
         Route::post('/address', [ApiAuthController::class, 'updateAddress']);
         // Customer addresses (clone table linked by customer_id)
@@ -124,6 +125,7 @@ Route::prefix('v1')->group(function () {
         Route::post('/shipments/{id}/reject', [ApiDriverShipmentController::class, 'reject']);
         Route::post('/shipments/{id}/deliver', [ApiDriverShipmentController::class, 'deliver']);
         Route::post('/shipments/{id}/complete', [ApiDriverShipmentController::class, 'complete']);
+        Route::get('/messages/archived-threads', [ApiOrderMessageController::class, 'driverArchivedThreads']);
         Route::get('/shipments/{id}/messages', [ApiOrderMessageController::class, 'driverMessages']);
         Route::post('/shipments/{id}/messages', [ApiOrderMessageController::class, 'driverSend']);
         Route::post('/shipments/{id}/messages/read', [ApiOrderMessageController::class, 'driverMarkRead']);

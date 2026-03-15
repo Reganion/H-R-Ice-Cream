@@ -12,6 +12,10 @@
     <link rel="stylesheet" href="{{ asset('assets/css/Admin/layout.css') }}">
     <link rel="stylesheet" href="{{ asset('assets/css/Admin/notification.css') }}">
     <link rel="stylesheet" href="{{ asset('assets/css/Admin/dashboard.css') }}">
+    {{-- Firebase Realtime Database for admin chat (real-time messages & unread badge) --}}
+    <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-database-compat.js"></script>
+    <script>window.FIREBASE_DATABASE_URL = @json(config('services.firebase_realtime_url') ?: (config('firebase.projects.app.database.url') ?? ''));</script>
     <style>
         .logout-confirm-modal {
             position: fixed;
@@ -691,14 +695,67 @@
         return `<div class="notif-item ${isUnread ? 'unread' : ''}" data-id="${escapeHtml(String(notif.id))}" data-type="${dataType}" data-related-id="${dataRelatedId}">${buildNotifIcon(notif)}<div class="notif-text"><span><strong>${escapeHtml(notif.title)}</strong>${subtitle}${highlight}${message}</span><span class="notif-time">${escapeHtml(notif.created_at_human || '')}</span></div></div>`;
     }
 
-    async function pollNotifications() {
-        // Disabled real-time notifications polling to avoid repeated
-        // /admin/notifications requests and noisy logs.
-        return;
+    async function fetchAndRenderNotifications() {
+        if (!NOTIFICATIONS_POLL_URL || !notifList) return;
+        try {
+            const res = await fetch(NOTIFICATIONS_POLL_URL, {
+                headers: { "Accept": "application/json", "X-Requested-With": "XMLHttpRequest" },
+                credentials: "same-origin"
+            });
+            if (!res.ok) return;
+            const data = await res.json().catch(() => ({}));
+            const notifications = data.notifications || [];
+            const unreadCount = data.unread_count != null ? data.unread_count : 0;
+            if (notifications.length === 0) {
+                notifList.innerHTML = '<div class="notif-empty">No notifications yet.</div>';
+            } else {
+                notifList.innerHTML = notifications.map(renderNotifItem).join("");
+            }
+            updateUnreadCount();
+        } catch (e) { /* ignore */ }
     }
 
-    // Real-time notifications polling disabled; badge/list will only
-    // change on full page reload.
+    if (window.FIREBASE_DATABASE_URL && typeof firebase !== "undefined" && firebase.database) {
+        try {
+            if (!firebase.apps.length) firebase.initializeApp({ databaseURL: window.FIREBASE_DATABASE_URL });
+            const db = firebase.database();
+            let notifLastVal = null;
+            db.ref("admin/notifications_last_updated").on("value", function(snapshot) {
+                const val = snapshot.val();
+                const ts = val && val.value ? val.value : "";
+                if (ts && notifLastVal !== null && notifLastVal !== ts) fetchAndRenderNotifications();
+                if (notifLastVal === null) notifLastVal = ts || "";
+            });
+            let lastOrderAlertVal = null;
+            db.ref("admin/latest_order_alert").on("value", function(snapshot) {
+                const val = snapshot.val();
+                const ts = (val && val.value) ? val.value : "";
+                if (!val || !ts || lastOrderAlertVal === ts) { if (lastOrderAlertVal === null) lastOrderAlertVal = ts || ""; return; }
+                lastOrderAlertVal = ts;
+                const title = (val.title || "New order").trim();
+                const subtitle = (val.subtitle || "").trim();
+                const highlight = (val.highlight || "").trim();
+                const msg = [title, subtitle, highlight].filter(Boolean).join(" — ");
+                if (msg) {
+                    showToast({ type: "order_new", title: title, data: { subtitle: subtitle, highlight: highlight }, image_url: val.image_url || null });
+                    var prevTitle = document.title;
+                    document.title = "🔔 New order! – " + (prevTitle || "Admin");
+                    setTimeout(function() { document.title = prevTitle; }, 3000);
+                }
+                fetchAndRenderNotifications();
+            });
+        } catch (e) {
+            console.warn("Firebase notifications listener failed.", e);
+        }
+    }
+
+    fetchAndRenderNotifications();
+
+    async function pollNotifications() {
+        fetchAndRenderNotifications();
+    }
+
+    // Real-time only via Firebase Realtime Database (no polling).
 </script>
 
 {{-- Admin floating chat (available on all admin pages) --}}
@@ -754,6 +811,7 @@ document.addEventListener("DOMContentLoaded", function() {
     const CHAT_POLL_INTERVAL_MS = 1000;
     const UNREAD_SUMMARY_POLL_MS = 1000;
     const CHAT_RINGTONE_MIN_GAP_MS = 1200;
+    let chatMessagesRef = null;
 
     function getHeaders() {
         return { 'X-CSRF-TOKEN': chatCsrfToken, 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' };
@@ -855,13 +913,86 @@ document.addEventListener("DOMContentLoaded", function() {
             });
     }
 
+    function stopChatMessagesListener() {
+        if (chatMessagesRef) {
+            chatMessagesRef.off();
+            chatMessagesRef = null;
+        }
+    }
+
     function stopPolling() {
         if (pollIntervalId) { clearInterval(pollIntervalId); pollIntervalId = null; }
+        stopChatMessagesListener();
     }
 
     function startPolling() {
-        // Realtime chat polling disabled to reduce server log noise.
+        // Realtime chat: use Firebase listener instead of polling (see selectCustomer).
         stopPolling();
+    }
+
+    var CHAT_TOAST_DURATION_MS = 5000;
+
+    function showChatNewMessageToast(lastFrom) {
+        if (!lastFrom || !lastFrom.full_name) return;
+        var container = document.getElementById('adminToastContainer');
+        if (!container) return;
+        var name = (lastFrom.full_name || 'Customer').trim();
+        var preview = (lastFrom.preview || 'New message').trim();
+        var msg = name + ': ' + (preview.length > 50 ? preview.substring(0, 50) + '…' : preview);
+        var iconHtml = lastFrom.image_url
+            ? '<div class="toast-icon"><img src="' + escapeHtml(lastFrom.image_url) + '" alt=""></div>'
+            : '<div class="toast-icon chat-toast-icon"><span class="material-symbols-outlined" style="font-size:22px">chat</span></div>';
+        var el = document.createElement('div');
+        el.className = 'admin-toast admin-toast-chat';
+        el.setAttribute('role', 'alert');
+        el.innerHTML = iconHtml + '<span class="toast-message"><strong>New message</strong> from ' + escapeHtml(name) + (preview ? ' — ' + escapeHtml(preview.substring(0, 60)) + (preview.length > 60 ? '…' : '') : '') + '</span><button type="button" class="toast-close" aria-label="Close"><span class="material-symbols-outlined" style="font-size:18px">close</span></button>';
+        container.appendChild(el);
+        requestAnimationFrame(function() { el.classList.add('toast-enter'); });
+
+        function dismiss() {
+            el.classList.remove('toast-enter');
+            el.classList.add('toast-exit');
+            setTimeout(function() { el.remove(); }, 350);
+        }
+        el.querySelector('.toast-close').addEventListener('click', dismiss);
+        setTimeout(dismiss, CHAT_TOAST_DURATION_MS);
+    }
+
+    function fetchUnreadSummary(onFetched) {
+        if (!chatUnreadSummaryUrl) return;
+        fetch(chatUnreadSummaryUrl, { headers: getHeaders(), credentials: 'same-origin' })
+            .then(function(res) { return res.json(); })
+            .then(function(data) {
+                if (!data.success) return;
+                unreadCount = typeof data.unread_count === 'number' ? data.unread_count : 0;
+                if (Array.isArray(data.senders)) lastApiHeadSenders = data.senders;
+                updateUnreadUI();
+                renderChatHeads();
+                if (typeof onFetched === 'function') onFetched(data);
+            })
+            .catch(function() { if (typeof onFetched === 'function') onFetched(null); });
+    }
+
+    if (window.FIREBASE_DATABASE_URL && typeof firebase !== 'undefined' && firebase.database) {
+        try {
+            if (!firebase.apps.length) firebase.initializeApp({ databaseURL: window.FIREBASE_DATABASE_URL });
+            var chatLastUpdatedRef = firebase.database().ref('admin/chat_last_updated');
+            var chatLastUpdatedVal = null;
+            chatLastUpdatedRef.on('value', function(snapshot) {
+                var val = snapshot.val();
+                var ts = (val && val.value) ? val.value : (val && val.updated_at ? val.updated_at : null);
+                if (chatLastUpdatedVal === null) {
+                    chatLastUpdatedVal = ts || '';
+                    return;
+                }
+                if (ts != null && chatLastUpdatedVal !== ts) {
+                    fetchUnreadSummary(function(data) {
+                        if (data && data.last_from) showChatNewMessageToast(data.last_from);
+                    });
+                    chatLastUpdatedVal = ts;
+                }
+            });
+        } catch (e) { console.warn('Firebase admin chat listener failed', e); }
     }
 
     function pollNewMessages() {
@@ -887,6 +1018,7 @@ document.addEventListener("DOMContentLoaded", function() {
         selectedCustomerId = customerId;
         lastMessageId = 0;
         stopPolling();
+        stopChatMessagesListener();
         chatMessages.querySelectorAll('.chat-msg').forEach(function(m) { m.remove(); });
         if (chatPlaceholder) { chatPlaceholder.textContent = 'Loading messages…'; chatPlaceholder.style.display = 'flex'; }
         fetch(chatCustomerShowUrl + '/' + customerId, { headers: getHeaders(), credentials: 'same-origin' })
@@ -914,6 +1046,30 @@ document.addEventListener("DOMContentLoaded", function() {
                 panel.classList.remove('view-new-message');
                 panel.classList.add('view-conversation');
                 startPolling();
+                if (window.FIREBASE_DATABASE_URL && typeof firebase !== 'undefined' && firebase.database) {
+                    try {
+                        if (!firebase.apps.length) firebase.initializeApp({ databaseURL: window.FIREBASE_DATABASE_URL });
+                        chatMessagesRef = firebase.database().ref('chats/' + customerId + '/messages');
+                        chatMessagesRef.on('child_added', function(snapshot) {
+                            if (!selectedCustomerId || String(selectedCustomerId) !== String(customerId)) return;
+                            var id = snapshot.key;
+                            var val = snapshot.val();
+                            if (!id || !val) return;
+                            if (chatMessages.querySelector('[data-message-id="' + id + '"]')) return;
+                            var m = {
+                                id: parseInt(id, 10) || id,
+                                sender_type: val.sender_type || 'customer',
+                                body: val.body || '',
+                                image_url: val.image_url || '',
+                                created_at: val.created_at || ''
+                            };
+                            appendMessage(m);
+                            if ((m.sender_type || '') !== 'admin') playIncomingRingtone();
+                            if (m.id && m.id > lastMessageId) lastMessageId = m.id;
+                            if (chatMessages) chatMessages.scrollTop = chatMessages.scrollHeight;
+                        });
+                    } catch (e) { console.warn('Firebase chat listener failed', e); }
+                }
                 if (chatInput) chatInput.focus();
             })
             .catch(function() {
@@ -1170,13 +1326,10 @@ document.addEventListener("DOMContentLoaded", function() {
     }
 
     function pollUnreadSummary() {
-        // Disabled unread-summary polling to avoid repeated /admin/chat/unread-summary
-        // requests and noisy logs.
-        return;
+        fetchUnreadSummary();
     }
 
     function startUnreadSummaryPoll() {
-        // Realtime unread summary polling disabled to reduce server log noise.
         stopUnreadSummaryPoll();
     }
 

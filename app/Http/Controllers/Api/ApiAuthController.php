@@ -10,8 +10,10 @@ use App\Models\Customer;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Google_Client;
@@ -340,6 +342,66 @@ class ApiAuthController extends Controller
             'message' => 'Account information retrieved.',
             'account' => $this->customerProfileArray($customer),
         ]);
+    }
+
+    /**
+     * Delete my account permanently (for Flutter).
+     * DELETE /api/v1/account
+     * Body: { "password": "...", "reason": "..." } (reason optional)
+     */
+    public function deleteAccount(Request $request): JsonResponse
+    {
+        $customer = $request->user();
+        if (!$customer instanceof Customer) {
+            return response()->json(['success' => false, 'message' => 'Not authenticated.'], 401);
+        }
+
+        $request->validate([
+            'password' => 'required|string',
+            'reason' => 'nullable|string|max:500',
+        ], [
+            'password.required' => 'Please enter your password to continue.',
+        ]);
+
+        if (!Hash::check($request->password, $customer->password)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Password is incorrect.',
+            ], 422);
+        }
+
+        $customerId = (int) $customer->id;
+        $token = $this->getTokenFromRequest($request);
+
+        DB::transaction(function () use ($customer, $customerId, $request): void {
+            $this->deleteByCustomerIdIfTableExists('chat_messages', $customerId);
+            $this->deleteByCustomerIdIfTableExists('customer_notifications', $customerId);
+            $this->deleteByCustomerIdIfTableExists('cart_items', $customerId);
+            $this->deleteByCustomerIdIfTableExists('customer_addresses', $customerId);
+            $this->deleteByCustomerIdIfTableExists('favorites', $customerId);
+            $this->deleteByCustomerIdIfTableExists('order_messages', $customerId);
+            if (Schema::hasTable('invoices') && Schema::hasColumn('invoices', 'customer_id')) {
+                DB::table('invoices')->where('customer_id', $customerId)->update(['customer_id' => null]);
+            }
+            $customer->delete();
+        });
+
+        if ($token) {
+            Cache::forget(AuthenticateApiCustomer::CACHE_PREFIX . $token);
+        }
+        Cache::forget(self::CHANGE_PASSWORD_VERIFIED_PREFIX . $customerId);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Your account has been deleted successfully.',
+        ]);
+    }
+
+    private function deleteByCustomerIdIfTableExists(string $table, int $customerId): void
+    {
+        if (Schema::hasTable($table) && Schema::hasColumn($table, 'customer_id')) {
+            DB::table($table)->where('customer_id', $customerId)->delete();
+        }
     }
 
     /**

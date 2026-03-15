@@ -5,11 +5,16 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\ChatMessage;
 use App\Models\Customer;
+use App\Services\FirebaseRealtimeService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class ApiChatController extends Controller
 {
+    public function __construct(
+        protected FirebaseRealtimeService $firebase
+    ) {}
+
     /**
      * Get chat conversation with admin (messages for the authenticated customer).
      * GET /api/v1/chat/messages?page=1&per_page=20
@@ -82,9 +87,13 @@ class ApiChatController extends Controller
             'image_path' => $imagePath,
         ]);
 
+        $formatted = $this->formatMessage($message);
+        $this->firebase->syncChatMessage($customer->id, $message->id, $formatted);
+        $this->firebase->touchAdminChatUpdated();
+
         return response()->json([
             'success' => true,
-            'data' => $this->formatMessage($message),
+            'data' => $formatted,
         ]);
     }
 
@@ -131,10 +140,20 @@ class ApiChatController extends Controller
             return response()->json(['success' => false, 'message' => 'Invalid user.'], 401);
         }
 
+        $messageIds = $customer->chatMessages()
+            ->where('sender_type', ChatMessage::SENDER_ADMIN)
+            ->whereNull('read_at')
+            ->pluck('id');
+
         $customer->chatMessages()
             ->where('sender_type', ChatMessage::SENDER_ADMIN)
             ->whereNull('read_at')
             ->update(['read_at' => now()]);
+
+        $readAt = now()->toIso8601String();
+        foreach ($messageIds as $id) {
+            $this->firebase->updateChatMessageReadAt($customer->id, $id, $readAt);
+        }
 
         return response()->json([
             'success' => true,

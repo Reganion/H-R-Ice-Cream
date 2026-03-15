@@ -3,7 +3,9 @@
 namespace App\Providers;
 
 use App\Models\AdminNotification;
+use App\Models\CustomerNotification;
 use App\Models\User;
+use App\Observers\CustomerNotificationObserver;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
 
@@ -22,6 +24,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        CustomerNotification::observe(CustomerNotificationObserver::class);
+
         View::composer(['admin.layout.layout', 'admin.account'], function ($view) {
             $adminUser = null;
             $adminNotifications = collect();

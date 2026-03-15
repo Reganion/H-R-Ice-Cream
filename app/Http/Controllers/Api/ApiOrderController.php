@@ -10,6 +10,7 @@ use App\Models\Feedback;
 use App\Models\Flavor;
 use App\Models\Order;
 use App\Models\OrderMessage;
+use App\Services\FirebaseRealtimeService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -17,11 +18,28 @@ use Illuminate\Support\Str;
 
 class ApiOrderController extends Controller
 {
+    public function __construct(
+        protected FirebaseRealtimeService $firebase
+    ) {}
+
     /** Status filter values for order history tabs: all, completed, processing, cancelled */
     private const STATUS_FILTER_ALL = 'all';
     private const STATUS_COMPLETED = ['completed', 'delivered', 'walk-in', 'walk_in', 'walk in', 'walkin'];
-    private const STATUS_PROCESSING = ['pending', 'preparing', 'assigned'];
+    /** Processing: pending, preparing, assigned, ready, out of delivery (and variants). */
+    private const STATUS_PROCESSING = [
+        'pending',
+        'preparing',
+        'assigned',
+        'ready',
+        'out of delivery',
+        'out for delivery',
+        'out_of_delivery',
+    ];
     private const STATUS_CANCELLED = ['cancelled', 'canceled'];
+    /** Only orders with this status can be rated (feedback). */
+    private const STATUS_RATEABLE = ['completed'];
+    /** Only these processing statuses allow cancellation (not ready / out of delivery). */
+    private const STATUS_CANCELLABLE = ['pending', 'preparing', 'assigned'];
 
     /**
      * List orders for the authenticated customer (order history for Flutter).
@@ -36,7 +54,7 @@ class ApiOrderController extends Controller
         }
 
         $query = Order::query()
-            ->with(['driver:id,name,phone,driver_code']);
+            ->with(['driver:id,name,phone,driver_code', 'customer:id,contact_no']);
         $this->applyCustomerOwnershipFilter($query, $user);
 
         $statusFilter = $request->query('status', self::STATUS_FILTER_ALL);
@@ -52,7 +70,8 @@ class ApiOrderController extends Controller
 
         // For Messages > Driver Chats: only orders with driver that have at least one active message (or no messages yet).
         // Archived threads (all messages customer_status = archive) are hidden.
-        if ($request->query('for_driver_chats')) {
+        $forDriverChats = (bool) $request->query('for_driver_chats');
+        if ($forDriverChats) {
             $query->whereNotNull('driver_id')->where(function (Builder $q) use ($user) {
                 $q->whereDoesntHave('messages')
                     ->orWhereHas('messages', function (Builder $mq) use ($user) {
@@ -62,17 +81,38 @@ class ApiOrderController extends Controller
             });
         }
 
-        $orders = $query->orderBy('created_at', 'desc')
-            ->get()
-            ->map(fn (Order $order) => $this->formatOrderForApi($order));
+        $orders = $query->orderBy('created_at', 'desc')->get();
 
-        return response()->json(['success' => true, 'data' => $orders]);
+        // When for_driver_chats: attach newest message per order (customer_status = active only) for list preview.
+        $latestMessageByOrder = [];
+        if ($forDriverChats && $orders->isNotEmpty()) {
+            $orderIds = $orders->pluck('id')->all();
+            $latestMessages = OrderMessage::query()
+                ->whereIn('order_id', $orderIds)
+                ->where('customer_id', $user->id)
+                ->where('customer_status', OrderMessage::CUSTOMER_STATUS_ACTIVE)
+                ->orderByDesc('created_at')
+                ->get();
+            foreach ($latestMessages as $msg) {
+                if (!isset($latestMessageByOrder[$msg->order_id])) {
+                    $latestMessageByOrder[$msg->order_id] = $msg;
+                }
+            }
+        }
+
+        $data = $orders->map(fn (Order $order) => $this->formatOrderForApi(
+            $order,
+            $latestMessageByOrder[$order->id] ?? null
+        ));
+
+        return response()->json(['success' => true, 'data' => $data]);
     }
 
     /**
      * Return only fields needed for order display (list/detail) and Flutter order history cards.
+     * When $latestOrderMessage is set (e.g. for driver chats), includes latest_message and last_message_at (active only).
      */
-    private function formatOrderForApi(Order $order): array
+    private function formatOrderForApi(Order $order, ?OrderMessage $latestOrderMessage = null): array
     {
         $downpayment = (float) ($order->downpayment ?? 0.0);
         $imagePath = $order->product_image ?? 'img/default-product.png';
@@ -84,10 +124,15 @@ class ApiOrderController extends Controller
         $driverName = $this->firstNonEmptyString([$driver?->name, 'Driver']);
         $driverPhone = $this->firstNonEmptyString([$driver?->phone, '']);
         $driverCode = $this->firstNonEmptyString([$driver?->driver_code, '']);
+        $customerPhone = $this->firstNonEmptyString([
+            $order->customer_phone,
+            $order->customer?->contact_no,
+        ]);
 
-        return [
+        $payload = [
             'id'                 => $order->id,
             'customer_id'        => $order->customer_id,
+            'customer_phone'     => $customerPhone !== '' ? $customerPhone : null,
             'driver_id'          => $order->driver_id ? (int) $order->driver_id : null,
             'driver_name'        => $driverName,
             'assigned_driver_name' => $driverName,
@@ -119,6 +164,20 @@ class ApiOrderController extends Controller
             'created_at'          => $order->created_at?->toIso8601String(),
             'created_at_formatted' => $order->created_at?->format('M d, Y h:i A'),
         ];
+
+        if ($latestOrderMessage !== null) {
+            $payload['latest_message'] = [
+                'id' => $latestOrderMessage->id,
+                'order_id' => (int) $latestOrderMessage->order_id,
+                'sender_type' => $latestOrderMessage->sender_type,
+                'message' => $latestOrderMessage->message,
+                'created_at' => $latestOrderMessage->created_at?->toIso8601String(),
+            ];
+            $payload['last_message_at'] = $latestOrderMessage->created_at?->toIso8601String();
+            $payload['last_message'] = $latestOrderMessage->message;
+        }
+
+        return $payload;
     }
 
     /**
@@ -175,7 +234,7 @@ class ApiOrderController extends Controller
         $flavor = Flavor::where('name', $request->product_name)->first();
         $productImage = $flavor?->image ?? 'img/default-product.png';
 
-        // Find existing pending/assigned order with same customer, flavor, size, and delivery slot
+        // Find existing pending/assigned order with same customer (by id to avoid duplication), flavor, size, and delivery slot
         $existingQuery = Order::query()
             ->where('product_name', $request->product_name)
             ->where('gallon_size', $request->gallon_size)
@@ -184,18 +243,13 @@ class ApiOrderController extends Controller
             ->where('delivery_address', $request->delivery_address)
             ->where(function ($q) use ($customerId, $customerName, $customerPhone) {
                 if ($customerId !== null) {
-                    $q->where('customer_id', $customerId)
-                        ->orWhere(function ($legacy) use ($customerName, $customerPhone) {
-                            $legacy->where('customer_name', $customerName)
-                                ->orWhere('customer_phone', $customerPhone);
-                        });
+                    $q->where('customer_id', $customerId);
                     return;
                 }
-
                 $q->where('customer_name', $customerName)
                     ->orWhere('customer_phone', $customerPhone);
             });
-        $this->applyStatusInFilter($existingQuery, self::STATUS_PROCESSING);
+        $this->applyStatusInFilter($existingQuery, self::STATUS_CANCELLABLE);
         $existing = $existingQuery->first();
 
         if ($existing) {
@@ -207,6 +261,7 @@ class ApiOrderController extends Controller
                 'balance' => max(0, $newAmount - $existingDownpayment),
             ]);
             $order = $existing->fresh();
+            $this->firebase->touchOrdersUpdated();
 
             return response()->json(['success' => true, 'data' => $this->formatOrderForApi($order), 'merged' => true], 200);
         }
@@ -257,6 +312,8 @@ class ApiOrderController extends Controller
             ['subtitle' => 'Order #' . $order->transaction_id, 'highlight' => $order->product_name]
         );
 
+        $this->firebase->touchOrdersUpdated();
+
         return response()->json(['success' => true, 'data' => $this->formatOrderForApi($order)], 201);
     }
 
@@ -269,7 +326,8 @@ class ApiOrderController extends Controller
         if (!$user instanceof Customer) {
             return response()->json(['success' => false, 'message' => 'Invalid user.'], 401);
         }
-        $orderQuery = Order::where('id', $id);
+        $orderQuery = Order::with(['driver:id,name,phone,driver_code', 'customer:id,contact_no'])
+            ->where('id', $id);
         $this->applyCustomerOwnershipFilter($orderQuery, $user);
         $order = $orderQuery->first();
         if (!$order) {
@@ -303,7 +361,7 @@ class ApiOrderController extends Controller
             return response()->json(['success' => false, 'message' => 'Order not found.'], 404);
         }
 
-        if (!in_array($this->normalizeStatus((string) $order->status), self::STATUS_PROCESSING, true)) {
+        if (!in_array($this->normalizeStatus((string) $order->status), self::STATUS_CANCELLABLE, true)) {
             return response()->json([
                 'success' => false,
                 'message' => 'Only pending or assigned orders can be cancelled.',
@@ -322,6 +380,8 @@ class ApiOrderController extends Controller
             'reason' => $reasonText,
         ]);
 
+        $this->firebase->touchOrdersUpdated();
+
         return response()->json([
             'success' => true,
             'message' => 'Order cancelled successfully.',
@@ -329,12 +389,7 @@ class ApiOrderController extends Controller
         ]);
     }
 
-    /**
-     * Submit rating/feedback for a completed order (Flutter "Rate your order" → Continue).
-     * POST /api/v1/orders/{id}/feedback
-     * Body: { "rating": 1-5, "message": "optional testimonial" }
-     * Only delivered/walk_in orders; one feedback per order (re-submit updates existing).
-     */
+
     public function feedback(Request $request, int $id): JsonResponse
     {
         $user = $request->user();
@@ -355,10 +410,10 @@ class ApiOrderController extends Controller
             return response()->json(['success' => false, 'message' => 'Order not found.'], 404);
         }
 
-        if (!in_array($this->normalizeStatus((string) $order->status), self::STATUS_COMPLETED, true)) {
+        if (!in_array($this->normalizeStatus((string) $order->status), self::STATUS_RATEABLE, true)) {
             return response()->json([
                 'success' => false,
-                'message' => 'You can only rate delivered or completed orders.',
+                'message' => 'You can only rate orders with status Completed.',
             ], 422);
         }
 
@@ -403,17 +458,13 @@ class ApiOrderController extends Controller
         ], $feedback->wasRecentlyCreated ? 201 : 200);
     }
 
+    /**
+     * Restrict orders to those owned by the customer. Uses customer_id only to avoid
+     * duplication of messages/orders when matching by name (same name, different accounts).
+     */
     private function applyCustomerOwnershipFilter(Builder $query, Customer $customer): void
     {
-        $fullName = trim($customer->firstname . ' ' . $customer->lastname);
-
-        $query->where(function (Builder $q) use ($customer, $fullName) {
-            $q->where('customer_id', $customer->id)
-                ->orWhere(function (Builder $legacy) use ($customer, $fullName) {
-                    $legacy->where('customer_name', $fullName)
-                        ->orWhere('customer_phone', $customer->contact_no);
-                });
-        });
+        $query->where('customer_id', $customer->id);
     }
 
     private function applyStatusInFilter(Builder $query, array $statuses): void

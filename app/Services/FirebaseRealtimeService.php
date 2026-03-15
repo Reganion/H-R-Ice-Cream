@@ -185,4 +185,152 @@ class FirebaseRealtimeService
         }
         return $out;
     }
+
+    /**
+     * Sync a chat message to Firebase for real-time clients.
+     * Path: chats/{customerId}/messages/{messageId}
+     */
+    public function syncChatMessage(int $customerId, int $messageId, array $data): void
+    {
+        try {
+            $collection = 'chats/' . $customerId . '/messages';
+            $this->set($collection, (string) $messageId, $data);
+        } catch (\Throwable $e) {
+            report($e);
+        }
+    }
+
+    /**
+     * Update chat message read_at in Firebase (for real-time read receipts).
+     */
+    public function updateChatMessageReadAt(int $customerId, int $messageId, ?string $readAt): void
+    {
+        try {
+            $collection = 'chats/' . $customerId . '/messages';
+            $this->update($collection, (string) $messageId, ['read_at' => $readAt]);
+        } catch (\Throwable $e) {
+            report($e);
+        }
+    }
+
+    /**
+     * Sync a customer notification to Firebase for real-time clients.
+     * Path: notifications/{customerId}/items/{notificationId}
+     * Also updates notifications/{customerId}/last_updated so clients can listen for changes.
+     */
+    public function syncNotification(int $customerId, int $notificationId, array $data): void
+    {
+        try {
+            $itemsPath = 'notifications/' . $customerId . '/items';
+            $this->set($itemsPath, (string) $notificationId, $data);
+            $this->set('notifications/' . $customerId, 'last_updated', [
+                'value' => date('c'),
+            ]);
+        } catch (\Throwable $e) {
+            report($e);
+        }
+    }
+
+    /**
+     * Update notification read_at in Firebase (for real-time read status).
+     */
+    public function updateNotificationReadAt(int $customerId, int $notificationId, ?string $readAt): void
+    {
+        try {
+            $collection = 'notifications/' . $customerId . '/items';
+            $this->update($collection, (string) $notificationId, ['read_at' => $readAt]);
+            $this->set('notifications/' . $customerId, 'last_updated', [
+                'value' => date('c'),
+            ]);
+        } catch (\Throwable $e) {
+            report($e);
+        }
+    }
+
+    /**
+     * Touch admin orders "last updated" so the orders dashboard can listen and refetch.
+     * Path: admin/orders_last_updated
+     */
+    public function touchOrdersUpdated(): void
+    {
+        try {
+            $this->set('admin', 'orders_last_updated', [
+                'value' => date('c'),
+            ]);
+        } catch (\Throwable $e) {
+            report($e);
+        }
+    }
+
+    /**
+     * Touch admin chat "last updated" when a customer sends a message so the admin panel can refresh unread/badge.
+     * Path: admin/chat_last_updated
+     */
+    public function touchAdminChatUpdated(): void
+    {
+        try {
+            $this->set('admin', 'chat_last_updated', [
+                'value' => date('c'),
+            ]);
+        } catch (\Throwable $e) {
+            report($e);
+        }
+    }
+
+    /**
+     * Touch admin notifications "last updated" so the admin panel can refetch and show new notifications in real time.
+     * Path: admin/notifications_last_updated
+     */
+    public function touchAdminNotificationsUpdated(): void
+    {
+        try {
+            $this->set('admin', 'notifications_last_updated', [
+                'value' => date('c'),
+            ]);
+        } catch (\Throwable $e) {
+            report($e);
+        }
+    }
+
+    /**
+     * Set latest order alert for real-time "New order" toast in admin panel.
+     * Path: admin/latest_order_alert
+     */
+    public function setLatestOrderAlert(array $payload): void
+    {
+        try {
+            $this->set('admin', 'latest_order_alert', array_merge($payload, [
+                'value' => date('c'),
+            ]));
+        } catch (\Throwable $e) {
+            report($e);
+        }
+    }
+
+    /**
+     * Sync an order message (driver ↔ customer) to Firebase for real-time clients.
+     * Path: order_messages/{orderId}/messages/{messageId}
+     */
+    public function syncOrderMessage(int $orderId, int $messageId, array $data): void
+    {
+        try {
+            $collection = 'order_messages/' . $orderId . '/messages';
+            $this->set($collection, (string) $messageId, $data);
+        } catch (\Throwable $e) {
+            report($e);
+        }
+    }
+
+    /**
+     * Update order message read_at in Firebase (for real-time read receipts).
+     */
+    public function updateOrderMessageReadAt(int $orderId, int $messageId, ?string $readAt): void
+    {
+        try {
+            $collection = 'order_messages/' . $orderId . '/messages';
+            $this->update($collection, (string) $messageId, ['read_at' => $readAt]);
+        } catch (\Throwable $e) {
+            report($e);
+        }
+    }
 }

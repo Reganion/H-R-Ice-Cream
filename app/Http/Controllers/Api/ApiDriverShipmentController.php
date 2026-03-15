@@ -3,21 +3,47 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Enums\OrderStatusDriver;
 use App\Models\Driver;
 use App\Models\Order;
+use App\Models\OrderMessage;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use App\Services\DeliveryService;
-
+use App\Services\FirebaseRealtimeService;
 
 class ApiDriverShipmentController extends Controller
 {
+    /** Order status when driver has started delivery (out for delivery). */
+    private const STATUS_OUT_FOR_DELIVERY = 'out for delivery';
+
+    /**
+     * Build full URL for delivery proof image so the app can load it.
+     * Uses request host (so device can load the image), normalizes path, fallback to asset() if no host.
+     */
+    private function deliveryProofUrl(Request $request, ?string $path): ?string
+    {
+        if ($path === null || trim($path) === '') {
+            return null;
+        }
+        // Normalize: DB may store "delivery-proofs/abc.jpg" or with backslashes on Windows
+        $path = str_replace('\\', '/', trim($path));
+        $path = 'storage/' . ltrim($path, '/');
+        $base = $request->getSchemeAndHttpHost();
+        if ($base !== '') {
+            return rtrim($base, '/') . '/' . ltrim($path, '/');
+        }
+        return asset($path);
+    }
+
     // please make it a habit to do dependency injection for services 
     protected $deliveryService;
 
-    public function __construct(DeliveryService $deliveryService)
-    {
+    public function __construct(
+        DeliveryService $deliveryService,
+        protected FirebaseRealtimeService $firebase
+    ) {
         $this->deliveryService = $deliveryService;
     }
     // please make it a habit to do dependency injection for services 
@@ -51,14 +77,11 @@ class ApiDriverShipmentController extends Controller
             ->orderBy('id', 'desc');
 
         if ($tab === 'incoming') {
-            $query->where(function ($q): void {
-                $q->whereNull('status_driver')
-                    ->orWhereRaw('TRIM(status_driver) = ? ', ['']);
-            });
+            $query->where('status_driver', OrderStatusDriver::Pending);
         } elseif ($tab === 'accepted') {
-            $query->whereRaw('LOWER(COALESCE(status_driver, "")) IN (?, ?)', ['accepted', 'on_route']);
+            $query->where('status_driver', OrderStatusDriver::Accepted);
         } else {
-            $query->whereRaw('LOWER(COALESCE(status_driver, "")) = ?', ['completed']);
+            $query->where('status_driver', OrderStatusDriver::Completed);
         }
 
         $search = trim((string) $request->query('search', ''));
@@ -71,13 +94,11 @@ class ApiDriverShipmentController extends Controller
             });
         }
 
-        $shipments = $query->get()->map(function (Order $order) use ($tab) {
+        $shipments = $query->get()->map(function (Order $order) use ($tab, $request) {
             $deliveryDate = $order->delivery_date ? Carbon::parse($order->delivery_date) : null;
             $deliveryTime = $order->delivery_time ? Carbon::parse($order->delivery_time) : null;
             $schedule = $this->formatSchedule($deliveryDate, $deliveryTime);
-            $proofUrl = $order->delivery_proof_image
-                ? asset('storage/' . ltrim((string) $order->delivery_proof_image, '/'))
-                : null;
+            $proofUrl = $this->deliveryProofUrl($request, $order->delivery_proof_image);
             $deliveredTime = $order->delivered_at ? Carbon::parse($order->delivered_at)->format('h:i A') : null;
             $deliveredDate = $order->delivery_date ? Carbon::parse($order->delivery_date)->format('d F Y') : null;
             $deliveredTimeCompact = $order->delivered_at ? strtoupper(Carbon::parse($order->delivered_at)->format('h:ia')) : null;
@@ -97,7 +118,7 @@ class ApiDriverShipmentController extends Controller
                 'expected_on' => $schedule,
                 'location' => (string) ($order->delivery_address ?? '—'),
                 'status' => strtolower((string) ($order->status ?? '')),
-                'status_driver' => strtolower((string) ($order->status_driver ?? '')),
+                'status_driver' => strtolower($order->status_driver?->value ?? ''),
                 'received_amount' => $order->received_amount !== null ? (float) $order->received_amount : null,
                 'delivery_payment_method' => (string) ($order->delivery_payment_method ?? ''),
                 'delivery_proof_url' => $proofUrl,
@@ -152,9 +173,7 @@ class ApiDriverShipmentController extends Controller
 
         $deliveryDate = $order->delivery_date ? Carbon::parse($order->delivery_date) : null;
         $deliveryTime = $order->delivery_time ? Carbon::parse($order->delivery_time) : null;
-        $proofUrl = $order->delivery_proof_image
-            ? asset('storage/' . ltrim((string) $order->delivery_proof_image, '/'))
-            : null;
+        $proofUrl = $this->deliveryProofUrl($request, $order->delivery_proof_image);
         $deliveredTime = $order->delivered_at ? Carbon::parse($order->delivered_at)->format('h:i A') : null;
         $deliveredDate = $order->delivery_date ? Carbon::parse($order->delivery_date)->format('d F Y') : null;
         $deliveredTimeCompact = $order->delivered_at ? strtoupper(Carbon::parse($order->delivered_at)->format('h:ia')) : null;
@@ -181,7 +200,7 @@ class ApiDriverShipmentController extends Controller
                 'downpayment' => $downpayment,
                 'balance' => $balance,
                 'status' => strtolower((string) ($order->status ?? '')),
-                'status_driver' => strtolower((string) ($order->status_driver ?? '')),
+                'status_driver' => strtolower($order->status_driver?->value ?? ''),
                 'received_amount' => $order->received_amount !== null ? (float) $order->received_amount : null,
                 'delivery_payment_method' => (string) ($order->delivery_payment_method ?? ''),
                 'delivery_proof_url' => $proofUrl,
@@ -200,7 +219,7 @@ class ApiDriverShipmentController extends Controller
 
     /**
      * Driver accepts a shipment.
-     * Keep order status as assigned; set status_driver=accepted.
+     * Keep order status as assigned; set status_driver=Accepted.
      */
     public function accept(Request $request, string $id): JsonResponse
     {
@@ -228,8 +247,22 @@ class ApiDriverShipmentController extends Controller
             ], 422);
         }
 
-        $order->status_driver = 'accepted';
+        if ($order->status_driver !== OrderStatusDriver::Pending) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Shipment was already accepted.',
+            ], 422);
+        }
+
+        $order->status_driver = OrderStatusDriver::Accepted;
         $order->save();
+
+        $this->firebase->touchOrdersUpdated();
+
+        // Reactivate order_messages for this order so the driver–customer thread is visible again
+        OrderMessage::query()
+            ->where('order_id', $order->id)
+            ->update(['status' => OrderMessage::STATUS_ACTIVE]);
 
         return response()->json([
             'success' => true,
@@ -263,8 +296,10 @@ class ApiDriverShipmentController extends Controller
         $order->update([
             'status' => 'pending',
             'driver_id' => null,
-            'status_driver' => null,
+            'status_driver' => OrderStatusDriver::Pending,
         ]);
+
+        $this->firebase->touchOrdersUpdated();
 
         return response()->json([
             'success' => true,
@@ -274,7 +309,7 @@ class ApiDriverShipmentController extends Controller
 
     /**
      * Driver starts the route for an accepted shipment.
-     * Keep order status as assigned and keep status_driver as accepted.
+     * Sets order status to "out for delivery"; status_driver remains Accepted.
      */
     public function deliver(Request $request, string $id): JsonResponse
     {
@@ -295,27 +330,31 @@ class ApiDriverShipmentController extends Controller
             ], 404);
         }
 
-        if (strtolower((string) ($order->status ?? '')) !== 'assigned') {
+        $orderStatus = strtolower(trim((string) ($order->status ?? '')));
+        $allowedForDeliver = ['assigned', 'preparing', 'ready'];
+        if (!in_array($orderStatus, $allowedForDeliver, true)) {
             return response()->json([
                 'success' => false,
-                'message' => 'Only assigned shipments can be started for delivery.',
+                'message' => 'Only assigned, preparing, or ready shipments can be started for delivery.',
             ], 422);
         }
 
-        $currentDriverStatus = strtolower((string) ($order->status_driver ?? ''));
-        if ($currentDriverStatus !== 'accepted' && $currentDriverStatus !== 'on_route') {
+        $currentDriverStatus = $order->status_driver;
+        if ($currentDriverStatus !== OrderStatusDriver::Accepted) {
             return response()->json([
                 'success' => false,
                 'message' => 'Shipment must be accepted before starting delivery.',
             ], 422);
         }
 
-
         $driver->status = Driver::STATUS_ON_ROUTE;
         $driver->save();
 
-        $order->status_driver = "on_route";
+        $order->status = self::STATUS_OUT_FOR_DELIVERY;
+        $order->status_driver = OrderStatusDriver::Accepted;
         $order->save();
+
+        $this->firebase->touchOrdersUpdated();
 
         $coords = $this->deliveryService->geocodeAddress($order->delivery_address);
 
@@ -349,16 +388,17 @@ class ApiDriverShipmentController extends Controller
             ], 404);
         }
 
-        $orderStatus = strtolower((string) ($order->status ?? ''));
-        if ($orderStatus !== 'assigned') {
+        $orderStatus = strtolower(trim((string) ($order->status ?? '')));
+        $allowedForComplete = ['assigned', 'preparing', 'ready', 'out for delivery', 'out_of_delivery'];
+        if (!in_array($orderStatus, $allowedForComplete, true)) {
             return response()->json([
                 'success' => false,
-                'message' => 'Only assigned shipments can be submitted.',
+                'message' => 'Only assigned or out-for-delivery shipments can be submitted.',
             ], 422);
         }
 
-        $driverShipmentStatus = strtolower((string) ($order->status_driver ?? ''));
-        if (!in_array($driverShipmentStatus, ['accepted', 'on_route'], true)) {
+        $driverShipmentStatus = $order->status_driver;
+        if ($driverShipmentStatus !== OrderStatusDriver::Accepted) {
             return response()->json([
                 'success' => false,
                 'message' => 'Shipment must be accepted before completion.',
@@ -376,7 +416,7 @@ class ApiDriverShipmentController extends Controller
         $newReceived = (float) $validated['received_amount'];
         $order->received_amount = $newReceived;
         $order->status = 'completed';
-        $order->status_driver = 'completed';
+        $order->status_driver = OrderStatusDriver::Completed;
         $order->delivery_payment_method = (string) ($validated['payment_method'] ?? '');
         $order->delivery_proof_image = $proofPath;
         $order->delivered_at = now();
@@ -384,30 +424,47 @@ class ApiDriverShipmentController extends Controller
         $order->balance = max(0, $amount - $newReceived);
         $order->save();
 
-        $hasActiveRoute = Order::query()
+        $this->firebase->touchOrdersUpdated();
+
+        // Archive this order's messages for the customer unless they have another accepted order
+        $customerId = $order->customer_id;
+        $hasOtherAcceptedOrder = $customerId !== null
+            && Order::query()
+                ->where('customer_id', $customerId)
+                ->where('id', '!=', $order->id)
+                ->where('status_driver', OrderStatusDriver::Accepted)
+                ->exists();
+        if (!$hasOtherAcceptedOrder) {
+            OrderMessage::query()
+                ->where('order_id', $order->id)
+                ->update(['status' => OrderMessage::STATUS_ARCHIVE]);
+        }
+
+        // Set driver back to available after submit, except if they still have an order "Out for delivery"
+        $hasOutForDelivery = Order::query()
             ->where('driver_id', $driver->id)
-            ->whereRaw('LOWER(COALESCE(status, "")) = ?', ['assigned'])
-            ->whereIn('status_driver', ['accepted', 'on_route'])
+            ->whereRaw('LOWER(TRIM(COALESCE(status, ""))) IN (?, ?)', ['out for delivery', 'out_of_delivery'])
             ->exists();
 
-        if (!$hasActiveRoute) {
+        if (!$hasOutForDelivery) {
             $driver->status = Driver::STATUS_AVAILABLE;
             $driver->save();
         }
 
+        $proofUrl = $this->deliveryProofUrl($request, $order->delivery_proof_image);
         return response()->json([
             'success' => true,
             'message' => 'Shipment marked completed.',
             'shipment' => [
                 'id' => $order->id,
                 'status' => strtolower((string) $order->status),
-                'status_driver' => strtolower((string) $order->status_driver),
+                'status_driver' => strtolower($order->status_driver?->value ?? ''),
                 'received_amount' => (float) $order->received_amount,
                 'balance' => (float) ($order->balance ?? 0.0),
                 'delivery_payment_method' => (string) ($order->delivery_payment_method ?? ''),
-                'delivery_proof_url' => asset('storage/' . ltrim((string) $order->delivery_proof_image, '/')),
+                'delivery_proof_url' => $proofUrl,
                 'delivery_proof_image' => (string) ($order->delivery_proof_image ?? ''),
-                'proof_image_url' => asset('storage/' . ltrim((string) $order->delivery_proof_image, '/')),
+                'proof_image_url' => $proofUrl,
                 'proof_image' => (string) ($order->delivery_proof_image ?? ''),
                 'delivery_time_compact' => $this->formatTimeCompact($order->delivery_time),
                 'delivered_time' => Carbon::parse($order->delivered_at)->format('h:i A'),
@@ -417,10 +474,21 @@ class ApiDriverShipmentController extends Controller
         ]);
     }
 
+    /**
+     * Order statuses per tab. Accepted tab shows all orders the driver has accepted
+     * (status_driver = Accepted) regardless of admin-set order status
+     * (Assigned, Preparing, Ready, Out for Delivery).
+     */
     private function statusesForTab(string $tab): array
     {
         return match ($tab) {
-            'accepted' => ['assigned'],
+            'accepted' => [
+                'assigned',
+                'preparing',
+                'ready',
+                'out for delivery',
+                'out_of_delivery',
+            ],
             'completed' => ['completed'],
             default => ['assigned'],
         };

@@ -7,11 +7,16 @@ use App\Models\Customer;
 use App\Models\Driver;
 use App\Models\Order;
 use App\Models\OrderMessage;
+use App\Services\FirebaseRealtimeService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class ApiOrderMessageController extends Controller
 {
+    public function __construct(
+        protected FirebaseRealtimeService $firebase
+    ) {}
+
     /**
      * Driver: list messages for a shipment/order.
      * GET /api/v1/driver/shipments/{id}/messages
@@ -33,8 +38,19 @@ class ApiOrderMessageController extends Controller
         }
 
         $perPage = min(max((int) $request->query('per_page', 50), 1), 100);
-        $messages = OrderMessage::query()
+        $status = strtolower((string) $request->query('status', ''));
+
+        $messagesQuery = OrderMessage::query()
             ->where('order_id', $order->id)
+            ->where('customer_id', $order->customer_id);
+
+        if ($status === 'active') {
+            $messagesQuery->where('status', OrderMessage::STATUS_ACTIVE);
+        } elseif ($status === 'archive' || $status === 'archived') {
+            $messagesQuery->where('status', OrderMessage::STATUS_ARCHIVE);
+        }
+
+        $messages = $messagesQuery
             ->orderBy('created_at')
             ->paginate($perPage);
 
@@ -82,17 +98,25 @@ class ApiOrderMessageController extends Controller
             return response()->json(['success' => false, 'message' => 'Shipment has no linked customer account.'], 422);
         }
 
+        // Determine desired message status. If called from archived chat, client can send status=archive.
+        $rawStatus = strtolower((string) ($request->input('status', $request->query('status', OrderMessage::STATUS_ACTIVE))));
+        $status = $rawStatus === OrderMessage::STATUS_ARCHIVE ? OrderMessage::STATUS_ARCHIVE : OrderMessage::STATUS_ACTIVE;
+
         $message = OrderMessage::create([
             'order_id' => $order->id,
             'driver_id' => (int) $driver->id,
             'customer_id' => (int) $order->customer_id,
             'sender_type' => OrderMessage::SENDER_DRIVER,
             'message' => trim((string) $request->input('message')),
+            'status' => $status,
         ]);
+
+        $formatted = $this->formatMessage($message, OrderMessage::SENDER_DRIVER);
+        $this->firebase->syncOrderMessage($order->id, $message->id, $formatted);
 
         return response()->json([
             'success' => true,
-            'data' => $this->formatMessage($message, OrderMessage::SENDER_DRIVER),
+            'data' => $formatted,
         ], 201);
     }
 
@@ -112,15 +136,165 @@ class ApiOrderMessageController extends Controller
             return response()->json(['success' => false, 'message' => 'Shipment not found.'], 404);
         }
 
+        $messageIds = OrderMessage::query()
+            ->where('order_id', $order->id)
+            ->where('customer_id', $order->customer_id)
+            ->where('sender_type', OrderMessage::SENDER_CUSTOMER)
+            ->whereNull('read_at')
+            ->pluck('id');
+
         OrderMessage::query()
             ->where('order_id', $order->id)
+            ->where('customer_id', $order->customer_id)
             ->where('sender_type', OrderMessage::SENDER_CUSTOMER)
             ->whereNull('read_at')
             ->update(['read_at' => now()]);
 
+        $readAt = now()->toIso8601String();
+        foreach ($messageIds as $msgId) {
+            $this->firebase->updateOrderMessageReadAt($order->id, $msgId, $readAt);
+        }
+
         return response()->json([
             'success' => true,
             'message' => 'Marked as read.',
+        ]);
+    }
+
+    /**
+     * Driver: list archived message threads (threads with at least one message status = archive).
+     * GET /api/v1/driver/messages/archived-threads
+     */
+    public function driverArchivedThreads(Request $request): JsonResponse
+    {
+        $driver = $request->user();
+        if (!$driver instanceof Driver) {
+            return response()->json(['success' => false, 'message' => 'Not authenticated.'], 401);
+        }
+
+        $orderIds = OrderMessage::query()
+            ->where('status', OrderMessage::STATUS_ARCHIVE)
+            ->whereHas('order', fn ($q) => $q->where('driver_id', $driver->id))
+            ->pluck('order_id')
+            ->unique()
+            ->values()
+            ->all();
+
+        if ($orderIds === []) {
+            return response()->json([
+                'success' => true,
+                'data' => [],
+            ]);
+        }
+
+        $orders = Order::query()
+            ->whereIn('id', $orderIds)
+            ->orderByDesc('id')
+            ->get();
+
+        $threads = [];
+        foreach ($orders as $order) {
+            if (!$order->customer_id) {
+                continue;
+            }
+            $last = OrderMessage::query()
+                ->where('order_id', $order->id)
+                ->where('customer_id', $order->customer_id)
+                ->where('status', OrderMessage::STATUS_ARCHIVE)
+                ->orderByDesc('created_at')
+                ->first();
+
+            $threads[] = [
+                'shipment_id' => $order->id,
+                'customer_id' => (int) $order->customer_id,
+                'customer_name' => trim((string) ($order->customer_name ?? 'Customer')),
+                'customer_phone' => trim((string) ($order->customer_phone ?? '')),
+                'delivery_address' => trim((string) ($order->delivery_address ?? '')),
+                'expected_on' => $order->delivery_date && $order->delivery_time
+                    ? $order->delivery_date . ' ' . $order->delivery_time
+                    : (string) ($order->delivery_date ?? ''),
+                'status_driver' => $order->status_driver?->value ?? '',
+                'last_message' => $last ? $last->message : '',
+                'last_message_at' => $last?->created_at?->toIso8601String(),
+            ];
+        }
+
+        usort($threads, function ($a, $b) {
+            $aAt = $a['last_message_at'] ?? '';
+            $bAt = $b['last_message_at'] ?? '';
+            if ($aAt === $bAt) {
+                return ($b['shipment_id'] ?? 0) <=> ($a['shipment_id'] ?? 0);
+            }
+            return strcmp($bAt, $aAt);
+        });
+
+        return response()->json([
+            'success' => true,
+            'data' => $threads,
+        ]);
+    }
+
+    /**
+     * Driver: archive all messages in this shipment thread (set message status = archive).
+     * POST /api/v1/driver/shipments/{id}/messages/archive
+     */
+    public function driverArchive(Request $request, int $id): JsonResponse
+    {
+        $driver = $request->user();
+        if (!$driver instanceof Driver) {
+            return response()->json(['success' => false, 'message' => 'Not authenticated.'], 401);
+        }
+
+        $order = $this->resolveDriverOrder($driver, $id);
+        if (!$order) {
+            return response()->json(['success' => false, 'message' => 'Shipment not found.'], 404);
+        }
+
+        if (!$order->customer_id) {
+            return response()->json(['success' => false, 'message' => 'Shipment has no linked customer account.'], 422);
+        }
+
+        $updated = OrderMessage::query()
+            ->where('order_id', $order->id)
+            ->where('customer_id', $order->customer_id)
+            ->update(['status' => OrderMessage::STATUS_ARCHIVE]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Messages archived.',
+            'archived_count' => $updated,
+        ]);
+    }
+
+    /**
+     * Driver: restore archived messages in this shipment thread (set message status = active).
+     * POST /api/v1/driver/shipments/{id}/messages/unarchive
+     */
+    public function driverUnarchive(Request $request, int $id): JsonResponse
+    {
+        $driver = $request->user();
+        if (!$driver instanceof Driver) {
+            return response()->json(['success' => false, 'message' => 'Not authenticated.'], 401);
+        }
+
+        $order = $this->resolveDriverOrder($driver, $id);
+        if (!$order) {
+            return response()->json(['success' => false, 'message' => 'Shipment not found.'], 404);
+        }
+
+        if (!$order->customer_id) {
+            return response()->json(['success' => false, 'message' => 'Shipment has no linked customer account.'], 422);
+        }
+
+        $updated = OrderMessage::query()
+            ->where('order_id', $order->id)
+            ->where('customer_id', $order->customer_id)
+            ->update(['status' => OrderMessage::STATUS_ACTIVE]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Messages restored.',
+            'restored_count' => $updated,
         ]);
     }
 
@@ -151,6 +325,7 @@ class ApiOrderMessageController extends Controller
         $perPage = min(max((int) $request->query('per_page', 50), 1), 100);
         $messages = OrderMessage::query()
             ->where('order_id', $order->id)
+            ->where('customer_id', $customer->id)
             ->where('customer_status', OrderMessage::CUSTOMER_STATUS_ACTIVE)
             ->orderBy('created_at')
             ->paginate($perPage);
@@ -214,12 +389,16 @@ class ApiOrderMessageController extends Controller
             'customer_id' => (int) $customer->id,
             'sender_type' => OrderMessage::SENDER_CUSTOMER,
             'message' => trim((string) $request->input('message')),
+            'status' => OrderMessage::STATUS_ACTIVE,
             'customer_status' => OrderMessage::CUSTOMER_STATUS_ACTIVE,
         ]);
 
+        $formatted = $this->formatMessage($message, OrderMessage::SENDER_CUSTOMER);
+        $this->firebase->syncOrderMessage($order->id, $message->id, $formatted);
+
         return response()->json([
             'success' => true,
-            'data' => $this->formatMessage($message, OrderMessage::SENDER_CUSTOMER),
+            'data' => $formatted,
         ], 201);
     }
 
@@ -239,11 +418,24 @@ class ApiOrderMessageController extends Controller
             return response()->json(['success' => false, 'message' => 'Order not found.'], 404);
         }
 
+        $messageIds = OrderMessage::query()
+            ->where('order_id', $order->id)
+            ->where('customer_id', $customer->id)
+            ->where('sender_type', OrderMessage::SENDER_DRIVER)
+            ->whereNull('read_at')
+            ->pluck('id');
+
         OrderMessage::query()
             ->where('order_id', $order->id)
+            ->where('customer_id', $customer->id)
             ->where('sender_type', OrderMessage::SENDER_DRIVER)
             ->whereNull('read_at')
             ->update(['read_at' => now()]);
+
+        $readAt = now()->toIso8601String();
+        foreach ($messageIds as $msgId) {
+            $this->firebase->updateOrderMessageReadAt($order->id, $msgId, $readAt);
+        }
 
         return response()->json([
             'success' => true,
@@ -267,9 +459,10 @@ class ApiOrderMessageController extends Controller
             return response()->json(['success' => false, 'message' => 'Order not found.'], 404);
         }
 
-        // Update all messages in this thread (order already verified as customer's)
+        // Update all messages in this thread (by customer_id to avoid duplication)
         $updated = OrderMessage::query()
             ->where('order_id', $order->id)
+            ->where('customer_id', $customer->id)
             ->update(['customer_status' => OrderMessage::CUSTOMER_STATUS_ARCHIVE]);
 
         return response()->json([
@@ -328,6 +521,7 @@ class ApiOrderMessageController extends Controller
 
         $updated = OrderMessage::query()
             ->whereIn('order_id', $customerOrderIds)
+            ->where('customer_id', $customer->id)
             ->whereIn('id', $messageIds)
             ->update(['customer_status' => OrderMessage::CUSTOMER_STATUS_ARCHIVE]);
 
@@ -354,9 +548,10 @@ class ApiOrderMessageController extends Controller
             return response()->json(['success' => false, 'message' => 'Order not found.'], 404);
         }
 
-        // Update all messages in this thread (order already verified as customer's)
+        // Update all messages in this thread (by customer_id to avoid duplication)
         $updated = OrderMessage::query()
             ->where('order_id', $order->id)
+            ->where('customer_id', $customer->id)
             ->update(['customer_status' => OrderMessage::CUSTOMER_STATUS_ACTIVE]);
 
         return response()->json([
@@ -397,6 +592,9 @@ class ApiOrderMessageController extends Controller
             'created_at' => $message->created_at?->toIso8601String(),
             'read_at' => $message->read_at?->toIso8601String(),
         ];
+        if (\in_array('status', $message->getFillable(), true)) {
+            $payload['status'] = $message->status ?? OrderMessage::STATUS_ACTIVE;
+        }
         if (\in_array('customer_status', $message->getFillable(), true)) {
             $payload['customer_status'] = $message->customer_status ?? OrderMessage::CUSTOMER_STATUS_ACTIVE;
         }

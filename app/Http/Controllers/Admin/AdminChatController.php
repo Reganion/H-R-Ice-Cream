@@ -5,11 +5,16 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\ChatMessage;
 use App\Models\Customer;
+use App\Services\FirebaseRealtimeService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class AdminChatController extends Controller
 {
+    public function __construct(
+        protected FirebaseRealtimeService $firebase
+    ) {}
+
     /**
      * List customers for chat (search by name or email).
      * GET /admin/chat/customers?q=search
@@ -153,10 +158,19 @@ class AdminChatController extends Controller
             ->map(fn (ChatMessage $m) => $this->formatMessage($m));
 
         // Mark customer messages as read
+        $readMessageIds = $customer->chatMessages()
+            ->where('sender_type', ChatMessage::SENDER_CUSTOMER)
+            ->whereNull('read_at')
+            ->pluck('id');
         $customer->chatMessages()
             ->where('sender_type', ChatMessage::SENDER_CUSTOMER)
             ->whereNull('read_at')
             ->update(['read_at' => now()]);
+
+        $readAt = now()->toIso8601String();
+        foreach ($readMessageIds as $messageId) {
+            $this->firebase->updateChatMessageReadAt($customer->id, $messageId, $readAt);
+        }
 
         return response()->json([
             'success' => true,
@@ -192,11 +206,20 @@ class AdminChatController extends Controller
 
         // Mark new customer messages as read when we fetch them
         if ($messages->isNotEmpty()) {
+            $readMessageIds = $customer->chatMessages()
+                ->where('sender_type', ChatMessage::SENDER_CUSTOMER)
+                ->whereNull('read_at')
+                ->where('id', '>', $afterId)
+                ->pluck('id');
             $customer->chatMessages()
                 ->where('sender_type', ChatMessage::SENDER_CUSTOMER)
                 ->whereNull('read_at')
                 ->where('id', '>', $afterId)
                 ->update(['read_at' => now()]);
+            $readAt = now()->toIso8601String();
+            foreach ($readMessageIds as $messageId) {
+                $this->firebase->updateChatMessageReadAt($customer->id, $messageId, $readAt);
+            }
         }
 
         return response()->json(['success' => true, 'messages' => $messages->values()->all()]);
@@ -244,9 +267,12 @@ class AdminChatController extends Controller
             'image_path' => $imagePath,
         ]);
 
+        $formatted = $this->formatMessage($message);
+        $this->firebase->syncChatMessage($customer->id, $message->id, $formatted);
+
         return response()->json([
             'success' => true,
-            'message' => $this->formatMessage($message),
+            'message' => $formatted,
         ]);
     }
 

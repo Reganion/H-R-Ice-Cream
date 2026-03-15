@@ -10,6 +10,7 @@
     <link rel="icon" href="{{ asset('img/logo.png') }}">
     @section('title', 'Order Management')
     <link rel="stylesheet" href="{{ asset('assets/css/Admin/order.css') }}">
+    {{-- Firebase loaded once in admin layout; use window.FIREBASE_DATABASE_URL --}}
 </head>
 
 <body>
@@ -95,7 +96,7 @@
                                 <tr data-order-id="{{ $order->id }}"
                                     data-product-name="{{ e($order->product_name ?? '') }}"
                                     data-product-type="{{ e($order->product_type ?? '') }}"
-                                    data-product-image="{{ asset($order->product_image ?? 'img/default-product.png') }}"
+                                    data-product-image="{{ asset($order->getResolvedProductImagePath()) }}"
                                     data-gallon-size="{{ e($order->gallon_size ?? '') }}"
                                     data-transaction-id="{{ e($order->transaction_id ?? '') }}"
                                     data-customer-name="{{ e($order->customer_name ?? '') }}"
@@ -110,6 +111,7 @@
                                     data-quantity="{{ (int) ($order->qty ?? 1) }}"
                                     data-payment-method="{{ e($order->payment_method ?? '') }}"
                                     data-status="{{ e($order->status ?? '') }}" data-status-key="{{ $statusKey }}"
+                                    data-status-driver="{{ strtolower($order->status_driver?->value ?? 'pending') }}"
                                     data-driver-id="{{ $order->driver_id ?? '' }}"
                                     data-driver-name="{{ e($order->driver->name ?? '') }}"
                                     data-driver-phone="{{ e($order->driver->phone ?? '') }}"
@@ -154,14 +156,18 @@
                                                     <span class="material-symbols-outlined">edit</span>
                                                 </button>
 
-                                                {{-- ASSIGNED / READY / OUT FOR DELIVERY → REASSIGN + EDIT --}}
-                                            @elseif (in_array($statusKey, ['assigned', 'ready', 'out_for_delivery'], true))
+                                                {{-- ASSIGNED / OUT FOR DELIVERY → REASSIGN + EDIT --}}
+                                            @elseif (in_array($statusKey, ['assigned', 'out_for_delivery'], true))
                                                 <button type="button" class="action-btn reassign" title="Re-assign driver">
                                                     <span class="material-symbols-outlined">person_edit</span>
                                                 </button>
                                                 <button type="button" class="action-btn edit-order" title="Edit order">
                                                     <span class="material-symbols-outlined">edit</span>
                                                 </button>
+
+                                                {{-- READY → VIEW ONLY (no reassign/edit) --}}
+                                            @elseif ($statusKey === 'ready')
+                                                {{-- Only view button below --}}
 
                                                 {{-- PREPARING → EDIT ONLY (change status to Ready) --}}
                                             @elseif ($statusKey === 'preparing')
@@ -960,8 +966,9 @@
             editAmountInput.value = total.toFixed(2);
         }
 
-        function setEditStatusOptions(limitedEdit, statusKey) {
+        function setEditStatusOptions(limitedEdit, statusKey, statusDriver) {
             const normalized = normalizeEditStatusKey(statusKey);
+            const driverStatus = String(statusDriver || '').trim().toLowerCase();
             Array.from(editStatusSelect.options).forEach((option) => {
                 let show;
                 if (!limitedEdit) {
@@ -973,8 +980,15 @@
                 } else if (normalized === 'preparing') {
                     // Preparing: only Preparing and Ready
                     show = option.value === 'preparing' || option.value === 'ready';
+                } else if (normalized === 'assigned') {
+                    // Assigned: only allow Preparing/Ready when driver has accepted
+                    if (driverStatus === 'accepted') {
+                        show = option.value === 'assigned' || option.value === 'preparing';
+                    } else {
+                        show = option.value === 'assigned';
+                    }
                 } else {
-                    // Assigned etc.: allow current + preparing
+                    // Other limited-edit states
                     show = option.value === 'preparing' || option.value === normalized;
                 }
                 option.hidden = !show;
@@ -1024,12 +1038,12 @@
             }
         }
 
-        function configureEditFormFields(statusKey) {
+        function configureEditFormFields(statusKey, statusDriver) {
             const normalized = normalizeEditStatusKey(statusKey);
             const limitedEdit = normalized === 'pending' || normalized === 'assigned' || normalized === 'preparing';
 
             editFullFields.forEach((wrapper) => setEditFullFieldState(wrapper, !limitedEdit));
-            setEditStatusOptions(limitedEdit, normalized);
+            setEditStatusOptions(limitedEdit, normalized, statusDriver);
 
             // Walk-in: hide and lock the status field completely
             const statusWrapper = editStatusSelect.closest('.form-group');
@@ -1078,10 +1092,11 @@
             document.getElementById("editPaymentMethodText").textContent = row.dataset.paymentMethod ||
                 'Payment Method';
             const rowStatus = row.dataset.statusKey || normalizeEditStatusKey(row.dataset.status || '');
+            const rowStatusDriver = row.dataset.statusDriver || 'pending';
             document.getElementById("editStatus").value = normalizeEditStatusKey(row.dataset.status || row.dataset.statusKey || '');
 
             calculateEditPricing();
-            configureEditFormFields(rowStatus);
+            configureEditFormFields(rowStatus, rowStatusDriver);
 
             editModal.classList.add("show");
         });
@@ -1318,8 +1333,8 @@
                 </button>`;
                 }
 
-                // ASSIGNED / READY / OUT FOR DELIVERY → REASSIGN + EDIT
-                else if (statusKey === 'assigned' || statusKey === 'ready' || statusKey === 'out_for_delivery') {
+                // ASSIGNED / OUT FOR DELIVERY → REASSIGN + EDIT
+                else if (statusKey === 'assigned' || statusKey === 'out_for_delivery') {
                     actionHtml += `
                 <button class="action-btn reassign">
                     <span class="material-symbols-outlined">person_edit</span>
@@ -1328,6 +1343,7 @@
                     <span class="material-symbols-outlined">edit</span>
                 </button>`;
                 }
+                // READY → view only (no reassign/edit)
 
                 // PREPARING → EDIT ONLY (change status to Ready)
                 else if (statusKey === 'preparing') {
@@ -1373,6 +1389,7 @@
                     ' data-payment-method="' + escAttr(order.payment_method) + '"' +
                     ' data-status="' + escAttr(order.status) + '"' +
                     ' data-status-key="' + escAttr(statusKey) + '"' +
+                    ' data-status-driver="' + escAttr((order.status_driver || 'pending').toLowerCase()) + '"' +
                     ' data-driver-id="' + escAttr(order.driver_id || '') + '"' +
                     ' data-driver-name="' + escAttr(order.driver_name || '') + '"' +
                     ' data-driver-phone="' + escAttr(order.driver_phone || '') + '"' +
@@ -1415,8 +1432,30 @@
             }
             window.fetchAndRefreshOrders = fetchAndRefreshOrders;
 
-            const POLL_INTERVAL_MS = 5000;
-            setInterval(fetchAndRefreshOrders, POLL_INTERVAL_MS);
+            // Real-time only via Firebase Realtime Database (no polling)
+            const firebaseDbUrl = window.FIREBASE_DATABASE_URL || @json(config('services.firebase_realtime_url') ?: (config('firebase.projects.app.database.url') ?? ''));
+            if (firebaseDbUrl && typeof firebase !== 'undefined' && firebase.database) {
+                try {
+                    if (!firebase.apps.length) {
+                        firebase.initializeApp({ databaseURL: firebaseDbUrl });
+                    }
+                    const db = firebase.database();
+                    const ordersUpdatedRef = db.ref('admin/orders_last_updated');
+                    let lastUpdatedValue = null;
+                    ordersUpdatedRef.on('value', function(snapshot) {
+                        const val = snapshot.val();
+                        const ts = val && val.value ? val.value : (val && val.updated_at ? val.updated_at : null);
+                        if (lastUpdatedValue !== null && ts != null && lastUpdatedValue !== ts) {
+                            lastUpdatedValue = ts;
+                            fetchAndRefreshOrders();
+                        } else if (lastUpdatedValue === null) {
+                            lastUpdatedValue = ts || '';
+                        }
+                    });
+                } catch (e) {
+                    console.warn('Firebase orders listener failed.', e);
+                }
+            }
 
             render(currentPage);
         });
@@ -1673,6 +1712,7 @@
             return {
                 transaction_id: row.dataset.transactionId || '',
                 status: row.dataset.status || '',
+                status_driver: (row.dataset.statusDriver || 'pending').toLowerCase(),
                 customer_name: row.dataset.customerName || '',
                 customer_phone: row.dataset.customerPhone || '',
                 customer_email: row.dataset.customerEmail || '',
@@ -1687,6 +1727,7 @@
                 balance: balance,
                 quantity: parseInt(row.dataset.quantity || '1', 10) || 1,
                 payment_method: row.dataset.paymentMethod || '',
+                driver_id: row.dataset.driverId || '',
                 driver_name: row.dataset.driverName || ''
             };
         }
@@ -1702,7 +1743,11 @@
             const statusClass = getStatusClass(orderData.status);
             const productType = orderData.product_type || '—';
             const gallonSize = orderData.gallon_size || '—';
-            const driverName = orderData.driver_name || (orderData.driver && orderData.driver.name) || 'No driver assigned';
+            const statusDriver = (orderData.status_driver || 'pending').toString().toLowerCase();
+            const hasDriver = !!(orderData.driver_id || orderData.driver_name || (orderData.driver && orderData.driver.name));
+            const driverName = (statusDriver === 'pending' && hasDriver)
+                ? 'Pending'
+                : (orderData.driver_name || (orderData.driver && orderData.driver.name) || 'No driver assigned');
 
             document.getElementById("detailsStatus").textContent = status;
             document.getElementById("detailsStatus").className = 'status-badge-details ' + statusClass;

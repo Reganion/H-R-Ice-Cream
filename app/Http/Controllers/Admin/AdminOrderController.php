@@ -3,17 +3,23 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Enums\OrderStatusDriver;
 use App\Models\AdminNotification;
 use App\Models\Driver;
 use App\Models\Flavor;
 use App\Models\Gallon;
 use App\Models\Order;
+use App\Services\FirebaseRealtimeService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 
 class AdminOrderController extends Controller
 {
+    public function __construct(
+        protected FirebaseRealtimeService $firebase
+    ) {}
+
     private function toDatabaseOrderStatus(?string $status): string
     {
         $normalized = strtolower(trim((string) ($status ?? '')));
@@ -73,6 +79,21 @@ class AdminOrderController extends Controller
     }
 
     /**
+     * Return a product image path that exists on disk, or the default placeholder.
+     */
+    private function resolveProductImagePath(?string $path): string
+    {
+        $path = trim((string) ($path ?? ''));
+        if ($path === '' || str_starts_with($path, 'http')) {
+            return 'img/default-product.png';
+        }
+        if (! is_file(public_path($path))) {
+            return 'img/default-product.png';
+        }
+        return $path;
+    }
+
+    /**
      * Return orders as JSON for real-time polling on the admin orders page.
      * When scope=this_month, only returns orders from the start of the current month.
      */
@@ -122,7 +143,7 @@ class AdminOrderController extends Controller
                 'product_name' => $order->product_name ?? '',
                 'product_type' => $order->product_type ?? '',
                 'gallon_size' => $order->gallon_size ?? '',
-                'product_image_url' => asset($order->product_image ?? 'img/default-product.png'),
+                'product_image_url' => asset($this->resolveProductImagePath($order->product_image)),
                 'customer_name' => $order->customer_name ?? '',
                 'customer_phone' => $order->customer_phone ?? '',
                 'customer_image_url' => asset($order->customer_image ?? 'img/default-user.png'),
@@ -138,6 +159,7 @@ class AdminOrderController extends Controller
                 'driver_name' => $driver ? $driver->name : null,
                 'driver_phone' => $driver ? $driver->phone : null,
                 'driver_image_url' => $driver ? asset($driver->image ?? 'img/default-user.png') : null,
+                'status_driver' => strtolower($order->status_driver?->value ?? 'pending'),
                 'created_at_formatted' => $createdAt ? $createdAt->format('d M Y') : '—',
                 'delivery_date' => $deliveryDate ? $deliveryDate->format('Y-m-d') : '',
                 'delivery_time' => $deliveryTime ? $deliveryTime->format('H:i') : '',
@@ -174,7 +196,7 @@ class AdminOrderController extends Controller
             'product_name' => $order->product_name ?? '',
             'product_type' => $order->product_type ?? '',
             'gallon_size' => $order->gallon_size ?? '',
-            'product_image_url' => asset($order->product_image ?? 'img/default-product.png'),
+            'product_image_url' => asset($this->resolveProductImagePath($order->product_image)),
             'customer_name' => $order->customer_name ?? '',
             'customer_phone' => $order->customer_phone ?? '',
             'customer_image_url' => asset($order->customer_image ?? 'img/default-user.png'),
@@ -190,6 +212,7 @@ class AdminOrderController extends Controller
             'driver_name' => $driver ? $driver->name : null,
             'driver_phone' => $driver ? $driver->phone : null,
             'driver_image_url' => $driver ? asset($driver->image ?? 'img/default-user.png') : null,
+            'status_driver' => strtolower($order->status_driver?->value ?? 'pending'),
             'created_at_formatted' => $createdAt ? $createdAt->format('d M Y') : '—',
             'delivery_date' => $deliveryDate ? $deliveryDate->format('Y-m-d') : '',
             'delivery_time' => $deliveryTime ? $deliveryTime->format('H:i') : '',
@@ -248,6 +271,8 @@ class AdminOrderController extends Controller
             ['subtitle' => 'Order #' . $order->transaction_id, 'highlight' => $order->product_name]
         );
 
+        $this->firebase->touchOrdersUpdated();
+
         return back()->with('success', 'Walk-in order added successfully.');
     }
 
@@ -266,17 +291,20 @@ class AdminOrderController extends Controller
             ]);
 
             $requestedStatus = $this->normalizeOrderStatus($request->input('status'));
+            $driverAccepted = $order->status_driver === OrderStatusDriver::Accepted;
             $allowedNext = match ($currentStatus) {
-                'pending', 'assigned' => ['preparing', $currentStatus],
+                'pending' => ['pending', 'preparing'],
+                'assigned' => $driverAccepted ? ['assigned', 'preparing'] : ['assigned'],
                 'preparing' => ['preparing', 'ready'],
                 default => [$currentStatus],
             };
             if (!in_array($requestedStatus, $allowedNext, true)) {
-                return back()->withErrors([
-                    'status' => $currentStatus === 'preparing'
-                        ? 'For this order, status can only be Preparing or Ready.'
-                        : 'For this order, status can only be the previous status or Preparing.',
-                ])->withInput();
+                $message = match (true) {
+                    $currentStatus === 'preparing' => 'For this order, status can only be Preparing or Ready.',
+                    $currentStatus === 'assigned' && !$driverAccepted => 'Cannot change to Preparing until the driver has accepted the order.',
+                    default => 'For this order, status can only be the previous status or Preparing.',
+                };
+                return back()->withErrors(['status' => $message])->withInput();
             }
 
             $flavor = Flavor::where('name', $request->product_name)->first();
@@ -289,7 +317,7 @@ class AdminOrderController extends Controller
             $unitPrice = (float) (($flavor?->price ?? 0) + ($gallon?->addon_price ?? 0));
             $totalAmount = round($unitPrice * max($qty, 1), 2);
 
-            $order->update([
+            $updateData = [
                 'product_name' => $request->product_name,
                 'product_type' => $newType,
                 'gallon_size' => $request->gallon_size,
@@ -297,7 +325,12 @@ class AdminOrderController extends Controller
                 'qty' => $qty,
                 'amount' => $totalAmount,
                 'status' => $this->toDatabaseOrderStatus($requestedStatus),
-            ]);
+            ];
+            // Keep status_driver unchanged when only updating order status (Assigned → Preparing → Ready)
+            if ($order->driver_id !== null) {
+                $updateData['status_driver'] = $order->status_driver ?? OrderStatusDriver::Accepted;
+            }
+            $order->update($updateData);
 
             if ($order->wasChanged('status') && $this->normalizeOrderStatus($order->status) === 'completed') {
                 AdminNotification::createForAllAdmins(
@@ -310,6 +343,8 @@ class AdminOrderController extends Controller
                     ['subtitle' => 'delivered', 'highlight' => 'Successfully']
                 );
             }
+
+            $this->firebase->touchOrdersUpdated();
 
             return back()->with('success', 'Order updated successfully.');
         }
@@ -347,6 +382,10 @@ class AdminOrderController extends Controller
         if ($request->has('status')) {
             $updates['status'] = $this->toDatabaseOrderStatus($request->input('status'));
         }
+        // Preserve status_driver when order has a driver (do not overwrite with null)
+        if ($order->driver_id !== null) {
+            $updates['status_driver'] = $order->status_driver ?? OrderStatusDriver::Accepted;
+        }
         $order->update($updates);
 
         // Notify all admins when order is marked as completed/delivered.
@@ -361,6 +400,8 @@ class AdminOrderController extends Controller
                 ['subtitle' => 'delivered', 'highlight' => 'Successfully']
             );
         }
+
+        $this->firebase->touchOrdersUpdated();
 
         return back()->with('success', 'Order updated successfully.');
     }
@@ -407,8 +448,10 @@ class AdminOrderController extends Controller
         $order->update([
             'driver_id' => $request->driver_id,
             'status' => $this->toDatabaseOrderStatus('assigned'),
-            'status_driver' => null,
+            'status_driver' => OrderStatusDriver::Pending,
         ]);
+
+        $this->firebase->touchOrdersUpdated();
 
         if ($request->wantsJson()) {
             return response()->json(['success' => true, 'message' => 'Driver assigned successfully.']);

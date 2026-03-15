@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\FirebaseRealtimeService;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -87,6 +88,21 @@ class AdminNotification extends Model
 
         if (!empty($rows)) {
             self::insert($rows);
+        }
+
+        try {
+            app(FirebaseRealtimeService::class)->touchAdminNotificationsUpdated();
+            if ($type === self::TYPE_ORDER_NEW) {
+                app(FirebaseRealtimeService::class)->setLatestOrderAlert([
+                    'title'       => $title,
+                    'subtitle'    => ($data['subtitle'] ?? '') ?: 'Order',
+                    'highlight'   => $data['highlight'] ?? '',
+                    'order_id'    => $relatedId,
+                    'image_url'   => $imageUrl ?? '',
+                ]);
+            }
+        } catch (\Throwable $e) {
+            report($e);
         }
     }
 
