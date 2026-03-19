@@ -104,4 +104,51 @@ class ApiNotificationController extends Controller
 
         return response()->json(['success' => true, 'message' => 'All marked as read.']);
     }
+
+    /**
+     * Delete a single notification for the current customer.
+     * DELETE /api/v1/notifications/{id}
+     */
+    public function destroy(Request $request, int $id): JsonResponse
+    {
+        $customer = $request->user();
+        if (!$customer instanceof Customer) {
+            return response()->json(['success' => false, 'message' => 'Invalid user.'], 401);
+        }
+
+        $notification = CustomerNotification::forCustomer($customer->id)
+            ->where('id', $id)
+            ->first();
+
+        if (!$notification) {
+            return response()->json(['success' => false, 'message' => 'Notification not found.'], 404);
+        }
+
+        $notification->delete();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Notification deleted successfully.',
+        ]);
+    }
+
+    /**
+     * Delete all notifications for the current customer.
+     * DELETE /api/v1/notifications
+     */
+    public function destroyAll(Request $request): JsonResponse
+    {
+        $customer = $request->user();
+        if (!$customer instanceof Customer) {
+            return response()->json(['success' => false, 'message' => 'Invalid user.'], 401);
+        }
+
+        $deleted = CustomerNotification::forCustomer($customer->id)->delete();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'All notifications deleted successfully.',
+            'deleted_count' => (int) $deleted,
+        ]);
+    }
 }

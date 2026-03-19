@@ -9,7 +9,7 @@
      header {
          display: flex;
          align-items: center;
-         justify-content: space-between;
+         justify-content: flex-start;
          padding: 20px 60px;
          flex-wrap: wrap;
          position: sticky;
@@ -27,6 +27,9 @@
      nav {
          display: flex;
          gap: 15px;
+         position: absolute;
+         left: 50%;
+         transform: translateX(-50%);
      }
 
      nav a {

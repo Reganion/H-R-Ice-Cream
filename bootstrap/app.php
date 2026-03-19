@@ -13,6 +13,7 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->alias([
+            'admin.auth' => \App\Http\Middleware\AuthenticateAdmin::class,
             'api.customer' => \App\Http\Middleware\AuthenticateApiCustomer::class,
             'api.driver' => \App\Http\Middleware\AuthenticateApiDriver::class,
         ]);

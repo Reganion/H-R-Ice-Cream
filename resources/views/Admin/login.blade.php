@@ -22,9 +22,7 @@
     <div class="left">
         <img src="{{ asset('img/signins.png') }}" alt="Ice Cream Image">
         <div class="logo-left">
-            <a href="{{ route('landing') }}">
                 <img src="{{ asset('img/logoleft.png') }}" alt="Quinjay Logo">
-            </a>
         </div>
     </div>
 

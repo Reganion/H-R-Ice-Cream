@@ -4,7 +4,9 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Enums\OrderStatusDriver;
+use App\Models\CustomerNotification;
 use App\Models\Driver;
+use App\Models\DriverNotification;
 use App\Models\Order;
 use App\Models\OrderMessage;
 use Carbon\Carbon;
@@ -17,6 +19,43 @@ class ApiDriverShipmentController extends Controller
 {
     /** Order status when driver has started delivery (out for delivery). */
     private const STATUS_OUT_FOR_DELIVERY = 'out for delivery';
+
+    /**
+     * Send customer notification for shipment/order status changes.
+     */
+    private function notifyCustomerOrderStatus(Order $order): void
+    {
+        if (!$order->customer_id) {
+            return;
+        }
+
+        $status = strtolower(trim((string) ($order->status ?? '')));
+        $status = str_replace('-', '_', preg_replace('/\s+/', '_', $status));
+
+        $message = match ($status) {
+            'out_for_delivery' => 'Your order is out for delivery.',
+            'completed', 'delivered' => 'Order successfully delivered.',
+            default => null,
+        };
+
+        if ($message === null) {
+            return;
+        }
+
+        CustomerNotification::create([
+            'customer_id'  => (int) $order->customer_id,
+            'type'         => CustomerNotification::TYPE_ORDER_STATUS,
+            'title'        => $order->product_name ?? 'Order Update',
+            'message'      => $message,
+            'image_url'    => $order->product_image ?? 'img/default-product.png',
+            'related_type' => 'Order',
+            'related_id'   => $order->id,
+            'data'         => [
+                'transaction_id' => $order->transaction_id,
+                'status' => $status,
+            ],
+        ]);
+    }
 
     /**
      * Build full URL for delivery proof image so the app can load it.
@@ -353,6 +392,7 @@ class ApiDriverShipmentController extends Controller
         $order->status = self::STATUS_OUT_FOR_DELIVERY;
         $order->status_driver = OrderStatusDriver::Accepted;
         $order->save();
+        $this->notifyCustomerOrderStatus($order);
 
         $this->firebase->touchOrdersUpdated();
 
@@ -423,6 +463,21 @@ class ApiDriverShipmentController extends Controller
         $amount = (float) ($order->amount ?? 0.0);
         $order->balance = max(0, $amount - $newReceived);
         $order->save();
+        $this->notifyCustomerOrderStatus($order);
+
+        DriverNotification::create([
+            'driver_id' => (int) $driver->id,
+            'type' => DriverNotification::TYPE_SHIPMENT_COMPLETED,
+            'title' => 'Delivered Successfully',
+            'message' => 'Booking has been delivered completely.',
+            'image_url' => $order->product_image ?? 'img/default-product.png',
+            'related_type' => 'Order',
+            'related_id' => $order->id,
+            'data' => [
+                'transaction_id' => $order->transaction_id,
+                'status' => 'completed',
+            ],
+        ]);
 
         $this->firebase->touchOrdersUpdated();
 

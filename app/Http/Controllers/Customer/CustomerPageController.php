@@ -8,10 +8,6 @@ use App\Models\Feedback;
 
 class CustomerPageController extends Controller
 {
-    public function landing()
-    {
-        return view('landing');
-    }
 
     public function home()
     {

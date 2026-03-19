@@ -11,6 +11,36 @@
     @section('title', 'Order Management')
     <link rel="stylesheet" href="{{ asset('assets/css/Admin/order.css') }}">
     {{-- Firebase loaded once in admin layout; use window.FIREBASE_DATABASE_URL --}}
+    <style>
+        button.is-loading {
+            pointer-events: none !important;
+            cursor: not-allowed !important;
+            opacity: 0.75 !important;
+        }
+
+        button.is-loading .btn-loading-wrap {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        button.is-loading .btn-spinner {
+            width: 14px;
+            height: 14px;
+            border: 2px solid currentColor;
+            border-right-color: transparent;
+            border-radius: 50%;
+            display: inline-block;
+            animation: btn-spin 0.7s linear infinite;
+            vertical-align: middle;
+        }
+
+        @keyframes btn-spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+    </style>
 </head>
 
 <body>
@@ -56,9 +86,8 @@
             <!-- TABLE WRAPPER -->
             <div class="orders-table">
 
-                <!-- SCROLL AREA -->
-                <div class="table-scroll">
-                    <table class="orders-data">
+                <div class="table-header">
+                    <table class="orders-data orders-data-head">
                         <colgroup>
                             <col style="width: 18%;">
                             <col style="width: 22%;">
@@ -75,8 +104,19 @@
                                 <th>Action</th>
                             </tr>
                         </thead>
+                    </table>
+                </div>
 
-
+                <!-- SCROLL AREA (BODY ONLY) -->
+                <div class="table-scroll">
+                    <table class="orders-data orders-data-body">
+                        <colgroup>
+                            <col style="width: 18%;">
+                            <col style="width: 22%;">
+                            <col style="width: 20%;">
+                            <col style="width: 22%;">
+                            <col style="width: 12%;">
+                        </colgroup>
                         <tbody id="orders-tbody">
                             @forelse ($orders as $order)
                                 @php
@@ -156,8 +196,8 @@
                                                     <span class="material-symbols-outlined">edit</span>
                                                 </button>
 
-                                                {{-- ASSIGNED / OUT FOR DELIVERY → REASSIGN + EDIT --}}
-                                            @elseif (in_array($statusKey, ['assigned', 'out_for_delivery'], true))
+                                                {{-- ASSIGNED → REASSIGN + EDIT --}}
+                                            @elseif ($statusKey === 'assigned')
                                                 <button type="button" class="action-btn reassign" title="Re-assign driver">
                                                     <span class="material-symbols-outlined">person_edit</span>
                                                 </button>
@@ -194,7 +234,7 @@
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="7" style="text-align:center; padding:30px;">
+                                    <td colspan="5" style="text-align:center; padding:30px;">
                                         No orders found
                                     </td>
                                 </tr>
@@ -682,6 +722,31 @@
     </div>
 
     <script>
+        function setButtonLoadingState(button, isLoading, loadingText) {
+            if (!button) return;
+
+            if (isLoading) {
+                if (button.classList.contains("is-loading")) return;
+                button.dataset.originalHtml = button.innerHTML;
+                button.classList.add("is-loading");
+                button.disabled = true;
+                button.setAttribute("aria-busy", "true");
+                const text = loadingText || button.dataset.loadingText || "Processing...";
+                button.innerHTML =
+                    '<span class="btn-loading-wrap"><span class="btn-spinner" aria-hidden="true"></span><span>' +
+                    text + '</span></span>';
+                return;
+            }
+
+            button.classList.remove("is-loading");
+            button.disabled = false;
+            button.removeAttribute("aria-busy");
+            if (button.dataset.originalHtml) {
+                button.innerHTML = button.dataset.originalHtml;
+                delete button.dataset.originalHtml;
+            }
+        }
+
         // Initialize delivery fee as disabled on page load
         document.addEventListener("DOMContentLoaded", function() {
             const deliveryFeeSelect = document.getElementById("deliveryFeeSelect");
@@ -828,6 +893,12 @@
         document.getElementById("addOrderForm").addEventListener("submit", function(e) {
             const paymentMethod = document.getElementById("paymentMethod").value;
             const totalCost = document.getElementById("totalCost").value;
+            const submitBtn = this.querySelector("button[type='submit']");
+
+            if (submitBtn && submitBtn.classList.contains("is-loading")) {
+                e.preventDefault();
+                return false;
+            }
 
             if (!paymentMethod) {
                 e.preventDefault();
@@ -847,6 +918,8 @@
                 alert('Please ensure all costs are calculated correctly');
                 return false;
             }
+
+            setButtonLoadingState(submitBtn, true, "Adding...");
         });
     </script>
 
@@ -890,6 +963,7 @@
             document.getElementById("gallonCostDisplay").value = '';
             document.getElementById("totalCostDisplay").value = '---';
             document.getElementById("flavorTypeDisplay").value = '';
+            setButtonLoadingState(document.querySelector("#addOrderForm button[type='submit']"), false);
 
             // Reset delivery fee dropdown
             const deliveryFeeSelect = document.getElementById("deliveryFeeSelect");
@@ -1103,11 +1177,13 @@
 
         document.addEventListener("click", function(e) {
             if (e.target.closest("#closeEdit")) {
+                setButtonLoadingState(editForm.querySelector("button[type='submit']"), false);
                 editModal.classList.remove("show");
             }
         });
         editModal.addEventListener("click", function(e) {
             if (e.target === editModal) {
+                setButtonLoadingState(editForm.querySelector("button[type='submit']"), false);
                 editModal.classList.remove("show");
             }
         });
@@ -1136,6 +1212,14 @@
         });
 
         editQtyInput.addEventListener('input', calculateEditPricing);
+        editForm.addEventListener('submit', function(e) {
+            const submitBtn = this.querySelector("button[type='submit']");
+            if (submitBtn && submitBtn.classList.contains("is-loading")) {
+                e.preventDefault();
+                return;
+            }
+            setButtonLoadingState(submitBtn, true, "Updating...");
+        });
     </script>
 
     <script>
@@ -1333,8 +1417,8 @@
                 </button>`;
                 }
 
-                // ASSIGNED / OUT FOR DELIVERY → REASSIGN + EDIT
-                else if (statusKey === 'assigned' || statusKey === 'out_for_delivery') {
+                // ASSIGNED → REASSIGN + EDIT
+                else if (statusKey === 'assigned') {
                     actionHtml += `
                 <button class="action-btn reassign">
                     <span class="material-symbols-outlined">person_edit</span>
@@ -1589,10 +1673,17 @@
             const assignDriverBtn = e.target.closest(".assign-driver-btn[data-driver-id]");
             if (assignDriverBtn && assignModal.classList.contains("show")) {
                 e.preventDefault();
+                if (assignDriverBtn.classList.contains("is-loading")) return;
                 const orderId = assignModal.dataset.orderId;
                 const driverId = assignDriverBtn.dataset.driverId;
                 if (!orderId || !driverId) return;
-                assignDriverBtn.disabled = true;
+                const isReassign = assignModalTitle.textContent.toLowerCase().includes('re-assign');
+                const allDriverButtons = Array.from(assignDriverListItems.querySelectorAll(
+                    ".assign-driver-btn[data-driver-id]"));
+                allDriverButtons.forEach(function(btn) {
+                    btn.disabled = true;
+                });
+                setButtonLoadingState(assignDriverBtn, true, isReassign ? "Re-Assigning..." : "Assigning...");
 
                 const assignPostUrl = assignOrderUrlBase + '/' + orderId + '/assign';
                 var csrfToken = document.querySelector('meta[name="csrf-token"]') && document.querySelector(
@@ -1624,12 +1715,18 @@
                             assignModal.classList.remove('show');
                             if (typeof fetchAndRefreshOrders === 'function') fetchAndRefreshOrders();
                         } else {
-                            assignDriverBtn.disabled = false;
+                            allDriverButtons.forEach(function(btn) {
+                                btn.disabled = false;
+                            });
+                            setButtonLoadingState(assignDriverBtn, false);
                             alert(result.data.message || 'Failed to assign driver.');
                         }
                     })
                     .catch(function() {
-                        assignDriverBtn.disabled = false;
+                        allDriverButtons.forEach(function(btn) {
+                            btn.disabled = false;
+                        });
+                        setButtonLoadingState(assignDriverBtn, false);
                         alert('Failed to assign driver.');
                     });
             }

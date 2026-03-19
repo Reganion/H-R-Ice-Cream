@@ -11,6 +11,37 @@
     @section('title', 'Driver Management')
     <link rel="stylesheet" href="{{ asset('assets/css/Admin/app.css') }}">
     <link rel="stylesheet" href="{{ asset('assets/css/Admin/driver.css') }}">
+    <style>
+        button.is-loading {
+            pointer-events: none !important;
+            cursor: not-allowed !important;
+            opacity: 0.78 !important;
+            transition: all 0.2s ease;
+        }
+
+        button.is-loading .btn-loading-wrap {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        button.is-loading .btn-spinner {
+            width: 14px;
+            height: 14px;
+            border: 2px solid currentColor;
+            border-right-color: transparent;
+            border-radius: 50%;
+            display: inline-block;
+            animation: btn-spin 0.7s linear infinite;
+            vertical-align: middle;
+        }
+
+        @keyframes btn-spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+    </style>
 
 </head>
 
@@ -241,6 +272,31 @@
     @endsection
     <script>
         document.addEventListener("DOMContentLoaded", () => {
+            function setButtonLoadingState(button, isLoading, loadingText) {
+                if (!button) return;
+
+                if (isLoading) {
+                    if (button.classList.contains("is-loading")) return;
+                    button.dataset.originalHtml = button.innerHTML;
+                    button.classList.add("is-loading");
+                    button.disabled = true;
+                    button.setAttribute("aria-busy", "true");
+                    const text = loadingText || button.dataset.loadingText || "Processing...";
+                    button.innerHTML =
+                        '<span class="btn-loading-wrap"><span class="btn-spinner" aria-hidden="true"></span><span>' +
+                        text + "</span></span>";
+                    return;
+                }
+
+                button.classList.remove("is-loading");
+                button.disabled = false;
+                button.removeAttribute("aria-busy");
+                if (button.dataset.originalHtml) {
+                    button.innerHTML = button.dataset.originalHtml;
+                    delete button.dataset.originalHtml;
+                }
+            }
+
             const pendingAlertMessage = sessionStorage.getItem("driverPendingAlertMessage");
             const pendingAlertType = sessionStorage.getItem("driverPendingAlertType");
             if (
@@ -377,7 +433,13 @@
             const addDriverModal = document.getElementById("addDriverModal");
             const addDriverForm = addDriverModal?.querySelector("form");
 
-            addDriverForm?.addEventListener("submit", () => {
+            addDriverForm?.addEventListener("submit", (e) => {
+                const submitBtn = addDriverForm.querySelector("button[type='submit']");
+                if (submitBtn && submitBtn.classList.contains("is-loading")) {
+                    e.preventDefault();
+                    return;
+                }
+                setButtonLoadingState(submitBtn, true, "Adding...");
                 sessionStorage.setItem("driverPendingAlertMessage", "Driver added successfully");
                 sessionStorage.setItem("driverPendingAlertType", "success");
             });
@@ -406,10 +468,16 @@
             };
 
             document.getElementById("closeAddDriverModal").onclick = closeDriverModalSmooth;
-            document.getElementById("cancelAddDriver").onclick = closeDriverModalSmooth;
+            document.getElementById("cancelAddDriver").onclick = () => {
+                setButtonLoadingState(addDriverForm?.querySelector("button[type='submit']"), false);
+                closeDriverModalSmooth();
+            };
 
             addDriverModal.onclick = (e) => {
-                if (e.target === addDriverModal) closeDriverModalSmooth();
+                if (e.target === addDriverModal) {
+                    setButtonLoadingState(addDriverForm?.querySelector("button[type='submit']"), false);
+                    closeDriverModalSmooth();
+                }
             };
 
             document.getElementById("driverImage").addEventListener("change", function() {
@@ -477,8 +545,14 @@
                 statusDriverModal.classList.add("show");
             }
 
-            statusDriverForm?.addEventListener("submit", () => {
+            statusDriverForm?.addEventListener("submit", (e) => {
+                if (confirmStatusDriverAction.classList.contains("is-loading")) {
+                    e.preventDefault();
+                    return;
+                }
                 const actionType = statusDriverForm.dataset.actionType;
+                const loadingText = actionType === "archive" ? "Archiving..." : (actionType === "activate" ? "Activating..." : "Updating...");
+                setButtonLoadingState(confirmStatusDriverAction, true, loadingText);
                 if (actionType === "archive") {
                     sessionStorage.setItem("driverPendingAlertMessage", "Driver archived successfully");
                 } else if (actionType === "activate") {
@@ -508,11 +582,13 @@
             });
 
             cancelStatusDriverAction.addEventListener("click", () => {
+                setButtonLoadingState(confirmStatusDriverAction, false);
                 statusDriverModal.classList.remove("show");
             });
 
             statusDriverModal.addEventListener("click", (e) => {
                 if (e.target === statusDriverModal) {
+                    setButtonLoadingState(confirmStatusDriverAction, false);
                     statusDriverModal.classList.remove("show");
                 }
             });

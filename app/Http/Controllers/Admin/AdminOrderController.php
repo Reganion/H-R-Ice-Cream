@@ -5,7 +5,9 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Enums\OrderStatusDriver;
 use App\Models\AdminNotification;
+use App\Models\CustomerNotification;
 use App\Models\Driver;
+use App\Models\DriverNotification;
 use App\Models\Flavor;
 use App\Models\Gallon;
 use App\Models\Order;
@@ -36,6 +38,47 @@ class AdminOrderController extends Controller
             'out-for-delivery', 'out_for_delivery', 'out for delivery' => 'Out for Delivery',
             default => 'pending',
         };
+    }
+
+    /**
+     * Send a customer notification for a given order status change.
+     */
+    private function notifyCustomerOrderStatus(Order $order): void
+    {
+        if (!$order->customer_id) {
+            return;
+        }
+
+        $normalized = $this->normalizeOrderStatus($order->status);
+
+        $message = match ($normalized) {
+            'pending'          => 'Your order request was placed successfully.',
+            'assigned'         => 'Your order has been assigned to a driver.',
+            'preparing'        => 'Your order is now being prepared.',
+            'ready'            => 'Your order is ready for delivery.',
+            'out_for_delivery' => 'Your order is out for delivery.',
+            'completed'        => 'Order successfully delivered.',
+            'cancelled'        => 'Order request cancelled successfully by the owner.',
+            default            => null,
+        };
+
+        if ($message === null) {
+            return;
+        }
+
+        CustomerNotification::create([
+            'customer_id'  => $order->customer_id,
+            'type'         => CustomerNotification::TYPE_ORDER_STATUS,
+            'title'        => $order->product_name ?? 'Order Update',
+            'message'      => $message,
+            'image_url'    => $order->product_image ?? 'img/default-product.png',
+            'related_type' => 'Order',
+            'related_id'   => $order->id,
+            'data'         => [
+                'transaction_id' => $order->transaction_id,
+                'status'         => $normalized,
+            ],
+        ]);
     }
 
     private function normalizeOrderStatus(?string $status): string
@@ -331,6 +374,9 @@ class AdminOrderController extends Controller
                 $updateData['status_driver'] = $order->status_driver ?? OrderStatusDriver::Accepted;
             }
             $order->update($updateData);
+            if ($order->wasChanged('status')) {
+                $this->notifyCustomerOrderStatus($order->fresh());
+            }
 
             if ($order->wasChanged('status') && $this->normalizeOrderStatus($order->status) === 'completed') {
                 AdminNotification::createForAllAdmins(
@@ -387,6 +433,9 @@ class AdminOrderController extends Controller
             $updates['status_driver'] = $order->status_driver ?? OrderStatusDriver::Accepted;
         }
         $order->update($updates);
+        if ($order->wasChanged('status')) {
+            $this->notifyCustomerOrderStatus($order->fresh());
+        }
 
         // Notify all admins when order is marked as completed/delivered.
         if ($order->wasChanged('status') && $this->normalizeOrderStatus($order->status) === 'completed') {
@@ -450,6 +499,22 @@ class AdminOrderController extends Controller
             'status' => $this->toDatabaseOrderStatus('assigned'),
             'status_driver' => OrderStatusDriver::Pending,
         ]);
+
+        DriverNotification::create([
+            'driver_id' => (int) $request->driver_id,
+            'type' => DriverNotification::TYPE_SHIPMENT_ASSIGNED,
+            'title' => 'New order is available!',
+            'message' => 'Admin just assigned you. Click to see full details.',
+            'image_url' => $order->product_image ?? 'img/default-product.png',
+            'related_type' => 'Order',
+            'related_id' => $order->id,
+            'data' => [
+                'transaction_id' => $order->transaction_id,
+                'status' => 'assigned',
+            ],
+        ]);
+
+        $this->notifyCustomerOrderStatus($order->fresh());
 
         $this->firebase->touchOrdersUpdated();
 

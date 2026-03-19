@@ -293,7 +293,7 @@ class ApiOrderController extends Controller
                 'customer_id'   => $user->id,
                 'type'          => CustomerNotification::TYPE_ORDER_PLACED,
                 'title'         => $order->product_name,
-                'message'       => 'Your order has been placed successfully.',
+                'message'       => 'Your order request was placed successfully.',
                 'image_url'     => $productImage,
                 'related_type'  => 'Order',
                 'related_id'    => $order->id,
@@ -378,6 +378,20 @@ class ApiOrderController extends Controller
         $order->update([
             'status' => 'cancelled',
             'reason' => $reasonText,
+        ]);
+
+        CustomerNotification::create([
+            'customer_id'   => $user->id,
+            'type'          => CustomerNotification::TYPE_ORDER_STATUS,
+            'title'         => $order->product_name ?? 'Order Update',
+            'message'       => 'Order request cancelled successfully.',
+            'image_url'     => $order->product_image ?? 'img/default-product.png',
+            'related_type'  => 'Order',
+            'related_id'    => $order->id,
+            'data'          => [
+                'transaction_id' => $order->transaction_id,
+                'status'         => 'cancelled',
+            ],
         ]);
 
         $this->firebase->touchOrdersUpdated();

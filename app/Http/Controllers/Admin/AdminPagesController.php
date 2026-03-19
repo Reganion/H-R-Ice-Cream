@@ -15,8 +15,12 @@ use Illuminate\Support\Facades\Cache;
 
 class AdminPagesController extends Controller
 {
-    public function login()
+    public function login(Request $request)
     {
+        if ($request->session()->has('admin_id')) {
+            return redirect()->route('admin.dashboard');
+        }
+
         return view('admin.login');
     }
 
@@ -444,6 +448,11 @@ class AdminPagesController extends Controller
     public function records()
     {
         return view('admin.records');
+    }
+
+    public function supportCentre()
+    {
+        return view('admin.support-centre');
     }
 
     public function drivers()

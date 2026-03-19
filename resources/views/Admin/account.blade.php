@@ -537,7 +537,7 @@
                                 <!-- PROFILE -->
                                 <div class="profile-row">
                                     <div class="profile-left">
-                                        <img src="{{ $adminUser && $adminUser->image ? asset($adminUser->image) : asset('img/kyle.jpg') }}" alt="Profile">
+                                        <img src="{{ $adminUser && $adminUser->image ? asset($adminUser->image) : asset('img/default-user.png') }}" alt="Profile">
                                         <div class="profile-info">
                                             <h4>{{ $adminUser ? trim(($adminUser->first_name ?? '') . ' ' . ($adminUser->last_name ?? '')) ?: 'Admin' : 'Admin' }}</h4>
                                             <small>Profile picture</small>

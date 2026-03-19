@@ -89,17 +89,15 @@ ORDERS PAGE
     min-height: 0;
 }
 
+.table-header {
+    flex-shrink: 0;
+    padding-right: 6px;
+}
+
 .table-scroll {
     flex: 1;
     overflow-y: auto;
     padding-right: 6px;
-}
-
-.orders-table thead th {
-    position: sticky;
-    top: 0;
-    z-index: 2;
-    background: #fff;
 }
 
 .orders-data {
@@ -110,11 +108,12 @@ ORDERS PAGE
 }
 
 /* HEADER */
-.orders-data thead th {
-    position: sticky;
-    top: 0;
+.orders-data-head {
+    border-spacing: 0;
+}
+
+.orders-data-head thead th {
     background: #fff;
-    z-index: 2;
     padding: 14px 18px;
     font-size: 13px;
     font-weight: 600;
@@ -122,19 +121,19 @@ ORDERS PAGE
     text-align: left;
 }
 
-.orders-data thead th:first-child {
+.orders-data-head thead th:first-child {
     border-top-left-radius: 14px;
 }
 
-.orders-data thead th:last-child {
+.orders-data-head thead th:last-child {
     border-top-right-radius: 14px;
 }
 
-.orders-data thead tr:last-child th:first-child {
+.orders-data-head thead tr:last-child th:first-child {
     border-bottom-left-radius: 14px;
 }
 
-.orders-data thead tr:last-child th:last-child {
+.orders-data-head thead tr:last-child th:last-child {
     border-bottom-right-radius: 14px;
 }
 

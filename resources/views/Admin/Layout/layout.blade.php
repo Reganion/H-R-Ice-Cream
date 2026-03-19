@@ -23,8 +23,8 @@
             display: none;
             align-items: center;
             justify-content: center;
-            z-index: 2200;
-            padding: 16px;
+            z-index: 4000;
+            padding: 0;
         }
 
         .logout-confirm-modal.open {
@@ -34,63 +34,140 @@
         .logout-confirm-backdrop {
             position: absolute;
             inset: 0;
-            background: rgba(18, 24, 38, 0.5);
+            background: rgba(0, 0, 0, 0.45);
         }
 
         .logout-confirm-card {
             position: relative;
-            width: min(420px, 92vw);
+            width: 420px;
+            max-width: calc(100% - 32px);
             background: #fff;
-            border-radius: 14px;
-            box-shadow: 0 18px 40px rgba(13, 20, 33, 0.2);
-            padding: 20px;
+            border-radius: 16px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+            padding: 26px;
             z-index: 1;
+            text-align: left;
         }
 
         .logout-confirm-title {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            margin: 0 0 8px;
-            font-size: 20px;
-            font-weight: 700;
-            color: #1f2a3d;
-        }
-
-        .logout-confirm-title .material-symbols-outlined {
-            color: #ff9800;
-            font-size: 24px;
+            margin: 0 0 10px;
+            font-size: 18px;
+            font-weight: 600;
+            color: #111827;
         }
 
         .logout-confirm-text {
-            margin: 0 0 16px;
+            margin: 0 0 24px;
             font-size: 14px;
             line-height: 1.5;
-            color: #4d5a70;
+            color: #6b7280;
         }
 
         .logout-confirm-actions {
             display: flex;
-            justify-content: flex-end;
-            gap: 10px;
+            justify-content: center;
+            gap: 14px;
         }
 
         .logout-confirm-btn {
             border: 0;
-            border-radius: 10px;
-            padding: 9px 14px;
-            font-weight: 600;
+            border-radius: 999px;
+            padding: 10px 18px;
             cursor: pointer;
         }
 
         .logout-confirm-btn.cancel {
             background: #eef2f7;
-            color: #334155;
+            color: #374151;
+            font-weight: 500;
         }
 
         .logout-confirm-btn.confirm {
             background: #ef4444;
             color: #fff;
+            font-weight: 600;
+        }
+
+        .logout-confirm-btn.confirm:hover {
+            background: #dc2626;
+        }
+
+        .logout-confirm-btn:disabled {
+            opacity: 0.75;
+            cursor: not-allowed;
+        }
+
+        .logout-confirm-btn.confirm.is-loading {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .logout-confirm-spinner {
+            width: 14px;
+            height: 14px;
+            border: 2px solid rgba(255, 255, 255, 0.45);
+            border-top-color: #fff;
+            border-radius: 50%;
+            animation: logoutSpin 0.75s linear infinite;
+        }
+
+        @keyframes logoutSpin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        @media (max-width: 600px) {
+            .logout-confirm-card {
+                width: calc(100% - 24px);
+                max-width: none;
+                padding: 20px 16px;
+                border-radius: 14px;
+            }
+
+            .logout-confirm-actions {
+                flex-direction: column;
+                gap: 10px;
+            }
+
+            .logout-confirm-btn.cancel,
+            .logout-confirm-btn.confirm {
+                width: 100%;
+                min-height: 42px;
+            }
+        }
+
+        .menu li a.support-centre-link {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .menu li a.support-centre-link .menu-text {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .menu li a.support-centre-link .menu-unread-badge {
+            min-width: 20px;
+            height: 20px;
+            border-radius: 999px;
+            padding: 0 6px;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            font-weight: 700;
+            line-height: 1;
+            color: #fff;
+            background: #ef4444;
+            box-shadow: 0 1px 6px rgba(239, 68, 68, 0.35);
+        }
+
+        .menu li a.support-centre-link .menu-unread-badge.show {
+            display: inline-flex;
         }
     </style>
 </head>
@@ -163,6 +240,13 @@
                         Customer
                     </a>
                 </li>
+                <li class="{{ request()->routeIs('admin.support-centre') ? 'active' : '' }}">
+                    <a href="{{ route('admin.support-centre') }}" class="support-centre-link">
+                        <span class="material-symbols-outlined">support_agent</span>
+                        <span class="menu-text">Support Centre</span>
+                        <span class="menu-unread-badge" id="supportCentreMenuBadge" aria-label="Unread support messages">0</span>
+                    </a>
+                </li>
             </ul>
         </div>
 
@@ -184,7 +268,7 @@
     <div class="main-content">
         <div class="top-bar">
             <div class="user">
-                <img src="{{ $adminUser && $adminUser->image ? asset($adminUser->image) : asset('img/kyle.jpg') }}" alt="Profile">
+                <img src="{{ $adminUser && $adminUser->image ? asset($adminUser->image) : asset('img/default-user.png') }}" alt="Profile">
                 <div class="user-info">
                     <strong>Hello, {{ $adminUser ? trim(($adminUser->first_name ?? '') . ' ' . ($adminUser->last_name ?? '')) ?: 'Admin' : 'Admin' }}</strong>
                     <small id="manila-date"></small>
@@ -271,70 +355,13 @@
         </div>
     </div>
 
-    <!-- Floating chat: Admin ↔ Customer (available on all admin pages) -->
-    <div class="float-chat-wrap" id="floatChatWrap">
-        <div class="float-chat-panel view-new-message" id="floatChatPanel" aria-hidden="true">
-            <div class="chat-new-msg">
-                <div class="chat-new-msg-header">
-                    <span class="title">New message</span>
-                    <button type="button" class="chat-new-msg-close" id="floatChatClose" aria-label="Close">
-                        <span class="material-symbols-outlined">close</span>
-                    </button>
-                </div>
-                <div class="chat-to-wrap">
-                    <label for="chatToInput">To:</label>
-                    <input type="text" class="chat-to-input" id="chatToInput" placeholder="Search customers" />
-                </div>
-                <div class="chat-customers" id="chatCustomerList">
-                    <div class="chat-placeholder chat-loading" id="chatCustomerListPlaceholder" style="padding:16px;max-height:none;">Loading customers…</div>
-                </div>
-            </div>
-            <div class="chat-conversation">
-                <div class="chat-header" id="chatConvHeader">
-                    <button type="button" class="chat-header-back" id="chatBackToNewMsg" aria-label="Back to New message">
-                        <span class="material-symbols-outlined">arrow_back</span>
-                    </button>
-                    <div class="chat-header-avatar" id="chatHeaderAvatar">
-                        <span class="material-symbols-outlined">person</span>
-                    </div>
-                    <span class="chat-header-name" id="chatHeaderName">Select a customer</span>
-                    <span class="chat-header-caret material-symbols-outlined" aria-hidden="true">keyboard_arrow_down</span>
-                    <div class="chat-header-actions">
-                        <button type="button" aria-label="Minimize"><span class="material-symbols-outlined">remove</span></button>
-                        <button type="button" class="chat-header-close" id="chatConvClose" aria-label="Close"><span class="material-symbols-outlined">close</span></button>
-                    </div>
-                </div>
-                <div class="chat-messages" id="chatMessages">
-                    <div class="chat-placeholder" id="chatPlaceholder">Select a customer to view messages.</div>
-                </div>
-                <div class="chat-input-wrap">
-                    <div class="chat-input-actions">
-                        <input type="file" id="chatFileInput" accept="image/*" multiple hidden />
-                        <button type="button" id="chatAttachBtn" aria-label="Attach images"><span class="material-symbols-outlined">image</span></button>
-                    </div>
-                    <textarea class="chat-input" id="chatInput" placeholder="Aa" rows="1"></textarea>
-                    <div class="chat-input-right">
-                        <button type="button" class="chat-thumbs" id="chatThumbs" aria-label="Like"><span class="material-symbols-outlined">thumb_up</span></button>
-                        <button type="button" class="chat-send" id="chatSend" aria-label="Send"><span class="material-symbols-outlined">send</span></button>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="chat-head-stack" id="chatHeadStack" aria-hidden="true"></div>
-        <button type="button" class="float-chat-btn" id="floatChatBtn" aria-label="New message">
-            <span class="chat-unread-badge" id="chatUnreadBadge">0</span>
-            <span class="material-symbols-outlined">edit</span>
-        </button>
-    </div>
-
     <div class="logout-confirm-modal" id="logoutConfirmModal" aria-hidden="true">
         <div class="logout-confirm-backdrop" id="logoutConfirmBackdrop"></div>
         <div class="logout-confirm-card" role="dialog" aria-modal="true" aria-labelledby="logoutConfirmTitle">
             <h3 class="logout-confirm-title" id="logoutConfirmTitle">
-                <span class="material-symbols-outlined">logout</span>
-                Confirm logout
+                Are you sure you want to logout?
             </h3>
-            <p class="logout-confirm-text">Are you sure you want to logout?</p>
+            <p class="logout-confirm-text">You will need to login again to access your account.</p>
             <div class="logout-confirm-actions">
                 <button type="button" class="logout-confirm-btn cancel" id="logoutConfirmCancel">Cancel</button>
                 <button type="button" class="logout-confirm-btn confirm" id="logoutConfirmOk">Logout</button>
@@ -758,770 +785,118 @@
     // Real-time only via Firebase Realtime Database (no polling).
 </script>
 
-{{-- Admin floating chat (available on all admin pages) --}}
 <script>
-document.addEventListener("DOMContentLoaded", function() {
-    const panel = document.getElementById("floatChatPanel");
-    const btn = document.getElementById("floatChatBtn");
-    const closeBtn = document.getElementById("floatChatClose");
-    const chatInput = document.getElementById("chatInput");
-    const chatSend = document.getElementById("chatSend");
-    const chatMessages = document.getElementById("chatMessages");
-    const chatPlaceholder = document.getElementById("chatPlaceholder");
-    const chatCustomerList = document.getElementById("chatCustomerList");
-    const chatCustomerListPlaceholder = document.getElementById("chatCustomerListPlaceholder");
-    const chatHeaderName = document.getElementById("chatHeaderName");
-    const chatHeaderAvatar = document.getElementById("chatHeaderAvatar");
-    const chatToInput = document.getElementById("chatToInput");
-    const chatThumbs = document.getElementById("chatThumbs");
-    const convHeader = document.getElementById("chatConvHeader");
-    const chatHeadStack = document.getElementById("chatHeadStack");
-    const chatUnreadBadge = document.getElementById("chatUnreadBadge");
-    const logoutConfirmModal = document.getElementById("logoutConfirmModal");
-    const logoutConfirmBackdrop = document.getElementById("logoutConfirmBackdrop");
-    const logoutConfirmCancel = document.getElementById("logoutConfirmCancel");
-    const logoutConfirmOk = document.getElementById("logoutConfirmOk");
+document.addEventListener('DOMContentLoaded', function() {
+    const badgeEl = document.getElementById('supportCentreMenuBadge');
+    const customersUrl = "{{ route('admin.chat.customers') }}";
+    if (!badgeEl || !customersUrl) return;
 
-    const chatCsrfToken = document.querySelector('meta[name="csrf-token"]') ? document.querySelector('meta[name="csrf-token"]').getAttribute('content') : '';
-    const chatCustomersUrl = "{{ route('admin.chat.customers') }}";
-    const chatCustomerShowUrl = "{{ url('admin/chat/customers') }}";
-    const chatUnreadSummaryUrl = "{{ route('admin.chat.unread-summary') }}";
-    const chatSendUrl = "{{ url('admin/chat/customers') }}";
+    let isFetchingUnread = false;
+    let supportBadgeRealtimeTimer = null;
 
-    if (!panel || !btn) return;
-
-    let selectedCustomerId = null;
-    let selectedCustomerName = null;
-    let unreadCount = 0;
-    let searchDebounce = null;
-    let lastMessageId = 0;
-    let pollIntervalId = null;
-    let unreadSummaryPollId = null;
-    let keepHeadsPinned = false;
-    let pinnedHeads = [];
-    let closedHeadIds = new Set();
-    let chatHeadsExpanded = false;
-    let animateHeadRender = false;
-    let lastApiHeadSenders = [];
-    let chatAudioCtx = null;
-    let lastRingtoneAt = 0;
-    let lastUnreadSummaryCount = null;
-    const MAX_VISIBLE_HEADS = 4;
-    const PINNED_HEADS_STORAGE_KEY = 'admin_chat_pinned_heads_v1';
-    const CHAT_POLL_INTERVAL_MS = 1000;
-    const UNREAD_SUMMARY_POLL_MS = 1000;
-    const CHAT_RINGTONE_MIN_GAP_MS = 1200;
-    let chatMessagesRef = null;
-
-    function getHeaders() {
-        return { 'X-CSRF-TOKEN': chatCsrfToken, 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' };
+    function setSupportUnreadBadge(total) {
+        const count = Number.isFinite(total) && total > 0 ? total : 0;
+        badgeEl.textContent = count > 99 ? '99+' : String(count);
+        badgeEl.classList.toggle('show', count > 0);
     }
 
-    function ensureChatAudioContext() {
-        if (chatAudioCtx) return chatAudioCtx;
-        var Ctx = window.AudioContext || window.webkitAudioContext;
-        if (!Ctx) return null;
+    function parseUnreadValue(customer) {
+        const raw = customer?.unread_count ?? customer?.unread ?? customer?.unread_messages ?? 0;
+        const value = Number.parseInt(raw, 10);
+        return Number.isFinite(value) && value > 0 ? value : 0;
+    }
+
+    async function refreshSupportUnreadBadge() {
+        if (isFetchingUnread) return;
+        isFetchingUnread = true;
         try {
-            chatAudioCtx = new Ctx();
-        } catch (e) {
-            chatAudioCtx = null;
-        }
-        return chatAudioCtx;
-    }
-
-    function unlockChatRingtone() {
-        var ctx = ensureChatAudioContext();
-        if (!ctx) return;
-        if (ctx.state === 'suspended') {
-            ctx.resume().catch(function() {});
-        }
-    }
-
-    function playIncomingRingtone() {
-        var nowMs = Date.now();
-        if (nowMs - lastRingtoneAt < CHAT_RINGTONE_MIN_GAP_MS) return;
-        var ctx = ensureChatAudioContext();
-        if (!ctx) return;
-        if (ctx.state === 'suspended') {
-            ctx.resume().catch(function() {});
-            return;
-        }
-        lastRingtoneAt = nowMs;
-
-        var t0 = ctx.currentTime;
-        var gain = ctx.createGain();
-        gain.gain.setValueAtTime(0.0001, t0);
-        gain.connect(ctx.destination);
-
-        function addTone(freq, startAt, duration) {
-            var osc = ctx.createOscillator();
-            osc.type = 'sine';
-            osc.frequency.setValueAtTime(freq, startAt);
-            osc.connect(gain);
-            osc.start(startAt);
-            osc.stop(startAt + duration);
-        }
-
-        // Messenger-like short "pop-pop" alert (inspired style, not exact audio copy).
-        gain.gain.exponentialRampToValueAtTime(0.15, t0 + 0.015);
-        gain.gain.exponentialRampToValueAtTime(0.03, t0 + 0.12);
-        gain.gain.exponentialRampToValueAtTime(0.13, t0 + 0.16);
-        gain.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.34);
-        addTone(988.0, t0, 0.09);       // B5
-        addTone(1318.51, t0 + 0.12, 0.11); // E6
-    }
-
-    function loadCustomers(q) {
-        if (!chatCustomerList || !chatCustomerListPlaceholder) return;
-        chatCustomerListPlaceholder.style.display = 'block';
-        chatCustomerListPlaceholder.textContent = 'Loading customers…';
-        chatCustomerList.querySelectorAll('.chat-customer-item').forEach(function(el) { el.remove(); });
-        const url = q ? chatCustomersUrl + '?q=' + encodeURIComponent(q) : chatCustomersUrl;
-        fetch(url, { headers: getHeaders(), credentials: 'same-origin' })
-            .then(function(res) { return res.json(); })
-            .then(function(data) {
-                chatCustomerListPlaceholder.style.display = 'none';
-                if (!data.success || !data.data || !data.data.length) {
-                    chatCustomerListPlaceholder.textContent = 'No customers found.';
-                    chatCustomerListPlaceholder.style.display = 'block';
-                    return;
-                }
-                data.data.forEach(function(c) {
-                    const item = document.createElement('div');
-                    item.className = 'chat-customer-item';
-                    item.setAttribute('data-customer-id', c.id);
-                    item.setAttribute('data-customer-name', c.full_name || '');
-                    item.setAttribute('tabindex', '0');
-                    const avatarHtml = c.image_url ? '<img src="' + escapeHtml(c.image_url) + '" alt="" />' : '<span class="material-symbols-outlined">person</span>';
-                    const unreadCount = typeof c.unread_count === 'number' ? c.unread_count : 0;
-                    const unreadBadgeHtml = unreadCount > 0
-                        ? '<span class="chat-customer-unread">' + (unreadCount > 99 ? '99+' : unreadCount) + '</span>'
-                        : '';
-                    item.innerHTML =
-                        '<div class="chat-customer-avatar">' + avatarHtml + '</div>' +
-                        '<div class="chat-customer-name-row">' +
-                        '<div class="chat-customer-name">' + escapeHtml(c.full_name || 'Customer') + '</div>' +
-                        unreadBadgeHtml +
-                        '</div>';
-                    item.addEventListener('click', function() { selectCustomer(c.id); });
-                    chatCustomerList.appendChild(item);
-                });
-            })
-            .catch(function() {
-                chatCustomerListPlaceholder.textContent = 'Failed to load customers.';
-                chatCustomerListPlaceholder.style.display = 'block';
+            const res = await fetch(customersUrl, {
+                headers: {
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                credentials: 'same-origin'
             });
-    }
-
-    function stopChatMessagesListener() {
-        if (chatMessagesRef) {
-            chatMessagesRef.off();
-            chatMessagesRef = null;
+            if (!res.ok) {
+                isFetchingUnread = false;
+                return;
+            }
+            const data = await res.json().catch(() => ({}));
+            const customers = Array.isArray(data?.data) ? data.data : [];
+            const unreadConversations = customers.reduce(function(sum, customer) {
+                return sum + (parseUnreadValue(customer) > 0 ? 1 : 0);
+            }, 0);
+            setSupportUnreadBadge(unreadConversations);
+        } catch (e) {
+            /* ignore unread badge fetch errors */
+        } finally {
+            isFetchingUnread = false;
         }
     }
 
-    function stopPolling() {
-        if (pollIntervalId) { clearInterval(pollIntervalId); pollIntervalId = null; }
-        stopChatMessagesListener();
-    }
+    refreshSupportUnreadBadge();
+    setInterval(function() {
+        if (document.hidden) return;
+        refreshSupportUnreadBadge();
+    }, 8000);
 
-    function startPolling() {
-        // Realtime chat: use Firebase listener instead of polling (see selectCustomer).
-        stopPolling();
-    }
+    document.addEventListener('visibilitychange', function() {
+        if (!document.hidden) refreshSupportUnreadBadge();
+    });
 
-    var CHAT_TOAST_DURATION_MS = 5000;
-
-    function showChatNewMessageToast(lastFrom) {
-        if (!lastFrom || !lastFrom.full_name) return;
-        var container = document.getElementById('adminToastContainer');
-        if (!container) return;
-        var name = (lastFrom.full_name || 'Customer').trim();
-        var preview = (lastFrom.preview || 'New message').trim();
-        var msg = name + ': ' + (preview.length > 50 ? preview.substring(0, 50) + '…' : preview);
-        var iconHtml = lastFrom.image_url
-            ? '<div class="toast-icon"><img src="' + escapeHtml(lastFrom.image_url) + '" alt=""></div>'
-            : '<div class="toast-icon chat-toast-icon"><span class="material-symbols-outlined" style="font-size:22px">chat</span></div>';
-        var el = document.createElement('div');
-        el.className = 'admin-toast admin-toast-chat';
-        el.setAttribute('role', 'alert');
-        el.innerHTML = iconHtml + '<span class="toast-message"><strong>New message</strong> from ' + escapeHtml(name) + (preview ? ' — ' + escapeHtml(preview.substring(0, 60)) + (preview.length > 60 ? '…' : '') : '') + '</span><button type="button" class="toast-close" aria-label="Close"><span class="material-symbols-outlined" style="font-size:18px">close</span></button>';
-        container.appendChild(el);
-        requestAnimationFrame(function() { el.classList.add('toast-enter'); });
-
-        function dismiss() {
-            el.classList.remove('toast-enter');
-            el.classList.add('toast-exit');
-            setTimeout(function() { el.remove(); }, 350);
-        }
-        el.querySelector('.toast-close').addEventListener('click', dismiss);
-        setTimeout(dismiss, CHAT_TOAST_DURATION_MS);
-    }
-
-    function fetchUnreadSummary(onFetched) {
-        if (!chatUnreadSummaryUrl) return;
-        fetch(chatUnreadSummaryUrl, { headers: getHeaders(), credentials: 'same-origin' })
-            .then(function(res) { return res.json(); })
-            .then(function(data) {
-                if (!data.success) return;
-                unreadCount = typeof data.unread_count === 'number' ? data.unread_count : 0;
-                if (Array.isArray(data.senders)) lastApiHeadSenders = data.senders;
-                updateUnreadUI();
-                renderChatHeads();
-                if (typeof onFetched === 'function') onFetched(data);
-            })
-            .catch(function() { if (typeof onFetched === 'function') onFetched(null); });
-    }
+    document.addEventListener('support:unread-conversations-updated', function(event) {
+        const count = Number(event?.detail?.count ?? 0);
+        setSupportUnreadBadge(Number.isFinite(count) ? count : 0);
+    });
 
     if (window.FIREBASE_DATABASE_URL && typeof firebase !== 'undefined' && firebase.database) {
         try {
             if (!firebase.apps.length) firebase.initializeApp({ databaseURL: window.FIREBASE_DATABASE_URL });
-            var chatLastUpdatedRef = firebase.database().ref('admin/chat_last_updated');
-            var chatLastUpdatedVal = null;
-            chatLastUpdatedRef.on('value', function(snapshot) {
-                var val = snapshot.val();
-                var ts = (val && val.value) ? val.value : (val && val.updated_at ? val.updated_at : null);
-                if (chatLastUpdatedVal === null) {
-                    chatLastUpdatedVal = ts || '';
-                    return;
-                }
-                if (ts != null && chatLastUpdatedVal !== ts) {
-                    fetchUnreadSummary(function(data) {
-                        if (data && data.last_from) showChatNewMessageToast(data.last_from);
-                    });
-                    chatLastUpdatedVal = ts;
-                }
-            });
-        } catch (e) { console.warn('Firebase admin chat listener failed', e); }
-    }
-
-    function pollNewMessages() {
-        if (!selectedCustomerId || !panel.classList.contains('open') || panel.classList.contains('view-new-message')) return;
-        var url = chatCustomerShowUrl + '/' + selectedCustomerId + '/messages?after_id=' + lastMessageId;
-        fetch(url, { headers: getHeaders(), credentials: 'same-origin' })
-            .then(function(res) { return res.json(); })
-            .then(function(data) {
-                if (!data.success || !data.messages || !data.messages.length) return;
-                var incomingCustomerCount = 0;
-                data.messages.forEach(function(m) {
-                    if (m.id && chatMessages.querySelector('[data-message-id="' + m.id + '"]')) return;
-                    if ((m.sender_type || '') !== 'admin') incomingCustomerCount++;
-                    appendMessage(m);
-                    if (m.id && m.id > lastMessageId) lastMessageId = m.id;
-                });
-                if (incomingCustomerCount > 0) playIncomingRingtone();
-                if (data.messages.length && chatMessages) chatMessages.scrollTop = chatMessages.scrollHeight;
-            });
-    }
-
-    function selectCustomer(customerId) {
-        selectedCustomerId = customerId;
-        lastMessageId = 0;
-        stopPolling();
-        stopChatMessagesListener();
-        chatMessages.querySelectorAll('.chat-msg').forEach(function(m) { m.remove(); });
-        if (chatPlaceholder) { chatPlaceholder.textContent = 'Loading messages…'; chatPlaceholder.style.display = 'flex'; }
-        fetch(chatCustomerShowUrl + '/' + customerId, { headers: getHeaders(), credentials: 'same-origin' })
-            .then(function(res) { return res.json(); })
-            .then(function(data) {
-                if (!data.success) return;
-                const customer = data.customer || {};
-                var fname = (customer.firstname || '').trim();
-                var lname = (customer.lastname || '').trim();
-                selectedCustomerName = (customer.full_name || (fname + ' ' + lname).trim() || customer.email || 'Customer');
-                if (chatHeaderName) { chatHeaderName.textContent = selectedCustomerName; chatHeaderName.title = selectedCustomerName; }
-                if (chatHeaderAvatar) {
-                    var imgUrl = customer.image_url;
-                    chatHeaderAvatar.innerHTML = imgUrl ? '<img src="' + escapeHtml(String(imgUrl)) + '" alt="" />' : '<span class="material-symbols-outlined">person</span>';
-                }
-                chatCustomerList.querySelectorAll('.chat-customer-item').forEach(function(i) {
-                    i.classList.toggle('active', parseInt(i.getAttribute('data-customer-id'), 10) === customerId);
-                });
-                if (chatPlaceholder) {
-                    chatPlaceholder.style.display = (data.messages && data.messages.length) ? 'none' : 'flex';
-                    chatPlaceholder.textContent = (data.messages && data.messages.length) ? '' : 'No messages yet. Say hi!';
-                }
-                var msgs = data.messages || [];
-                msgs.forEach(function(m) { appendMessage(m); if (m.id && m.id > lastMessageId) lastMessageId = m.id; });
-                panel.classList.remove('view-new-message');
-                panel.classList.add('view-conversation');
-                startPolling();
-                if (window.FIREBASE_DATABASE_URL && typeof firebase !== 'undefined' && firebase.database) {
-                    try {
-                        if (!firebase.apps.length) firebase.initializeApp({ databaseURL: window.FIREBASE_DATABASE_URL });
-                        chatMessagesRef = firebase.database().ref('chats/' + customerId + '/messages');
-                        chatMessagesRef.on('child_added', function(snapshot) {
-                            if (!selectedCustomerId || String(selectedCustomerId) !== String(customerId)) return;
-                            var id = snapshot.key;
-                            var val = snapshot.val();
-                            if (!id || !val) return;
-                            if (chatMessages.querySelector('[data-message-id="' + id + '"]')) return;
-                            var m = {
-                                id: parseInt(id, 10) || id,
-                                sender_type: val.sender_type || 'customer',
-                                body: val.body || '',
-                                image_url: val.image_url || '',
-                                created_at: val.created_at || ''
-                            };
-                            appendMessage(m);
-                            if ((m.sender_type || '') !== 'admin') playIncomingRingtone();
-                            if (m.id && m.id > lastMessageId) lastMessageId = m.id;
-                            if (chatMessages) chatMessages.scrollTop = chatMessages.scrollHeight;
-                        });
-                    } catch (e) { console.warn('Firebase chat listener failed', e); }
-                }
-                if (chatInput) chatInput.focus();
-            })
-            .catch(function() {
-                if (chatPlaceholder) { chatPlaceholder.textContent = 'Failed to load messages.'; chatPlaceholder.style.display = 'flex'; }
-            });
-    }
-
-    function appendMessage(m) {
-        if (chatPlaceholder) chatPlaceholder.style.display = 'none';
-        if (m.id && m.id > lastMessageId) lastMessageId = m.id;
-        const isAdmin = (m.sender_type || '') === 'admin';
-        const timeStr = m.created_at ? new Date(m.created_at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : '';
-        const div = document.createElement('div');
-        div.className = 'chat-msg ' + (isAdmin ? 'admin' : 'customer');
-        if (m.id) div.setAttribute('data-message-id', m.id);
-        if (m.image_url) {
-            div.classList.add('chat-msg-img');
-            div.innerHTML = '<img src="' + escapeHtml(m.image_url) + '" alt="Image" class="chat-msg-image" /><div class="chat-msg-time">' + timeStr + '</div>';
-        } else {
-            div.innerHTML = '<span>' + escapeHtml(m.body || '') + '</span><div class="chat-msg-time">' + timeStr + '</div>';
-        }
-        chatMessages.appendChild(div);
-        chatMessages.scrollTop = chatMessages.scrollHeight;
-    }
-
-    function updateUnreadUI() {
-        if (chatUnreadBadge) chatUnreadBadge.textContent = unreadCount > 99 ? '99+' : unreadCount;
-        if (btn) { if (unreadCount > 0) btn.classList.add('has-unread'); else btn.classList.remove('has-unread'); }
-    }
-
-    function savePinnedHeads() {
-        try {
-            localStorage.setItem(PINNED_HEADS_STORAGE_KEY, JSON.stringify(pinnedHeads || []));
-        } catch (e) { /* ignore storage errors */ }
-    }
-
-    function loadPinnedHeads() {
-        try {
-            const raw = localStorage.getItem(PINNED_HEADS_STORAGE_KEY);
-            if (!raw) return [];
-            const parsed = JSON.parse(raw);
-            return Array.isArray(parsed) ? parsed : [];
+            const db = firebase.database();
+            const chatsRef = db.ref('chats');
+            const scheduleRealtimeUnreadRefresh = function() {
+                if (supportBadgeRealtimeTimer) clearTimeout(supportBadgeRealtimeTimer);
+                supportBadgeRealtimeTimer = setTimeout(function() {
+                    if (document.hidden) return;
+                    refreshSupportUnreadBadge();
+                }, 250);
+            };
+            chatsRef.on('child_added', scheduleRealtimeUnreadRefresh);
+            chatsRef.on('child_changed', scheduleRealtimeUnreadRefresh);
+            chatsRef.on('child_removed', scheduleRealtimeUnreadRefresh);
         } catch (e) {
-            return [];
+            console.warn('Support badge realtime listener failed.', e);
         }
     }
+});
+</script>
 
-    function clearPinnedHeadsStorage() {
-        try {
-            localStorage.removeItem(PINNED_HEADS_STORAGE_KEY);
-        } catch (e) { /* ignore storage errors */ }
-    }
-
-    function hideChatHeads() {
-        if (!chatHeadStack) return;
-        chatHeadStack.innerHTML = '';
-        chatHeadStack.classList.remove('visible');
-        chatHeadStack.setAttribute('aria-hidden', 'true');
-        chatHeadsExpanded = false;
-    }
-
-    function senderKey(sender) {
-        return sender && sender.customer_id ? String(sender.customer_id) : '';
-    }
-
-    function mergeSendersWithPinned(apiSenders) {
-        const merged = [];
-        const used = new Set();
-
-        pinnedHeads.forEach(function(sender) {
-            const key = senderKey(sender);
-            if (!key || used.has(key)) return;
-            used.add(key);
-            merged.push(sender);
-        });
-
-        (Array.isArray(apiSenders) ? apiSenders : []).forEach(function(sender) {
-            const key = senderKey(sender);
-            if (!key || closedHeadIds.has(key)) return;
-            if (used.has(key)) {
-                // keep pinned position but refresh unread count/preview if available
-                const idx = merged.findIndex(function(x) { return senderKey(x) === key; });
-                if (idx >= 0) {
-                    merged[idx] = Object.assign({}, merged[idx], sender);
-                }
-                return;
-            }
-            used.add(key);
-            merged.push(sender);
-        });
-
-        return merged;
-    }
-
-    function pinCurrentCustomerHead() {
-        if (!selectedCustomerId) return;
-        const key = String(selectedCustomerId);
-        const name = chatHeaderName ? (chatHeaderName.textContent || '').trim() : '';
-        let avatarUrl = '';
-        if (chatHeaderAvatar && chatHeaderAvatar.querySelector('img')) {
-            const img = chatHeaderAvatar.querySelector('img');
-            if (img && img.src) avatarUrl = img.src;
-        }
-
-        const newPinned = {
-            customer_id: key,
-            full_name: name || selectedCustomerName || 'Customer',
-            image_url: avatarUrl || '',
-            preview: 'Chat',
-            unread_count: unreadCount > 0 ? unreadCount : 0
-        };
-
-        pinnedHeads = pinnedHeads.filter(function(sender) {
-            return senderKey(sender) !== key;
-        });
-        pinnedHeads.unshift(newPinned);
-        closedHeadIds.delete(key);
-        savePinnedHeads();
-    }
-
-    function renderChatHeads(senders) {
-        if (!chatHeadStack) return;
-        if (Array.isArray(senders)) {
-            lastApiHeadSenders = senders;
-        }
-        chatHeadStack.innerHTML = '';
-
-        const finalSenders = mergeSendersWithPinned(lastApiHeadSenders);
-        if (!Array.isArray(finalSenders) || finalSenders.length === 0) {
-            hideChatHeads();
-            return;
-        }
-
-        const hiddenCount = Math.max(0, finalSenders.length - MAX_VISIBLE_HEADS);
-        if (hiddenCount === 0) chatHeadsExpanded = false;
-        const visibleSenders = (!chatHeadsExpanded && hiddenCount > 0)
-            ? finalSenders.slice(0, MAX_VISIBLE_HEADS)
-            : finalSenders;
-
-        if (hiddenCount > 0 || chatHeadsExpanded) {
-            const toggleBtn = document.createElement('button');
-            toggleBtn.type = 'button';
-            toggleBtn.className = 'chat-head-toggle';
-            const toggleIcon = chatHeadsExpanded ? 'expand_less' : 'expand_more';
-            const toggleLabel = chatHeadsExpanded ? 'Hide' : 'See more';
-            const toggleCount = chatHeadsExpanded ? '' : '<span class="chat-head-toggle-count">+' + hiddenCount + '</span>';
-            toggleBtn.innerHTML =
-                '<span class="material-symbols-outlined">' + toggleIcon + '</span>' +
-                '<span class="chat-head-toggle-label">' + toggleLabel + '</span>' +
-                toggleCount;
-            toggleBtn.addEventListener('click', function(e) {
-                e.preventDefault();
-                e.stopPropagation();
-                const willExpand = !chatHeadsExpanded;
-                if (willExpand) {
-                    chatHeadsExpanded = true;
-                    animateHeadRender = true;
-                    renderChatHeads();
-                    return;
-                }
-
-                if (chatHeadStack) chatHeadStack.classList.add('is-collapsing');
-                setTimeout(function() {
-                    chatHeadsExpanded = false;
-                    animateHeadRender = true;
-                    if (chatHeadStack) chatHeadStack.classList.remove('is-collapsing');
-                    renderChatHeads();
-                }, 140);
-            });
-            chatHeadStack.appendChild(toggleBtn);
-        }
-
-        visibleSenders.forEach(function(sender) {
-            const customerId = sender && sender.customer_id ? String(sender.customer_id) : '';
-            const fullName = sender && sender.full_name ? String(sender.full_name) : 'Customer';
-            const preview = sender && sender.preview ? String(sender.preview) : 'New message';
-            const avatarUrl = sender && sender.image_url ? String(sender.image_url) : '';
-            const senderUnread = sender && typeof sender.unread_count === 'number' ? sender.unread_count : 0;
-
-            const head = document.createElement('div');
-            head.className = 'chat-head visible';
-            head.setAttribute('aria-hidden', 'false');
-            if (customerId) head.setAttribute('data-customer-id', customerId);
-            if (animateHeadRender) head.classList.add('chat-head-smooth');
-
-            head.innerHTML =
-                '<div class="chat-head-bubble">' +
-                '<span class="chat-head-name">' + escapeHtml(fullName) + '</span>' +
-                '<span class="chat-head-preview">' + escapeHtml(preview.substring(0, 40)) + '</span>' +
-                '</div>' +
-                '<div class="chat-head-avatar-wrap ' + (senderUnread > 0 ? 'has-unread' : '') + '">' +
-                '<div class="chat-head-avatar">' + (avatarUrl ? '<img src="' + escapeHtml(avatarUrl) + '" alt="" />' : '<span class="material-symbols-outlined">person</span>') + '</div>' +
-                '<span class="chat-head-avatar-badge">' + (senderUnread > 99 ? '99+' : senderUnread) + '</span>' +
-                '</div>';
-
-            head.addEventListener('click', function() {
-                const reopenId = parseInt(customerId || '0', 10);
-                head.classList.add('removing');
-                if (customerId) {
-                    pinnedHeads = pinnedHeads.filter(function(sender) {
-                        return senderKey(sender) !== customerId;
-                    });
-                    closedHeadIds.delete(customerId);
-                    savePinnedHeads();
-                }
-                setTimeout(function() {
-                    if (head.parentElement) {
-                        head.parentElement.removeChild(head);
-                        if (chatHeadStack && chatHeadStack.children.length === 0) {
-                            hideChatHeads();
-                        }
-                    }
-                    openChat(reopenId || null);
-                }, 170);
-            });
-
-            chatHeadStack.appendChild(head);
-            if (animateHeadRender) {
-                requestAnimationFrame(function() {
-                    head.classList.add('is-visible');
-                });
-            }
-        });
-
-        chatHeadStack.classList.add('visible');
-        chatHeadStack.setAttribute('aria-hidden', 'false');
-        animateHeadRender = false;
-    }
-
-    function openChat(targetCustomerId) {
-        stopUnreadSummaryPoll();
-        panel.classList.add('open');
-        panel.setAttribute('aria-hidden', 'false');
-        unreadCount = 0;
-        updateUnreadUI();
-        // Keep minimized profile stack when opening via floating button.
-        keepHeadsPinned = true;
-
-        if (targetCustomerId) {
-            closedHeadIds.delete(String(targetCustomerId));
-            panel.classList.remove('view-new-message');
-            panel.classList.add('view-conversation');
-            selectCustomer(parseInt(targetCustomerId, 10));
-            return;
-        }
-
-        panel.classList.remove('view-conversation');
-        panel.classList.add('view-new-message');
-        loadCustomers(chatToInput ? chatToInput.value.trim() : '');
-    }
-
-    function stopUnreadSummaryPoll() {
-        if (unreadSummaryPollId) { clearInterval(unreadSummaryPollId); unreadSummaryPollId = null; }
-    }
-
-    function pollUnreadSummary() {
-        fetchUnreadSummary();
-    }
-
-    function startUnreadSummaryPoll() {
-        stopUnreadSummaryPoll();
-    }
-
-    function closeChat(shouldKeepProfile) {
-        stopPolling();
-        panel.classList.remove('open');
-        panel.setAttribute('aria-hidden', 'true');
-        if (shouldKeepProfile) {
-            keepHeadsPinned = true;
-            pinCurrentCustomerHead();
-            renderChatHeads([]);
-        } else {
-            keepHeadsPinned = false;
-            pinnedHeads = [];
-            savePinnedHeads();
-            hideChatHeads();
-        }
-
-        if (unreadCount > 0 || !shouldKeepProfile) pollUnreadSummary();
-        startUnreadSummaryPoll();
-    }
-
-    // Close from "New message" header: keep existing minimized bubbles.
-    function closeFromNewMessage() {
-        closeChat(true);
-    }
-
-    // Close from customer conversation header: full close/clear.
-    function closeFromConversation() {
-        stopPolling();
-        panel.classList.remove('open');
-        panel.setAttribute('aria-hidden', 'true');
-
-        if (selectedCustomerId) {
-            const closingId = String(selectedCustomerId);
-            pinnedHeads = pinnedHeads.filter(function(sender) {
-                return senderKey(sender) !== closingId;
-            });
-            closedHeadIds.add(closingId);
-            savePinnedHeads();
-        }
-
-        keepHeadsPinned = pinnedHeads.length > 0;
-        if (keepHeadsPinned) {
-            renderChatHeads([]);
-        } else {
-            hideChatHeads();
-        }
-
-        pollUnreadSummary();
-        startUnreadSummaryPoll();
-    }
-
-    btn.addEventListener('click', function() {
-        // Floating button works like minimize/toggle (does not clear minimized profiles).
-        if (panel.classList.contains('open')) closeChat(true); else openChat(null);
-    });
-
-    if (closeBtn) closeBtn.addEventListener('click', closeFromNewMessage);
-    if (convHeader) {
-        var minBtn = convHeader.querySelector("button[aria-label='Minimize']");
-        if (minBtn) minBtn.addEventListener('click', function() { closeChat(true); });
-    }
-    var chatConvClose = document.getElementById('chatConvClose');
-    if (chatConvClose) chatConvClose.addEventListener('click', closeFromConversation);
-    if (chatToInput && chatCustomerList) {
-        chatToInput.addEventListener('input', function() {
-            clearTimeout(searchDebounce);
-            searchDebounce = setTimeout(function() { loadCustomers((chatToInput.value || '').trim()); }, 300);
-        });
-    }
-    var chatBackToNewMsg = document.getElementById('chatBackToNewMsg');
-    if (chatBackToNewMsg) {
-        chatBackToNewMsg.addEventListener('click', function() {
-            stopPolling();
-            panel.classList.remove('view-conversation');
-            panel.classList.add('view-new-message');
-        });
-    }
-
-    function onIncomingMessage(senderName, messagePreview, avatarUrl) {
-        unreadCount++;
-        updateUnreadUI();
-        playIncomingRingtone();
-        if (!panel.classList.contains('open')) pollUnreadSummary();
-    }
-    window.adminChatIncoming = onIncomingMessage;
-    document.addEventListener('chatIncoming', function(e) {
-        var d = e.detail || {};
-        onIncomingMessage(d.senderName || d.name, d.messagePreview || d.preview || d.message);
-    });
-
-    function escapeHtml(s) {
-        var el = document.createElement('div');
-        el.textContent = s;
-        return el.innerHTML;
-    }
-
-    var chatAttachBtn = document.getElementById('chatAttachBtn');
-    var chatFileInput = document.getElementById('chatFileInput');
-    if (chatAttachBtn && chatFileInput) {
-        chatAttachBtn.addEventListener('click', function() { if (!selectedCustomerId) return; chatFileInput.click(); });
-        chatFileInput.addEventListener('change', function() {
-            var files = chatFileInput.files;
-            if (!files || !files.length || !selectedCustomerId) return;
-            var imageFiles = [];
-            for (var i = 0; i < files.length; i++) { if (files[i].type.startsWith('image/')) imageFiles.push(files[i]); }
-            if (!imageFiles.length) { chatFileInput.value = ''; return; }
-            imageFiles.forEach(function(file) {
-                var formData = new FormData();
-                formData.append('_token', chatCsrfToken);
-                formData.append('image', file);
-                fetch(chatSendUrl + '/' + selectedCustomerId + '/messages', {
-                    method: 'POST',
-                    headers: { 'X-CSRF-TOKEN': chatCsrfToken, 'X-Requested-With': 'XMLHttpRequest' },
-                    body: formData,
-                    credentials: 'same-origin'
-                }).then(function(res) { return res.json(); }).then(function(data) {
-                    if (data.success && data.message) {
-                        addImageMessage(data.message.image_url, true);
-                        if (data.message.id) lastMessageId = data.message.id;
-                    }
-                });
-            });
-            chatFileInput.value = '';
-        });
-    }
-
-    function addImageMessage(src, isAdmin) {
-        if (!src) return;
-        if (chatPlaceholder) chatPlaceholder.style.display = 'none';
-        var timeStr = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-        var div = document.createElement('div');
-        div.className = 'chat-msg chat-msg-img ' + (isAdmin ? 'admin' : 'customer');
-        div.innerHTML = '<img src="' + escapeHtml(src) + '" alt="Image" class="chat-msg-image" /><div class="chat-msg-time">' + timeStr + '</div>';
-        chatMessages.appendChild(div);
-        chatMessages.scrollTop = chatMessages.scrollHeight;
-    }
-
-    if (chatThumbs) chatThumbs.addEventListener('click', function() {
-        if (!selectedCustomerId) return;
-        sendMessage('👍', true);
-    });
-
-    function sendMessage(text, appendOnSuccess) {
-        if (!selectedCustomerId) return;
-        var formData = new FormData();
-        formData.append('_token', chatCsrfToken);
-        formData.append('body', text);
-        fetch(chatSendUrl + '/' + selectedCustomerId + '/messages', {
-            method: 'POST',
-            headers: { 'X-CSRF-TOKEN': chatCsrfToken, 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
-            body: formData,
-            credentials: 'same-origin'
-        }).then(function(res) { return res.json(); }).then(function(data) {
-            if (appendOnSuccess && data.success && data.message) {
-                appendMessage(data.message);
-                if (data.message.id) lastMessageId = data.message.id;
-            }
-        });
-    }
-
-    if (chatSend && chatInput) {
-        chatSend.addEventListener('click', function() {
-            var text = chatInput.value.trim();
-            if (!text) return;
-            chatInput.value = '';
-            chatInput.style.height = 'auto';
-            sendMessage(text, true);
-        });
-        chatInput.addEventListener('keydown', function(e) {
-            if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); chatSend.click(); }
-        });
-    }
-
-    // Restore minimized heads after browser refresh.
-    const restoredPinnedHeads = loadPinnedHeads();
-    if (restoredPinnedHeads.length > 0) {
-        pinnedHeads = restoredPinnedHeads;
-        keepHeadsPinned = true;
-        renderChatHeads([]);
-    }
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    const logoutConfirmModal = document.getElementById("logoutConfirmModal");
+    const logoutConfirmBackdrop = document.getElementById("logoutConfirmBackdrop");
+    const logoutConfirmCancel = document.getElementById("logoutConfirmCancel");
+    const logoutConfirmOk = document.getElementById("logoutConfirmOk");
+    const logoutConfirmOkDefaultHtml = logoutConfirmOk ? logoutConfirmOk.innerHTML : 'Logout';
 
     var pendingLogoutUrl = '';
+    var isLoggingOut = false;
     function openLogoutConfirm(url) {
         pendingLogoutUrl = url || '';
         if (!logoutConfirmModal) return;
+        isLoggingOut = false;
+        if (logoutConfirmCancel) logoutConfirmCancel.disabled = false;
+        if (logoutConfirmOk) {
+            logoutConfirmOk.disabled = false;
+            logoutConfirmOk.classList.remove('is-loading');
+            logoutConfirmOk.innerHTML = logoutConfirmOkDefaultHtml;
+        }
         logoutConfirmModal.classList.add('open');
         logoutConfirmModal.setAttribute('aria-hidden', 'false');
     }
 
     function closeLogoutConfirm() {
+        if (isLoggingOut) return;
         pendingLogoutUrl = '';
         if (!logoutConfirmModal) return;
         logoutConfirmModal.classList.remove('open');
@@ -1529,12 +904,21 @@ document.addEventListener("DOMContentLoaded", function() {
     }
 
     function doConfirmedLogout() {
-        if (!pendingLogoutUrl) return;
-        pinnedHeads = [];
-        closedHeadIds.clear();
-        keepHeadsPinned = false;
-        clearPinnedHeadsStorage();
-        hideChatHeads();
+        if (!pendingLogoutUrl || isLoggingOut) return;
+        isLoggingOut = true;
+        if (logoutConfirmCancel) logoutConfirmCancel.disabled = true;
+        if (logoutConfirmOk) {
+            logoutConfirmOk.disabled = true;
+            logoutConfirmOk.classList.add('is-loading');
+            logoutConfirmOk.innerHTML = '<span class="logout-confirm-spinner" aria-hidden="true"></span><span>Logging out...</span>';
+        }
+        try {
+            if (typeof pinnedHeads !== 'undefined') pinnedHeads = [];
+            if (typeof closedHeadIds !== 'undefined' && closedHeadIds.clear) closedHeadIds.clear();
+            if (typeof keepHeadsPinned !== 'undefined') keepHeadsPinned = false;
+            if (typeof clearPinnedHeadsStorage === 'function') clearPinnedHeadsStorage();
+            if (typeof hideChatHeads === 'function') hideChatHeads();
+        } catch (e) { /* chat heads not available on this page */ }
         var separator = pendingLogoutUrl.indexOf('?') >= 0 ? '&' : '?';
         window.location.replace(pendingLogoutUrl + separator + 't=' + Date.now());
     }
@@ -1558,11 +942,6 @@ document.addEventListener("DOMContentLoaded", function() {
         }
     });
 
-    document.addEventListener('click', unlockChatRingtone, { passive: true });
-    document.addEventListener('keydown', unlockChatRingtone);
-    document.addEventListener('touchstart', unlockChatRingtone, { passive: true });
-
-    startUnreadSummaryPoll();
 });
 </script>
 

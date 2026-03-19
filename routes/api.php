@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\ApiAddressController;
 use App\Http\Controllers\Api\ApiAuthController;
 use App\Http\Controllers\Api\ApiCartController;
 use App\Http\Controllers\Api\ApiDriverAuthController;
+use App\Http\Controllers\Api\ApiDriverNotificationController;
 use App\Http\Controllers\Api\ApiDriverShipmentController;
 use App\Http\Controllers\Api\ApiFavoriteController;
 use App\Http\Controllers\Api\ApiFlavorController;
@@ -101,6 +102,8 @@ Route::prefix('v1')->group(function () {
         Route::get('/notifications/unread-count', [ApiNotificationController::class, 'unreadCount']);
         Route::post('/notifications/{id}/read', [ApiNotificationController::class, 'markRead']);
         Route::post('/notifications/read-all', [ApiNotificationController::class, 'markAllRead']);
+        Route::delete('/notifications/{id}', [ApiNotificationController::class, 'destroy']);
+        Route::delete('/notifications', [ApiNotificationController::class, 'destroyAll']);
         // Chat with admin (for Flutter customer app)
         Route::get('/chat', [ApiChatController::class, 'index']);
         Route::get('/chat/messages', [ApiChatController::class, 'messages']);
@@ -125,6 +128,12 @@ Route::prefix('v1')->group(function () {
         Route::post('/shipments/{id}/reject', [ApiDriverShipmentController::class, 'reject']);
         Route::post('/shipments/{id}/deliver', [ApiDriverShipmentController::class, 'deliver']);
         Route::post('/shipments/{id}/complete', [ApiDriverShipmentController::class, 'complete']);
+        Route::get('/notifications', [ApiDriverNotificationController::class, 'index']);
+        Route::get('/notifications/unread-count', [ApiDriverNotificationController::class, 'unreadCount']);
+        Route::post('/notifications/{id}/read', [ApiDriverNotificationController::class, 'markRead']);
+        Route::post('/notifications/read-all', [ApiDriverNotificationController::class, 'markAllRead']);
+        Route::delete('/notifications/{id}', [ApiDriverNotificationController::class, 'destroy']);
+        Route::delete('/notifications', [ApiDriverNotificationController::class, 'destroyAll']);
         Route::get('/messages/archived-threads', [ApiOrderMessageController::class, 'driverArchivedThreads']);
         Route::get('/shipments/{id}/messages', [ApiOrderMessageController::class, 'driverMessages']);
         Route::post('/shipments/{id}/messages', [ApiOrderMessageController::class, 'driverSend']);

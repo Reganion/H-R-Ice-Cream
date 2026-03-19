@@ -48,8 +48,8 @@
 
             <!-- TABLE WRAPPER -->
             <div class="orders-table">
-                <div class="table-scroll">
-                    <table class="orders-data">
+                <div class="table-header">
+                    <table class="orders-data orders-data-head">
                         <colgroup>
                             <col style="width: 18%;">
                             <col style="width: 22%;">
@@ -66,6 +66,18 @@
                                 <th>Action</th>
                             </tr>
                         </thead>
+                    </table>
+                </div>
+
+                <div class="table-scroll">
+                    <table class="orders-data orders-data-body">
+                        <colgroup>
+                            <col style="width: 18%;">
+                            <col style="width: 22%;">
+                            <col style="width: 20%;">
+                            <col style="width: 22%;">
+                            <col style="width: 12%;">
+                        </colgroup>
                         <tbody id="records-tbody">
                             <tr>
                                 <td colspan="5" style="text-align:center; padding:30px;">Loading…</td>

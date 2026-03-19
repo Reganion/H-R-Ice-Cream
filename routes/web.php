@@ -17,10 +17,7 @@ use App\Http\Controllers\Admin\AdminNotificationController;
 use App\Http\Controllers\Admin\AdminChatController;
 use App\Http\Controllers\Api\ApiOrderPaymentController;
 
-Route::get('/', [CustomerPageController::class, 'landing'])
-    ->name('landing');
-
-Route::get('/home', [CustomerPageController::class, 'home'])
+Route::get('/', [CustomerPageController::class, 'home'])
     ->name('customer.home');
 
 Route::get('/payment/qrph/qrph', [ApiOrderPaymentController::class, 'qrindex']);
@@ -58,19 +55,11 @@ Route::post('/customer/change-password/resend-otp', [CustomerAuthController::cla
 Route::get('/customer/change-password/new-password', [CustomerAuthController::class, 'showChangePasswordNewPasswordForm'])->name('customer.change-password.new-password');
 Route::post('/customer/change-password/update', [CustomerAuthController::class, 'updateChangePassword'])->name('customer.change-password.update');
 
+// Admin guest routes (no login required)
 Route::get('/admin/login', [AdminPagesController::class, 'login'])->name('admin.login');
 Route::post('/admin/login', [AdminAuthController::class, 'login'])->name('admin.login.submit');
 Route::post('/admin/register', [AdminAuthController::class, 'register'])->name('admin.register.submit');
 Route::get('/admin/logout', [AdminAuthController::class, 'logout'])->name('admin.logout');
-Route::post('/admin/account/update', [AdminAuthController::class, 'updateAccount'])->name('admin.account.update');
-Route::post('/admin/account/verify-email-otp', [AdminAuthController::class, 'verifyAccountEmailOtp'])->name('admin.account.verify-email-otp');
-Route::post('/admin/account/resend-email-otp', [AdminAuthController::class, 'resendAccountEmailOtp'])->name('admin.account.resend-email-otp');
-Route::post('/admin/account/cancel-email-otp', [AdminAuthController::class, 'cancelAccountEmailOtp'])->name('admin.account.cancel-email-otp');
-Route::post('/admin/account/password/send-otp', [AdminAuthController::class, 'sendAccountPasswordOtp'])->name('admin.account.password.send-otp');
-Route::post('/admin/account/password/verify-otp', [AdminAuthController::class, 'verifyAccountPasswordOtp'])->name('admin.account.password.verify-otp');
-Route::post('/admin/account/password/resend-otp', [AdminAuthController::class, 'resendAccountPasswordOtp'])->name('admin.account.password.resend-otp');
-Route::post('/admin/account/password/start', [AdminAuthController::class, 'startAccountPasswordChange'])->name('admin.account.password.start');
-Route::post('/admin/account/password/cancel', [AdminAuthController::class, 'cancelAccountPasswordChange'])->name('admin.account.password.cancel');
 
 Route::get('/admin/forgot-password', [AdminAuthController::class, 'showForgotPasswordForm'])->name('admin.forgot-password');
 Route::post('/admin/forgot-password', [AdminAuthController::class, 'sendForgotPasswordOtp'])->name('admin.forgot-password.submit');
@@ -80,7 +69,20 @@ Route::post('/admin/forgot-password/resend-otp', [AdminAuthController::class, 'r
 Route::get('/admin/forgot-password/reset-password', [AdminAuthController::class, 'showResetPasswordForm'])->name('admin.forgot-password.reset-password');
 Route::post('/admin/forgot-password/reset-password', [AdminAuthController::class, 'updatePassword'])->name('admin.forgot-password.reset-password.submit');
 
-Route::prefix('admin')->name('admin.')->group(function () {
+// Admin protected routes (login required)
+Route::prefix('admin')->middleware('admin.auth')->group(function () {
+    Route::post('/account/update', [AdminAuthController::class, 'updateAccount'])->name('admin.account.update');
+    Route::post('/account/verify-email-otp', [AdminAuthController::class, 'verifyAccountEmailOtp'])->name('admin.account.verify-email-otp');
+    Route::post('/account/resend-email-otp', [AdminAuthController::class, 'resendAccountEmailOtp'])->name('admin.account.resend-email-otp');
+    Route::post('/account/cancel-email-otp', [AdminAuthController::class, 'cancelAccountEmailOtp'])->name('admin.account.cancel-email-otp');
+    Route::post('/account/password/send-otp', [AdminAuthController::class, 'sendAccountPasswordOtp'])->name('admin.account.password.send-otp');
+    Route::post('/account/password/verify-otp', [AdminAuthController::class, 'verifyAccountPasswordOtp'])->name('admin.account.password.verify-otp');
+    Route::post('/account/password/resend-otp', [AdminAuthController::class, 'resendAccountPasswordOtp'])->name('admin.account.password.resend-otp');
+    Route::post('/account/password/start', [AdminAuthController::class, 'startAccountPasswordChange'])->name('admin.account.password.start');
+    Route::post('/account/password/cancel', [AdminAuthController::class, 'cancelAccountPasswordChange'])->name('admin.account.password.cancel');
+});
+
+Route::prefix('admin')->name('admin.')->middleware('admin.auth')->group(function () {
     Route::get('/dashboard', [AdminPagesController::class, 'dashboard'])->name('dashboard');
     Route::get('/dashboard/chart-data', [AdminPagesController::class, 'dashboardChartData'])->name('dashboard.chart-data');
     Route::get('/dashboard/completed-orders', [AdminPagesController::class, 'dashboardCompletedOrders'])->name('dashboard.completed-orders');
@@ -89,6 +91,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
     Route::get('/gallon', [AdminPagesController::class, 'gallon'])->name('gallon');
     Route::get('/orders', [AdminPagesController::class, 'orders'])->name('orders');
     Route::get('/records', [AdminPagesController::class, 'records'])->name('records');
+    Route::get('/support-centre', [AdminPagesController::class, 'supportCentre'])->name('support-centre');
     Route::get('/drivers', [AdminPagesController::class, 'drivers'])->name('drivers');
     Route::get('/customer', [AdminPagesController::class, 'customer'])->name('customer');
     Route::get('/reports', [AdminPagesController::class, 'reports'])->name('reports');
@@ -97,8 +100,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
     Route::get('/admins/create', [AdminPagesController::class, 'addAdmin'])->name('admins.create');
 });
 
-
-Route::prefix('admin')->group(function () {
+Route::prefix('admin')->middleware('admin.auth')->group(function () {
     Route::post('/ingredients', [IngredientController::class, 'store'])
         ->name('admin.ingredients.store');
 
@@ -112,7 +114,7 @@ Route::prefix('admin')->group(function () {
         ->name('admin.ingredients.bulk-destroy');
 });
 
-Route::prefix('admin')->group(function () {
+Route::prefix('admin')->middleware('admin.auth')->group(function () {
     Route::post('/drivers', [DriverController::class, 'store'])
         ->name('admin.drivers.store');
 
@@ -129,12 +131,12 @@ Route::prefix('admin')->group(function () {
         ->name('admin.drivers.archive');
 });
 
-Route::prefix('admin')->group(function () {
+Route::prefix('admin')->middleware('admin.auth')->group(function () {
     Route::post('/admins', [AdminController::class, 'store'])
         ->name('admin.admins.store');
 });
 
-Route::prefix('admin')->group(function () {
+Route::prefix('admin')->middleware('admin.auth')->group(function () {
 
     Route::post('/flavors', [FlavorController::class, 'flavorstore'])
         ->name('admin.flavors.store');
@@ -150,7 +152,7 @@ Route::prefix('admin')->group(function () {
 
 });
 
-Route::prefix('admin')->group(function () {
+Route::prefix('admin')->middleware('admin.auth')->group(function () {
 
     Route::post('/gallons', [GallonController::class, 'gallonstore'])
         ->name('admin.gallons.store');
@@ -166,8 +168,7 @@ Route::delete('/gallons', [GallonController::class, 'bulkDestroy'])
 
 });
 
-
-Route::prefix('admin')->name('admin.')->group(function () {
+Route::prefix('admin')->name('admin.')->middleware('admin.auth')->group(function () {
     Route::get('/orders/list', [AdminOrderController::class, 'listJson'])
         ->name('orders.list');
     Route::get('/orders/drivers', [AdminOrderController::class, 'availableDriversJson'])

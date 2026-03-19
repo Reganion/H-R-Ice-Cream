@@ -15,6 +15,36 @@
 
     <!-- Google Material Icons -->
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet" />
+    <style>
+        button.is-loading {
+            pointer-events: none !important;
+            cursor: not-allowed !important;
+            opacity: 0.75 !important;
+        }
+
+        button.is-loading .btn-loading-wrap {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        button.is-loading .btn-spinner {
+            width: 14px;
+            height: 14px;
+            border: 2px solid currentColor;
+            border-right-color: transparent;
+            border-radius: 50%;
+            display: inline-block;
+            animation: btn-spin 0.7s linear infinite;
+            vertical-align: middle;
+        }
+
+        @keyframes btn-spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+    </style>
 
 </head>
 
@@ -468,6 +498,31 @@ DELETE CONFIRM MODAL
 
     <script>
         document.addEventListener("DOMContentLoaded", () => {
+            function setButtonLoadingState(button, isLoading, loadingText) {
+                if (!button) return;
+
+                if (isLoading) {
+                    if (button.classList.contains("is-loading")) return;
+                    button.dataset.originalHtml = button.innerHTML;
+                    button.classList.add("is-loading");
+                    button.disabled = true;
+                    button.setAttribute("aria-busy", "true");
+                    const text = loadingText || button.dataset.loadingText || "Processing...";
+                    button.innerHTML =
+                        '<span class="btn-loading-wrap"><span class="btn-spinner" aria-hidden="true"></span><span>' +
+                        text + '</span></span>';
+                    return;
+                }
+
+                button.classList.remove("is-loading");
+                button.disabled = false;
+                button.removeAttribute("aria-busy");
+                if (button.dataset.originalHtml) {
+                    button.innerHTML = button.dataset.originalHtml;
+                    delete button.dataset.originalHtml;
+                }
+            }
+
             const pendingAlertMessage = sessionStorage.getItem("ingredientPendingAlertMessage");
             const pendingAlertType = sessionStorage.getItem("ingredientPendingAlertType");
             if (
@@ -751,7 +806,13 @@ DELETE CONFIRM MODAL
             ===================== */
             const modal = document.getElementById("addFlavorModal");
             const addIngredientForm = document.getElementById("addIngredientForm");
-            addIngredientForm?.addEventListener("submit", () => {
+            addIngredientForm?.addEventListener("submit", (e) => {
+                const submitBtn = addIngredientForm.querySelector("button[type='submit']");
+                if (submitBtn && submitBtn.classList.contains("is-loading")) {
+                    e.preventDefault();
+                    return;
+                }
+                setButtonLoadingState(submitBtn, true, "Adding...");
                 sessionStorage.setItem("ingredientPendingAlertMessage", "Ingredient added successfully");
                 sessionStorage.setItem("ingredientPendingAlertType", "success");
             });
@@ -868,7 +929,13 @@ DELETE CONFIRM MODAL
             const closeEdit = document.getElementById("closeEditModal");
             const cancelEdit = document.getElementById("cancelEditModal");
             const editForm = document.getElementById("editForm");
-            editForm?.addEventListener("submit", () => {
+            editForm?.addEventListener("submit", (e) => {
+                const submitBtn = editForm.querySelector("button[type='submit']");
+                if (submitBtn && submitBtn.classList.contains("is-loading")) {
+                    e.preventDefault();
+                    return;
+                }
+                setButtonLoadingState(submitBtn, true, "Saving...");
                 sessionStorage.setItem("ingredientPendingAlertMessage", "Ingredient updated successfully");
                 sessionStorage.setItem("ingredientPendingAlertType", "success");
             });
@@ -1008,13 +1075,16 @@ DELETE CONFIRM MODAL
 
             /* Cancel delete */
             cancelDelete.onclick = () => {
+                setButtonLoadingState(confirmDelete, false);
                 deleteModal.classList.remove("show");
                 deleteForm = null;
             };
 
             /* Confirm delete */
             confirmDelete.onclick = () => {
+                if (confirmDelete.classList.contains("is-loading")) return;
                 if (deleteForm) {
+                    setButtonLoadingState(confirmDelete, true, "Deleting...");
                     sessionStorage.setItem("ingredientPendingAlertMessage", "Ingredient deleted successfully");
                     sessionStorage.setItem("ingredientPendingAlertType", "success");
                     deleteForm.submit(); // ✅ Laravel DELETE happens here
@@ -1024,6 +1094,7 @@ DELETE CONFIRM MODAL
             /* Click outside modal */
             deleteModal.onclick = e => {
                 if (e.target === deleteModal) {
+                    setButtonLoadingState(confirmDelete, false);
                     deleteModal.classList.remove("show");
                     deleteForm = null;
                 }

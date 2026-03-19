@@ -44,15 +44,6 @@
             <a href="#contact">Contact</a>
         </nav>
 
-        <div class="auth">
-            
-                <a href="{{ route('customer.login') }}">Sign in</a>
-                <button onclick="window.location.href='#'">
-                    Sign up <span class="material-symbols-outlined card-icon">arrow_right_alt</span>
-                </button>
-        </div>
-
-
     </header>
 
     <section class="hero" id="home">

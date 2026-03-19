@@ -14,6 +14,36 @@
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet" />
     <link rel="stylesheet" href="{{ asset('assets/css/Admin/flavor.css') }}">
     <link rel="stylesheet" href="{{ asset('assets/css/Admin/app.css') }}">
+    <style>
+        button.is-loading {
+            pointer-events: none !important;
+            cursor: not-allowed !important;
+            opacity: 0.75 !important;
+        }
+
+        button.is-loading .btn-loading-wrap {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        button.is-loading .btn-spinner {
+            width: 14px;
+            height: 14px;
+            border: 2px solid currentColor;
+            border-right-color: transparent;
+            border-radius: 50%;
+            display: inline-block;
+            animation: btn-spin 0.7s linear infinite;
+            vertical-align: middle;
+        }
+
+        @keyframes btn-spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+    </style>
 </head>
 
 <body>
@@ -516,6 +546,31 @@
 
     <script>
         document.addEventListener("DOMContentLoaded", () => {
+            function setButtonLoadingState(button, isLoading, loadingText) {
+                if (!button) return;
+
+                if (isLoading) {
+                    if (button.classList.contains("is-loading")) return;
+                    button.dataset.originalHtml = button.innerHTML;
+                    button.classList.add("is-loading");
+                    button.disabled = true;
+                    button.setAttribute("aria-busy", "true");
+                    const text = loadingText || button.dataset.loadingText || "Processing...";
+                    button.innerHTML =
+                        '<span class="btn-loading-wrap"><span class="btn-spinner" aria-hidden="true"></span><span>' +
+                        text + '</span></span>';
+                    return;
+                }
+
+                button.classList.remove("is-loading");
+                button.disabled = false;
+                button.removeAttribute("aria-busy");
+                if (button.dataset.originalHtml) {
+                    button.innerHTML = button.dataset.originalHtml;
+                    delete button.dataset.originalHtml;
+                }
+            }
+
             const pendingAlertMessage = sessionStorage.getItem("flavorPendingAlertMessage");
             const pendingAlertType = sessionStorage.getItem("flavorPendingAlertType");
             if (
@@ -797,17 +852,35 @@
             const editFlavorForm = document.getElementById("editFlavorForm");
             const deleteFlavorForm = document.getElementById("deleteFlavorForm");
 
-            addFlavorForm?.addEventListener("submit", () => {
+            addFlavorForm?.addEventListener("submit", (e) => {
+                const submitBtn = addFlavorForm.querySelector("button[type='submit']");
+                if (submitBtn && submitBtn.classList.contains("is-loading")) {
+                    e.preventDefault();
+                    return;
+                }
+                setButtonLoadingState(submitBtn, true, "Adding...");
                 sessionStorage.setItem("flavorPendingAlertMessage", "Flavor added successfully");
                 sessionStorage.setItem("flavorPendingAlertType", "success");
             });
 
-            editFlavorForm?.addEventListener("submit", () => {
+            editFlavorForm?.addEventListener("submit", (e) => {
+                const submitBtn = editFlavorForm.querySelector("button[type='submit']");
+                if (submitBtn && submitBtn.classList.contains("is-loading")) {
+                    e.preventDefault();
+                    return;
+                }
+                setButtonLoadingState(submitBtn, true, "Saving...");
                 sessionStorage.setItem("flavorPendingAlertMessage", "Flavor updated successfully");
                 sessionStorage.setItem("flavorPendingAlertType", "success");
             });
 
-            deleteFlavorForm?.addEventListener("submit", () => {
+            deleteFlavorForm?.addEventListener("submit", (e) => {
+                const submitBtn = deleteFlavorForm.querySelector("button[type='submit']");
+                if (submitBtn && submitBtn.classList.contains("is-loading")) {
+                    e.preventDefault();
+                    return;
+                }
+                setButtonLoadingState(submitBtn, true, "Deleting...");
                 const selectedDeleteInputs = deleteFlavorForm.querySelectorAll("input[name='flavor_ids[]']");
                 const deleteMessage = selectedDeleteInputs.length > 0 ?
                     `${selectedDeleteInputs.length} selected item(s) deleted successfully` :
@@ -1098,11 +1171,13 @@
             }
 
             cancelDelete.onclick = () => {
+                setButtonLoadingState(deleteForm.querySelector("button[type='submit']"), false);
                 deleteModal.classList.remove("show");
             };
 
             deleteModal.onclick = e => {
                 if (e.target === deleteModal) {
+                    setButtonLoadingState(deleteForm.querySelector("button[type='submit']"), false);
                     deleteModal.classList.remove("show");
                 }
             };

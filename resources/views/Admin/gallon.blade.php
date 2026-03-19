@@ -11,6 +11,36 @@
     @section('title', 'Gallon Management')
     <link rel="stylesheet" href="{{ asset('assets/css/Admin/gallon.css') }}">
     <link rel="stylesheet" href="{{ asset('assets/css/Admin/app.css') }}">
+    <style>
+        button.is-loading {
+            pointer-events: none !important;
+            cursor: not-allowed !important;
+            opacity: 0.75 !important;
+        }
+
+        button.is-loading .btn-loading-wrap {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        button.is-loading .btn-spinner {
+            width: 14px;
+            height: 14px;
+            border: 2px solid currentColor;
+            border-right-color: transparent;
+            border-radius: 50%;
+            display: inline-block;
+            animation: btn-spin 0.7s linear infinite;
+            vertical-align: middle;
+        }
+
+        @keyframes btn-spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+    </style>
 </head>
 
 <body>
@@ -389,6 +419,31 @@
 
     <script>
         document.addEventListener("DOMContentLoaded", () => {
+            function setButtonLoadingState(button, isLoading, loadingText) {
+                if (!button) return;
+
+                if (isLoading) {
+                    if (button.classList.contains("is-loading")) return;
+                    button.dataset.originalHtml = button.innerHTML;
+                    button.classList.add("is-loading");
+                    button.disabled = true;
+                    button.setAttribute("aria-busy", "true");
+                    const text = loadingText || button.dataset.loadingText || "Processing...";
+                    button.innerHTML =
+                        '<span class="btn-loading-wrap"><span class="btn-spinner" aria-hidden="true"></span><span>' +
+                        text + '</span></span>';
+                    return;
+                }
+
+                button.classList.remove("is-loading");
+                button.disabled = false;
+                button.removeAttribute("aria-busy");
+                if (button.dataset.originalHtml) {
+                    button.innerHTML = button.dataset.originalHtml;
+                    delete button.dataset.originalHtml;
+                }
+            }
+
             const pendingAlertMessage = sessionStorage.getItem("gallonPendingAlertMessage");
             const pendingAlertType = sessionStorage.getItem("gallonPendingAlertType");
             if (
@@ -644,7 +699,13 @@
 
             const addForm = document.getElementById("addGallonForm");
             const addBtn = document.querySelector(".btn-add");
-            addForm?.addEventListener("submit", () => {
+            addForm?.addEventListener("submit", (e) => {
+                const submitBtn = addForm.querySelector("button[type='submit']");
+                if (submitBtn && submitBtn.classList.contains("is-loading")) {
+                    e.preventDefault();
+                    return;
+                }
+                setButtonLoadingState(submitBtn, true, "Adding...");
                 sessionStorage.setItem("gallonPendingAlertMessage", "Gallon added successfully");
                 sessionStorage.setItem("gallonPendingAlertType", "success");
             });
@@ -701,7 +762,13 @@
 
             const editModal = document.getElementById("editFlavorModal");
             const editForm = document.getElementById("editGallonForm");
-            editForm?.addEventListener("submit", () => {
+            editForm?.addEventListener("submit", (e) => {
+                const submitBtn = editForm.querySelector("button[type='submit']");
+                if (submitBtn && submitBtn.classList.contains("is-loading")) {
+                    e.preventDefault();
+                    return;
+                }
+                setButtonLoadingState(submitBtn, true, "Saving...");
                 sessionStorage.setItem("gallonPendingAlertMessage", "Gallon updated successfully");
                 sessionStorage.setItem("gallonPendingAlertType", "success");
             });
@@ -770,7 +837,13 @@
             const deleteName = document.getElementById("deleteFlavorName");
             const deleteForm = document.getElementById("deleteForm");
             const cancelDelete = document.getElementById("cancelDelete");
-            deleteForm?.addEventListener("submit", () => {
+            deleteForm?.addEventListener("submit", (e) => {
+                const submitBtn = deleteForm.querySelector("button[type='submit']");
+                if (submitBtn && submitBtn.classList.contains("is-loading")) {
+                    e.preventDefault();
+                    return;
+                }
+                setButtonLoadingState(submitBtn, true, "Deleting...");
                 sessionStorage.setItem("gallonPendingAlertMessage", "Gallon deleted successfully");
                 sessionStorage.setItem("gallonPendingAlertType", "success");
             });
@@ -818,11 +891,13 @@
             }
 
             cancelDelete.onclick = () => {
+                setButtonLoadingState(deleteForm.querySelector("button[type='submit']"), false);
                 deleteModal.classList.remove("show");
             };
 
             deleteModal.onclick = e => {
                 if (e.target === deleteModal) {
+                    setButtonLoadingState(deleteForm.querySelector("button[type='submit']"), false);
                     deleteModal.classList.remove("show");
                 }
             };

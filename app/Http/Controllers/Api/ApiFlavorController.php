@@ -12,12 +12,13 @@ use Illuminate\Support\Facades\DB;
 class ApiFlavorController extends Controller
 {
     /**
-     * Best Sellers: top 5 flavors by order count (most ordered by customers).
+     * Best Sellers: top 5 flavors by completed order count.
      * GET /api/v1/best-sellers
      */
     public function bestSellers(): JsonResponse
     {
         $orderCounts = Order::selectRaw('product_name, count(*) as order_count')
+            ->whereRaw('LOWER(TRIM(COALESCE(status, ""))) = ?', ['completed'])
             ->groupBy('product_name')
             ->orderByDesc('order_count')
             ->limit(5)
@@ -32,21 +33,22 @@ class ApiFlavorController extends Controller
     }
 
     /**
-     * Popular: top 5 flavors by average rating (from feedback with flavor_id).
+     * Popular: top 5 flavors by number of feedbacks (most reviewed).
      * GET /api/v1/popular
      */
     public function popular(): JsonResponse
     {
         $popularFlavorIds = DB::table('feedback')
             ->whereNotNull('flavor_id')
-            ->selectRaw('flavor_id, avg(rating) as avg_rating')
+            ->selectRaw('flavor_id, count(*) as feedback_count')
             ->groupBy('flavor_id')
-            ->orderByDesc('avg_rating')
+            ->orderByDesc('feedback_count')
             ->limit(5)
             ->pluck('flavor_id');
         $popularFlavors = $popularFlavorIds->map(fn ($id) => Flavor::find($id))->filter()->values();
         if ($popularFlavors->isEmpty()) {
             $orderCounts = Order::selectRaw('product_name, count(*) as order_count')
+                ->whereRaw('LOWER(TRIM(COALESCE(status, ""))) = ?', ['completed'])
                 ->groupBy('product_name')
                 ->orderByDesc('order_count')
                 ->limit(6)

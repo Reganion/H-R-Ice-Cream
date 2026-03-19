@@ -26,7 +26,7 @@ class AppServiceProvider extends ServiceProvider
     {
         CustomerNotification::observe(CustomerNotificationObserver::class);
 
-        View::composer(['admin.layout.layout', 'admin.account'], function ($view) {
+        View::composer(['admin.layout.layout', 'admin.account', 'admin.support-centre'], function ($view) {
             $adminUser = null;
             $adminNotifications = collect();
             if (session()->has('admin_id')) {
