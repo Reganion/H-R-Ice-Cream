@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Enums\OrderStatusDriver;
+use App\Models\AdminNotification;
 use App\Models\CustomerNotification;
 use App\Models\Driver;
 use App\Models\DriverNotification;
@@ -111,9 +112,16 @@ class ApiDriverShipmentController extends Controller
             ->whereRaw(
                 'LOWER(status) IN (' . implode(',', array_fill(0, count($statuses), '?')) . ')',
                 $statuses
-            )
-            ->orderByRaw('COALESCE(delivery_date, created_at) DESC')
-            ->orderBy('id', 'desc');
+            );
+
+        // Completed tab: newest *actual* delivery first (delivered_at). Other tabs: scheduled slot first.
+        if ($tab === 'completed') {
+            $query->orderByRaw('COALESCE(delivered_at, updated_at, created_at) DESC')
+                ->orderBy('id', 'desc');
+        } else {
+            $query->orderByRaw('COALESCE(delivery_date, created_at) DESC')
+                ->orderBy('id', 'desc');
+        }
 
         if ($tab === 'incoming') {
             $query->where('status_driver', OrderStatusDriver::Pending);
@@ -170,6 +178,7 @@ class ApiDriverShipmentController extends Controller
                 'delivered_time' => $deliveredTime,
                 'delivered_time_compact' => $deliveredTimeCompact,
                 'delivered_date' => $deliveredDate,
+                'delivered_at' => $order->delivered_at?->toIso8601String(),
                 'badge' => $this->badgeForTab($tab),
                 'badge_color' => $this->badgeColorForTab($tab),
                 'customer_name' => (string) ($order->customer_name ?? ''),
@@ -296,6 +305,19 @@ class ApiDriverShipmentController extends Controller
         $order->status_driver = OrderStatusDriver::Accepted;
         $order->save();
 
+        AdminNotification::createForAllAdmins(
+            AdminNotification::TYPE_ORDER_DRIVER_ACCEPTED,
+            $order->customer_name ?? 'Customer',
+            null,
+            $order->product_image ?? 'img/default-product.png',
+            'Order',
+            $order->id,
+            [
+                'subtitle' => 'Driver accepted Order #' . ($order->transaction_id ?? ''),
+                'highlight' => $order->product_name ?? '',
+            ]
+        );
+
         $this->firebase->touchOrdersUpdated();
 
         // Reactivate order_messages for this order so the driver–customer thread is visible again
@@ -394,6 +416,19 @@ class ApiDriverShipmentController extends Controller
         $order->save();
         $this->notifyCustomerOrderStatus($order);
 
+        AdminNotification::createForAllAdmins(
+            AdminNotification::TYPE_ORDER_OUT_FOR_DELIVERY,
+            $order->customer_name ?? 'Customer',
+            null,
+            $order->product_image ?? 'img/default-product.png',
+            'Order',
+            $order->id,
+            [
+                'subtitle' => 'Driver is out for delivery for Order #' . ($order->transaction_id ?? ''),
+                'highlight' => $order->product_name ?? '',
+            ]
+        );
+
         $this->firebase->touchOrdersUpdated();
 
         $coords = $this->deliveryService->geocodeAddress($order->delivery_address);
@@ -464,6 +499,19 @@ class ApiDriverShipmentController extends Controller
         $order->balance = max(0, $amount - $newReceived);
         $order->save();
         $this->notifyCustomerOrderStatus($order);
+
+        AdminNotification::createForAllAdmins(
+            AdminNotification::TYPE_DELIVERY_SUCCESS,
+            $order->customer_name ?? 'Customer',
+            null,
+            $order->product_image ?? 'img/default-product.png',
+            'Order',
+            $order->id,
+            [
+                'subtitle' => 'Order #' . ($order->transaction_id ?? ''),
+                'highlight' => 'Delivered successfully',
+            ]
+        );
 
         DriverNotification::create([
             'driver_id' => (int) $driver->id,

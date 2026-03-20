@@ -308,18 +308,14 @@
 
                         <div class="notif-list">
                             @forelse (isset($adminNotifications) ? $adminNotifications : [] as $notif)
-                                <div class="notif-item {{ $notif->read_at ? '' : 'unread' }}" data-id="{{ $notif->id }}" data-type="{{ $notif->type }}" data-related-id="{{ $notif->type === 'order_new' ? ($notif->related_id ?? '') : '' }}">
-                                    @if (($notif->type === 'profile_update' || $notif->type === 'address_update' || $notif->type === 'order_new') && $notif->image_url)
+                                <div class="notif-item {{ $notif->read_at ? '' : 'unread' }}" data-id="{{ $notif->id }}" data-type="{{ $notif->type }}" data-related-id="{{ ($notif->related_type === 'Order') ? ($notif->related_id ?? '') : '' }}">
+                                    @if (($notif->related_type === 'Order') && $notif->image_url)
                                         <div class="notif-icon profile">
                                             <img src="{{ asset($notif->image_url) }}" alt="">
                                         </div>
-                                    @elseif ($notif->type === 'order_new')
+                                    @elseif ($notif->related_type === 'Order')
                                         <div class="notif-icon delivered">
                                             <span class="material-symbols-outlined">shopping_cart</span>
-                                        </div>
-                                    @elseif ($notif->type === 'address_update')
-                                        <div class="notif-icon delivered">
-                                            <span class="material-symbols-outlined">location_on</span>
                                         </div>
                                     @else
                                         <div class="notif-icon delivered">
@@ -690,15 +686,13 @@
     }
 
     function buildNotifIcon(notif) {
-        const hasImage = (notif.type === 'profile_update' || notif.type === 'address_update' || notif.type === 'order_new') && notif.image_url;
+        const isOrderNotif = String(notif.related_type || '').toLowerCase() === 'order';
+        const hasImage = isOrderNotif && notif.image_url;
         if (hasImage) {
             return `<div class="notif-icon profile"><img src="${escapeHtml(notif.image_url)}" alt=""></div>`;
         }
-        if (notif.type === 'order_new') {
+        if (isOrderNotif) {
             return `<div class="notif-icon delivered"><span class="material-symbols-outlined">shopping_cart</span></div>`;
-        }
-        if (notif.type === 'address_update') {
-            return `<div class="notif-icon delivered"><span class="material-symbols-outlined">location_on</span></div>`;
         }
         return `<div class="notif-icon delivered"><span class="material-symbols-outlined">notifications_active</span></div>`;
     }
@@ -716,7 +710,7 @@
         const subtitle = data.subtitle ? ` <span class="muted">${escapeHtml(data.subtitle)}</span>` : '';
         const highlight = data.highlight ? ` <span class="highlight">${escapeHtml(data.highlight)}</span>` : '';
         const message = notif.message && !data.subtitle ? ` <span class="muted">${escapeHtml(notif.message)}</span>` : '';
-        const isOrder = notif.type === 'order_new' && notif.related_id;
+        const isOrder = String(notif.related_type || '').toLowerCase() === 'order' && notif.related_id;
         const dataType = escapeHtml(String(notif.type || ''));
         const dataRelatedId = isOrder ? escapeHtml(String(notif.related_id)) : '';
         return `<div class="notif-item ${isUnread ? 'unread' : ''}" data-id="${escapeHtml(String(notif.id))}" data-type="${dataType}" data-related-id="${dataRelatedId}">${buildNotifIcon(notif)}<div class="notif-text"><span><strong>${escapeHtml(notif.title)}</strong>${subtitle}${highlight}${message}</span><span class="notif-time">${escapeHtml(notif.created_at_human || '')}</span></div></div>`;

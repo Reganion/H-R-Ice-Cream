@@ -302,7 +302,7 @@ class ApiOrderPaymentController extends Controller
                     'Order',
                     $order->id,
                     [
-                        'subtitle' => 'Order #' . $order->transaction_id,
+                        'subtitle' => 'paid downpayment for Order #' . $order->transaction_id,
                         'highlight' => $order->product_name,
                     ]
                 );

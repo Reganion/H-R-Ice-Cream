@@ -21,6 +21,7 @@ class AdminNotificationController extends Controller
         }
 
         $notifications = AdminNotification::forUser($adminId)
+            ->whereIn('type', AdminNotification::orderLifecycleTypes())
             ->orderBy('created_at', 'desc')
             ->limit(50)
             ->get()
@@ -40,7 +41,10 @@ class AdminNotificationController extends Controller
                 ];
             });
 
-        $unreadCount = AdminNotification::forUser($adminId)->unread()->count();
+        $unreadCount = AdminNotification::forUser($adminId)
+            ->whereIn('type', AdminNotification::orderLifecycleTypes())
+            ->unread()
+            ->count();
 
         return response()->json([
             'notifications' => $notifications,

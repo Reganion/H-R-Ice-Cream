@@ -278,6 +278,64 @@ class ApiAuthController extends Controller
     }
 
     /**
+     * Save/refresh FCM token for authenticated customer device.
+     * POST /api/v1/push/token
+     */
+    public function updateFcmToken(Request $request): JsonResponse
+    {
+        $customer = $request->user();
+        if (!$customer instanceof Customer) {
+            return response()->json(['success' => false, 'message' => 'Not authenticated.'], 401);
+        }
+
+        $request->validate([
+            'token' => 'nullable|string|max:2048',
+            'fcm_token' => 'nullable|string|max:2048',
+            'platform' => 'nullable|string|in:android,ios,web',
+        ]);
+
+        $rawToken = trim((string) ($request->input('token') ?? $request->input('fcm_token') ?? ''));
+        if ($rawToken === '') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Provide `token` or `fcm_token` (FCM registration token).',
+            ], 422);
+        }
+
+        $customer->update([
+            'fcm_token' => $rawToken,
+            'fcm_platform' => $request->filled('platform') ? trim((string) $request->input('platform')) : null,
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Push token saved successfully.',
+        ]);
+    }
+
+    /**
+     * Clear FCM token for authenticated customer (e.g. on logout).
+     * DELETE /api/v1/push/token
+     */
+    public function clearFcmToken(Request $request): JsonResponse
+    {
+        $customer = $request->user();
+        if (!$customer instanceof Customer) {
+            return response()->json(['success' => false, 'message' => 'Not authenticated.'], 401);
+        }
+
+        $customer->update([
+            'fcm_token' => null,
+            'fcm_platform' => null,
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Push token removed successfully.',
+        ]);
+    }
+
+    /**
      * End session: remove token from cache. Send same Bearer token or X-Session-Token as when logged in.
      */
     public function logout(Request $request): JsonResponse

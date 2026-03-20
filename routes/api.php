@@ -109,6 +109,8 @@ Route::prefix('v1')->group(function () {
         Route::get('/chat/messages', [ApiChatController::class, 'messages']);
         Route::post('/chat/messages', [ApiChatController::class, 'store']);
         Route::post('/chat/read', [ApiChatController::class, 'markRead']);
+        Route::post('/push/token', [ApiAuthController::class, 'updateFcmToken']);
+        Route::delete('/push/token', [ApiAuthController::class, 'clearFcmToken']);
     });
 
     // Driver protected endpoints
@@ -122,6 +124,8 @@ Route::prefix('v1')->group(function () {
         Route::post('/change-password/send-otp', [ApiDriverAuthController::class, 'changePasswordSendOtp']);
         Route::post('/change-password/verify-otp', [ApiDriverAuthController::class, 'changePasswordVerifyOtp']);
         Route::post('/change-password/resend-otp', [ApiDriverAuthController::class, 'changePasswordResendOtp']);
+        Route::post('/push/token', [ApiDriverAuthController::class, 'updateFcmToken']);
+        Route::delete('/push/token', [ApiDriverAuthController::class, 'clearFcmToken']);
         Route::get('/shipments', [ApiDriverShipmentController::class, 'index']);
         Route::get('/shipments/{id}', [ApiDriverShipmentController::class, 'show']);
         Route::post('/shipments/{id}/accept', [ApiDriverShipmentController::class, 'accept']);

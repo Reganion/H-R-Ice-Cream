@@ -31,6 +31,8 @@ class AdminNotification extends Model
     public const TYPE_ADDRESS_UPDATE = 'address_update';
     public const TYPE_DELIVERY_SUCCESS = 'delivery_success';
     public const TYPE_ORDER_NEW = 'order_new';
+    public const TYPE_ORDER_DRIVER_ACCEPTED = 'order_driver_accepted';
+    public const TYPE_ORDER_OUT_FOR_DELIVERY = 'order_out_for_delivery';
 
     public function user(): BelongsTo
     {
@@ -57,6 +59,21 @@ class AdminNotification extends Model
     public function scopeForUser($query, $userId)
     {
         return $query->where('user_id', $userId);
+    }
+
+    /**
+     * Only order lifecycle notifications should appear in admin notification feed.
+     *
+     * @return array<int, string>
+     */
+    public static function orderLifecycleTypes(): array
+    {
+        return [
+            self::TYPE_ORDER_NEW,
+            self::TYPE_ORDER_DRIVER_ACCEPTED,
+            self::TYPE_ORDER_OUT_FOR_DELIVERY,
+            self::TYPE_DELIVERY_SUCCESS,
+        ];
     }
 
     /**

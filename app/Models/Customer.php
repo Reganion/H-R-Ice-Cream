@@ -34,6 +34,8 @@ class Customer extends Authenticatable
         'street_name',
         'label_as',
         'reason',
+        'fcm_token',
+        'fcm_platform',
     ];
 
     protected $hidden = [

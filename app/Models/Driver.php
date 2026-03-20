@@ -49,6 +49,8 @@ class Driver extends Model
         'current_lat',
         'current_lng',
         'last_updated',
+        'fcm_token',
+        'fcm_platform',
     ];
 
     protected $hidden = [

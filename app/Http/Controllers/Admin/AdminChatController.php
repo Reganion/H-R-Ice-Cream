@@ -269,6 +269,7 @@ class AdminChatController extends Controller
 
         $formatted = $this->formatMessage($message);
         $this->firebase->syncChatMessage($customer->id, $message->id, $formatted);
+        $this->firebase->touchAdminChatUpdated();
 
         return response()->json([
             'success' => true,

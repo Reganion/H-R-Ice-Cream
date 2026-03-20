@@ -2,48 +2,39 @@
 
 namespace App\Observers;
 
-use App\Models\CustomerNotification;
+use App\Models\DriverNotification;
 use App\Services\FcmPushService;
 use App\Services\FirebaseRealtimeService;
 
-class CustomerNotificationObserver
+class DriverNotificationObserver
 {
     public function __construct(
         protected FirebaseRealtimeService $firebase,
         protected FcmPushService $fcmPush
     ) {}
 
-    /**
-     * Sync new notification to Firebase for real-time clients.
-     */
-    public function created(CustomerNotification $notification): void
+    public function created(DriverNotification $notification): void
     {
         $this->syncToFirebase($notification);
-        $this->fcmPush->sendCustomerNotification($notification);
+        $this->fcmPush->sendDriverNotification($notification);
     }
 
-    /**
-     * When read_at is set, update Firebase so clients see read status in real time.
-     */
-    public function updated(CustomerNotification $notification): void
+    public function updated(DriverNotification $notification): void
     {
         if ($notification->wasChanged('read_at')) {
-            $this->firebase->updateNotificationReadAt(
-                (int) $notification->customer_id,
+            $this->firebase->updateDriverNotificationReadAt(
+                (int) $notification->driver_id,
                 (int) $notification->id,
                 $notification->read_at?->toIso8601String()
             );
         }
     }
 
-    /**
-     * Remove from Realtime DB when a row is deleted (API DELETE uses model delete → fires this).
-     */
-    public function deleted(CustomerNotification $notification): void
+    public function deleted(DriverNotification $notification): void
     {
         try {
-            $this->firebase->deleteCustomerNotificationItem(
-                (int) $notification->customer_id,
+            $this->firebase->deleteDriverNotificationItem(
+                (int) $notification->driver_id,
                 (int) $notification->id
             );
         } catch (\Throwable $e) {
@@ -51,14 +42,14 @@ class CustomerNotificationObserver
         }
     }
 
-    protected function syncToFirebase(CustomerNotification $notification): void
+    protected function syncToFirebase(DriverNotification $notification): void
     {
-        $this->firebase->syncNotification(
-            (int) $notification->customer_id,
+        $this->firebase->syncDriverNotification(
+            (int) $notification->driver_id,
             (int) $notification->id,
             [
                 'id' => $notification->id,
-                'customer_id' => $notification->customer_id,
+                'driver_id' => $notification->driver_id,
                 'type' => $notification->type,
                 'title' => $notification->title,
                 'message' => $notification->message,

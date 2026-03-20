@@ -195,6 +195,10 @@ class FirebaseRealtimeService
         try {
             $collection = 'chats/' . $customerId . '/messages';
             $this->set($collection, (string) $messageId, $data);
+            // Bump thread timestamp so mobile clients can listen on chats/{customerId}/last_updated
+            $this->set('chats/' . $customerId, 'last_updated', [
+                'value' => date('c'),
+            ]);
         } catch (\Throwable $e) {
             report($e);
         }
@@ -208,6 +212,9 @@ class FirebaseRealtimeService
         try {
             $collection = 'chats/' . $customerId . '/messages';
             $this->update($collection, (string) $messageId, ['read_at' => $readAt]);
+            $this->set('chats/' . $customerId, 'last_updated', [
+                'value' => date('c'),
+            ]);
         } catch (\Throwable $e) {
             report($e);
         }
@@ -240,6 +247,66 @@ class FirebaseRealtimeService
             $collection = 'notifications/' . $customerId . '/items';
             $this->update($collection, (string) $notificationId, ['read_at' => $readAt]);
             $this->set('notifications/' . $customerId, 'last_updated', [
+                'value' => date('c'),
+            ]);
+        } catch (\Throwable $e) {
+            report($e);
+        }
+    }
+
+    /**
+     * Remove one customer notification node (e.g. after DELETE from API).
+     * Path: notifications/{customerId}/items/{notificationId}
+     */
+    public function deleteCustomerNotificationItem(int $customerId, int $notificationId): void
+    {
+        try {
+            $collection = 'notifications/' . $customerId . '/items';
+            $this->delete($collection, (string) $notificationId);
+            $this->set('notifications/' . $customerId, 'last_updated', [
+                'value' => date('c'),
+            ]);
+        } catch (\Throwable $e) {
+            report($e);
+        }
+    }
+
+    /**
+     * Driver app: mirror of customer notifications tree.
+     * Path: driver_notifications/{driverId}/items/{notificationId}
+     */
+    public function syncDriverNotification(int $driverId, int $notificationId, array $data): void
+    {
+        try {
+            $itemsPath = 'driver_notifications/' . $driverId . '/items';
+            $this->set($itemsPath, (string) $notificationId, $data);
+            $this->set('driver_notifications/' . $driverId, 'last_updated', [
+                'value' => date('c'),
+            ]);
+        } catch (\Throwable $e) {
+            report($e);
+        }
+    }
+
+    public function updateDriverNotificationReadAt(int $driverId, int $notificationId, ?string $readAt): void
+    {
+        try {
+            $collection = 'driver_notifications/' . $driverId . '/items';
+            $this->update($collection, (string) $notificationId, ['read_at' => $readAt]);
+            $this->set('driver_notifications/' . $driverId, 'last_updated', [
+                'value' => date('c'),
+            ]);
+        } catch (\Throwable $e) {
+            report($e);
+        }
+    }
+
+    public function deleteDriverNotificationItem(int $driverId, int $notificationId): void
+    {
+        try {
+            $collection = 'driver_notifications/' . $driverId . '/items';
+            $this->delete($collection, (string) $notificationId);
+            $this->set('driver_notifications/' . $driverId, 'last_updated', [
                 'value' => date('c'),
             ]);
         } catch (\Throwable $e) {
@@ -316,6 +383,7 @@ class FirebaseRealtimeService
         try {
             $collection = 'order_messages/' . $orderId . '/messages';
             $this->set($collection, (string) $messageId, $data);
+            $this->touchOrderMessagesThreadUpdated($orderId);
         } catch (\Throwable $e) {
             report($e);
         }
@@ -329,6 +397,22 @@ class FirebaseRealtimeService
         try {
             $collection = 'order_messages/' . $orderId . '/messages';
             $this->update($collection, (string) $messageId, ['read_at' => $readAt]);
+            $this->touchOrderMessagesThreadUpdated($orderId);
+        } catch (\Throwable $e) {
+            report($e);
+        }
+    }
+
+    /**
+     * Bump when order thread changes (new message, read receipts, archive, etc.).
+     * Flutter can listen: order_messages/{orderId}/last_updated
+     */
+    public function touchOrderMessagesThreadUpdated(int $orderId): void
+    {
+        try {
+            $this->set('order_messages/' . $orderId, 'last_updated', [
+                'value' => date('c'),
+            ]);
         } catch (\Throwable $e) {
             report($e);
         }

@@ -5,11 +5,16 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Customer;
 use App\Models\CustomerNotification;
+use App\Services\FirebaseRealtimeService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class ApiNotificationController extends Controller
 {
+    public function __construct(
+        protected FirebaseRealtimeService $firebase
+    ) {}
+
     /**
      * List notifications for the authenticated customer.
      * GET /api/v1/notifications
@@ -100,7 +105,12 @@ class ApiNotificationController extends Controller
             return response()->json(['success' => false, 'message' => 'Invalid user.'], 401);
         }
 
+        $unreadIds = CustomerNotification::forCustomer($customer->id)->unread()->pluck('id');
         CustomerNotification::forCustomer($customer->id)->unread()->update(['read_at' => now()]);
+        $readAt = now()->toIso8601String();
+        foreach ($unreadIds as $nid) {
+            $this->firebase->updateNotificationReadAt((int) $customer->id, (int) $nid, $readAt);
+        }
 
         return response()->json(['success' => true, 'message' => 'All marked as read.']);
     }
@@ -143,7 +153,11 @@ class ApiNotificationController extends Controller
             return response()->json(['success' => false, 'message' => 'Invalid user.'], 401);
         }
 
+        $ids = CustomerNotification::forCustomer($customer->id)->pluck('id');
         $deleted = CustomerNotification::forCustomer($customer->id)->delete();
+        foreach ($ids as $nid) {
+            $this->firebase->deleteCustomerNotificationItem((int) $customer->id, (int) $nid);
+        }
 
         return response()->json([
             'success' => true,

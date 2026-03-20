@@ -7,6 +7,7 @@ use App\Models\Customer;
 use App\Models\Driver;
 use App\Models\Order;
 use App\Models\OrderMessage;
+use App\Services\FcmPushService;
 use App\Services\FirebaseRealtimeService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -14,7 +15,8 @@ use Illuminate\Http\Request;
 class ApiOrderMessageController extends Controller
 {
     public function __construct(
-        protected FirebaseRealtimeService $firebase
+        protected FirebaseRealtimeService $firebase,
+        protected FcmPushService $fcmPush
     ) {}
 
     /**
@@ -113,6 +115,8 @@ class ApiOrderMessageController extends Controller
 
         $formatted = $this->formatMessage($message, OrderMessage::SENDER_DRIVER);
         $this->firebase->syncOrderMessage($order->id, $message->id, $formatted);
+        $order->loadMissing(['customer', 'driver']);
+        $this->fcmPush->sendOrderMessageToCustomer($order, (string) $message->message);
 
         return response()->json([
             'success' => true,
@@ -259,6 +263,8 @@ class ApiOrderMessageController extends Controller
             ->where('customer_id', $order->customer_id)
             ->update(['status' => OrderMessage::STATUS_ARCHIVE]);
 
+        $this->firebase->touchOrderMessagesThreadUpdated($order->id);
+
         return response()->json([
             'success' => true,
             'message' => 'Messages archived.',
@@ -290,6 +296,8 @@ class ApiOrderMessageController extends Controller
             ->where('order_id', $order->id)
             ->where('customer_id', $order->customer_id)
             ->update(['status' => OrderMessage::STATUS_ACTIVE]);
+
+        $this->firebase->touchOrderMessagesThreadUpdated($order->id);
 
         return response()->json([
             'success' => true,
@@ -395,6 +403,8 @@ class ApiOrderMessageController extends Controller
 
         $formatted = $this->formatMessage($message, OrderMessage::SENDER_CUSTOMER);
         $this->firebase->syncOrderMessage($order->id, $message->id, $formatted);
+        $order->loadMissing(['driver', 'customer']);
+        $this->fcmPush->sendOrderMessageToDriver($order, (string) $message->message);
 
         return response()->json([
             'success' => true,
@@ -465,6 +475,8 @@ class ApiOrderMessageController extends Controller
             ->where('customer_id', $customer->id)
             ->update(['customer_status' => OrderMessage::CUSTOMER_STATUS_ARCHIVE]);
 
+        $this->firebase->touchOrderMessagesThreadUpdated($order->id);
+
         return response()->json([
             'success' => true,
             'message' => 'Messages archived.',
@@ -519,11 +531,22 @@ class ApiOrderMessageController extends Controller
             ]);
         }
 
+        $orderIdsTouched = OrderMessage::query()
+            ->whereIn('order_id', $customerOrderIds)
+            ->where('customer_id', $customer->id)
+            ->whereIn('id', $messageIds)
+            ->distinct()
+            ->pluck('order_id');
+
         $updated = OrderMessage::query()
             ->whereIn('order_id', $customerOrderIds)
             ->where('customer_id', $customer->id)
             ->whereIn('id', $messageIds)
             ->update(['customer_status' => OrderMessage::CUSTOMER_STATUS_ARCHIVE]);
+
+        foreach ($orderIdsTouched as $oid) {
+            $this->firebase->touchOrderMessagesThreadUpdated((int) $oid);
+        }
 
         return response()->json([
             'success' => true,
@@ -553,6 +576,8 @@ class ApiOrderMessageController extends Controller
             ->where('order_id', $order->id)
             ->where('customer_id', $customer->id)
             ->update(['customer_status' => OrderMessage::CUSTOMER_STATUS_ACTIVE]);
+
+        $this->firebase->touchOrderMessagesThreadUpdated($order->id);
 
         return response()->json([
             'success' => true,

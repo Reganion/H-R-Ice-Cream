@@ -5,11 +5,16 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Driver;
 use App\Models\DriverNotification;
+use App\Services\FirebaseRealtimeService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class ApiDriverNotificationController extends Controller
 {
+    public function __construct(
+        protected FirebaseRealtimeService $firebase
+    ) {}
+
     /**
      * List notifications for authenticated driver.
      * GET /api/v1/driver/notifications
@@ -93,7 +98,12 @@ class ApiDriverNotificationController extends Controller
             return response()->json(['success' => false, 'message' => 'Invalid user.'], 401);
         }
 
+        $unreadIds = DriverNotification::forDriver((int) $driver->id)->unread()->pluck('id');
         DriverNotification::forDriver((int) $driver->id)->unread()->update(['read_at' => now()]);
+        $readAt = now()->toIso8601String();
+        foreach ($unreadIds as $nid) {
+            $this->firebase->updateDriverNotificationReadAt((int) $driver->id, (int) $nid, $readAt);
+        }
 
         return response()->json(['success' => true, 'message' => 'All marked as read.']);
     }
@@ -128,7 +138,11 @@ class ApiDriverNotificationController extends Controller
             return response()->json(['success' => false, 'message' => 'Invalid user.'], 401);
         }
 
+        $ids = DriverNotification::forDriver((int) $driver->id)->pluck('id');
         $deleted = DriverNotification::forDriver((int) $driver->id)->delete();
+        foreach ($ids as $nid) {
+            $this->firebase->deleteDriverNotificationItem((int) $driver->id, (int) $nid);
+        }
 
         return response()->json([
             'success' => true,

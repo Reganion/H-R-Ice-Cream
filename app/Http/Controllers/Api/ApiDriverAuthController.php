@@ -33,7 +33,8 @@ class ApiDriverAuthController extends Controller
             'password' => 'required|string',
         ]);
 
-        $driver = Driver::where('email', $request->email)->first();
+        $email = strtolower(trim((string) $request->email));
+        $driver = Driver::whereRaw('LOWER(TRIM(email)) = ?', [$email])->first();
 
         if (!$driver || !$driver->password || !Hash::check($request->password, $driver->password)) {
             return response()->json([
@@ -256,6 +257,64 @@ class ApiDriverAuthController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Password updated successfully.',
+        ]);
+    }
+
+    /**
+     * Save/refresh FCM token for authenticated driver device.
+     * POST /api/v1/driver/push/token
+     */
+    public function updateFcmToken(Request $request): JsonResponse
+    {
+        $driver = $request->user();
+        if (!$driver instanceof Driver) {
+            return response()->json(['success' => false, 'message' => 'Not authenticated.'], 401);
+        }
+
+        $request->validate([
+            'token' => 'nullable|string|max:2048',
+            'fcm_token' => 'nullable|string|max:2048',
+            'platform' => 'nullable|string|in:android,ios,web',
+        ]);
+
+        $rawToken = trim((string) ($request->input('token') ?? $request->input('fcm_token') ?? ''));
+        if ($rawToken === '') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Provide `token` or `fcm_token` (FCM registration token).',
+            ], 422);
+        }
+
+        $driver->update([
+            'fcm_token' => $rawToken,
+            'fcm_platform' => $request->filled('platform') ? trim((string) $request->input('platform')) : null,
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Push token saved successfully.',
+        ]);
+    }
+
+    /**
+     * Clear FCM token for authenticated driver (e.g. on logout).
+     * DELETE /api/v1/driver/push/token
+     */
+    public function clearFcmToken(Request $request): JsonResponse
+    {
+        $driver = $request->user();
+        if (!$driver instanceof Driver) {
+            return response()->json(['success' => false, 'message' => 'Not authenticated.'], 401);
+        }
+
+        $driver->update([
+            'fcm_token' => null,
+            'fcm_platform' => null,
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Push token removed successfully.',
         ]);
     }
 
@@ -729,10 +788,10 @@ class ApiDriverAuthController extends Controller
     {
         Cache::forget(self::ONLINE_KEY_PREFIX . $driver->id);
 
+        // Ending the API session should mark the driver off duty (admin inactive/archive unchanged).
         if (
             $driver->status !== Driver::STATUS_DEACTIVATE &&
-            $driver->status !== Driver::STATUS_ARCHIVE &&
-            $driver->status !== Driver::STATUS_ON_ROUTE
+            $driver->status !== Driver::STATUS_ARCHIVE
         ) {
             $driver->status = Driver::STATUS_OFF_DUTY;
             $driver->save();
